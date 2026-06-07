@@ -179,6 +179,22 @@ export const putDevice = (ep: Endpoint, device: Device) =>
     headers: { "Content-Type": "application/json" },
   });
 
+export const patchDevice = (
+  ep: Endpoint,
+  deviceID: DeviceID,
+  partial: Partial<Device>,
+) =>
+  api<void>(ep, `/rest/config/devices/${encodeURIComponent(deviceID)}`, {
+    method: "PATCH",
+    body: JSON.stringify(partial),
+    headers: { "Content-Type": "application/json" },
+  });
+
+export const deleteDevice = (ep: Endpoint, deviceID: DeviceID) =>
+  api<void>(ep, `/rest/config/devices/${encodeURIComponent(deviceID)}`, {
+    method: "DELETE",
+  });
+
 // ============================================================
 // Event stream (long-poll on /rest/events)
 // ============================================================

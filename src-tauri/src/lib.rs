@@ -1,3 +1,4 @@
+mod invites;
 mod sidecar;
 
 use tauri::{
@@ -16,6 +17,9 @@ pub fn run() {
             let handle = app.handle().clone();
             let state = sidecar::spawn(&handle)?;
             app.manage(state);
+
+            let invite_store = invites::setup(&handle)?;
+            app.manage(invite_store);
 
             let open = MenuItem::with_id(app, "open", "Öffnen", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
@@ -45,7 +49,18 @@ pub fn run() {
                 let _ = window.hide();
             }
         })
-        .invoke_handler(tauri::generate_handler![sidecar::syncthing_endpoint])
+        .invoke_handler(tauri::generate_handler![
+            sidecar::syncthing_endpoint,
+            invites::invite_create,
+            invites::invite_list,
+            invites::invite_find,
+            invites::invite_mark_redeemed,
+            invites::invite_revoke,
+            invites::invite_get_issuer_secret,
+            invites::invite_check_consumed,
+            invites::invite_mark_consumed,
+            invites::invite_purge_expired,
+        ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|handle, event| {

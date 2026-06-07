@@ -19,6 +19,7 @@ import {
   type PendingFolder,
 } from "./lib/syncthing";
 
+import { ActiveInvitesPanel } from "./components/ActiveInvitesPanel";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { CodeShowModal } from "./components/CodeShowModal";
 import { DeviceRow } from "./components/DeviceRow";
@@ -242,6 +243,8 @@ function App() {
                 Code anzeigen
               </button>
             </section>
+
+            <ActiveInvitesPanel />
           </>
         )}
 
@@ -261,10 +264,21 @@ function App() {
         />
       )}
       {modal?.kind === "code-show" && (
-        <CodeShowModal onClose={() => setModal(null)} />
+        <CodeShowModal
+          endpoint={endpoint}
+          ready={ready}
+          status={status.data}
+          folders={folders}
+          onClose={() => setModal(null)}
+        />
       )}
       {modal?.kind === "code-redeem" && (
-        <CodeRedeemModal onClose={() => setModal(null)} />
+        <CodeRedeemModal
+          endpoint={endpoint}
+          ready={ready}
+          status={status.data}
+          onClose={() => setModal(null)}
+        />
       )}
     </main>
   );
