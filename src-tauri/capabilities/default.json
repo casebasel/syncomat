@@ -6,6 +6,10 @@
   "permissions": [
     "core:default",
     "opener:default",
+    "dialog:default",
+    "core:window:allow-show",
+    "core:window:allow-hide",
+    "core:window:allow-set-focus",
     {
       "identifier": "shell:allow-execute",
       "allow": [

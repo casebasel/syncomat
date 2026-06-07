@@ -146,6 +146,25 @@ export const scanFolder = (ep: Endpoint, id: FolderID) =>
     method: "POST",
   });
 
+export const scanAllFolders = (ep: Endpoint, folders: Folder[]) =>
+  Promise.all(folders.map((f) => scanFolder(ep, f.id)));
+
+export const deletePendingDevice = (ep: Endpoint, id: DeviceID) =>
+  api<void>(ep, `/rest/cluster/pending/devices?device=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+
+export const deletePendingFolder = (
+  ep: Endpoint,
+  folderID: FolderID,
+  deviceID: DeviceID,
+) =>
+  api<void>(
+    ep,
+    `/rest/cluster/pending/folders?folder=${encodeURIComponent(folderID)}&device=${encodeURIComponent(deviceID)}`,
+    { method: "DELETE" },
+  );
+
 export const putFolder = (ep: Endpoint, folder: Folder) =>
   api<void>(ep, `/rest/config/folders/${encodeURIComponent(folder.id)}`, {
     method: "PUT",
@@ -395,3 +414,77 @@ export const useFolderStatus = (
     ON("StateChanged", "FolderSummary", "FolderErrors", "ItemFinished", "LocalIndexUpdated"),
     [folderId],
   );
+
+export type AggregateStatus = {
+  state: "idle" | "syncing" | "error";
+  needBytes: number;
+  errorCount: number;
+  lastUpdate: Date | null;
+};
+
+export function useAggregateStatus(
+  ep: Endpoint | null,
+  ready: boolean,
+  folders: Folder[],
+): AggregateStatus {
+  const [agg, setAgg] = useState<AggregateStatus>({
+    state: "idle",
+    needBytes: 0,
+    errorCount: 0,
+    lastUpdate: null,
+  });
+  const ids = folders.map((f) => f.id).join(",");
+
+  useEffect(() => {
+    if (!ep || !ready) {
+      setAgg({ state: "idle", needBytes: 0, errorCount: 0, lastUpdate: null });
+      return;
+    }
+    let cancelled = false;
+
+    const refetch = async () => {
+      if (folders.length === 0) {
+        if (!cancelled)
+          setAgg({ state: "idle", needBytes: 0, errorCount: 0, lastUpdate: new Date() });
+        return;
+      }
+      const results = await Promise.all(
+        folders.map((f) => getFolderStatus(ep, f.id).catch(() => null)),
+      );
+      if (cancelled) return;
+      let errorCount = 0;
+      let needBytes = 0;
+      for (const s of results) {
+        if (!s) continue;
+        errorCount += (s.errors || 0) + (s.pullErrors || 0);
+        needBytes += s.needBytes || 0;
+      }
+      const state: AggregateStatus["state"] =
+        errorCount > 0 ? "error" : needBytes > 0 ? "syncing" : "idle";
+      setAgg({ state, needBytes, errorCount, lastUpdate: new Date() });
+    };
+
+    refetch();
+
+    const handler: EventHandler = (e) => {
+      if (
+        e.type === "FolderSummary" ||
+        e.type === "FolderErrors" ||
+        e.type === "StateChanged" ||
+        e.type === "ConfigSaved" ||
+        e.type === "ItemFinished"
+      ) {
+        refetch();
+      }
+    };
+    bus.add(handler);
+
+    return () => {
+      cancelled = true;
+      bus.remove(handler);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ep?.url, ep?.api_key, ready, ids]);
+
+  return agg;
+}

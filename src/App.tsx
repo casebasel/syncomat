@@ -1,48 +1,38 @@
+import { useMemo, useState } from "react";
 import "./App.css";
+
 import {
-  shortDeviceID,
+  deletePendingDevice,
+  putDevice,
+  putFolder,
+  scanAllFolders,
+  useAggregateStatus,
   useConfig,
   useConnections,
   useEndpoint,
+  usePendingDevices,
+  usePendingFolders,
   useStatus,
   useSyncthingReady,
+  type Folder,
+  type PendingDevice,
+  type PendingFolder,
 } from "./lib/syncthing";
 
-function maskKey(k: string) {
-  if (k.length <= 10) return "••••";
-  return `${k.slice(0, 4)}…${k.slice(-4)}`;
-}
+import { CodeRedeemModal } from "./components/CodeRedeemModal";
+import { CodeShowModal } from "./components/CodeShowModal";
+import { DeviceRow } from "./components/DeviceRow";
+import { EmptyState } from "./components/EmptyState";
+import { FolderList } from "./components/FolderList";
+import { Header } from "./components/Header";
+import { LinkFolderModal } from "./components/LinkFolderModal";
+import { Statusbar } from "./components/Statusbar";
 
-function SyncMark() {
-  return (
-    <div className="size-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-900/40">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="size-5"
-      >
-        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-        <path d="M3 3v5h5" />
-        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-        <path d="M16 16h5v5" />
-      </svg>
-    </div>
-  );
-}
-
-function StatusDot({ tone }: { tone: "ok" | "wait" | "off" }) {
-  const cls =
-    tone === "ok"
-      ? "bg-emerald-500"
-      : tone === "wait"
-        ? "bg-amber-500 animate-pulse"
-        : "bg-neutral-600";
-  return <span className={`size-1.5 rounded-full ${cls}`} />;
-}
+type Modal =
+  | null
+  | { kind: "code-show" }
+  | { kind: "code-redeem" }
+  | { kind: "link"; pending: PendingFolder };
 
 function App() {
   const endpoint = useEndpoint();
@@ -50,154 +40,233 @@ function App() {
   const status = useStatus(endpoint, ready);
   const connections = useConnections(endpoint, ready);
   const config = useConfig(endpoint, ready);
+  const pendingFolders = usePendingFolders(endpoint, ready);
+  const pendingDevices = usePendingDevices(endpoint, ready);
 
-  const firstError =
-    status.error || connections.error || config.error || null;
+  const folders = config.data?.folders ?? [];
+  const devices = config.data?.devices ?? [];
+  const myID = status.data?.myID ?? null;
 
-  const tone = firstError ? "off" : ready ? "ok" : "wait";
-  const statusText = firstError
-    ? "Verbindungsfehler"
-    : ready
-      ? "Syncthing bereit"
-      : "Starte Syncthing…";
+  const aggregate = useAggregateStatus(endpoint, ready, folders);
 
-  const connList = connections.data
-    ? Object.values(connections.data.connections)
-    : [];
-  const connected = connList.filter((c) => c.connected).length;
-  const total = connList.length;
+  const [modal, setModal] = useState<Modal>(null);
+  const [scanning, setScanning] = useState(false);
+  const [forceMain, setForceMain] = useState(false);
 
-  return (
-    <main className="min-h-screen bg-neutral-950 text-neutral-100 antialiased flex items-start justify-center pt-8 px-5">
-      <div className="w-full max-w-md rounded-2xl border border-neutral-800 bg-neutral-900/80 shadow-xl shadow-black/40 p-5">
-        <header className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <SyncMark />
-            <div>
-              <h1 className="text-base font-semibold tracking-tight leading-none">
-                Sync
-              </h1>
-              <p className="mt-1.5 text-xs text-neutral-400 flex items-center gap-1.5">
-                <StatusDot tone={tone} />
-                {statusText}
-              </p>
-            </div>
-          </div>
-          <button
-            disabled
-            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-neutral-700 text-neutral-400 opacity-60 cursor-not-allowed"
-          >
-            Jetzt syncen
-          </button>
-        </header>
-
-        <section className="mt-6">
-          <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
-            Sidecar
-          </p>
-          {!endpoint ? (
-            <p className="text-xs text-neutral-500">Endpoint wird geladen…</p>
-          ) : (
-            <dl className="text-xs space-y-1.5">
-              <Row label="URL" value={endpoint.url} />
-              <Row label="API-Key" value={maskKey(endpoint.api_key)} />
-            </dl>
-          )}
-        </section>
-
-        <section className="mt-5">
-          <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
-            Live
-          </p>
-          {firstError ? (
-            <p className="text-xs text-rose-400 font-mono break-all">
-              {firstError.message}
-            </p>
-          ) : !ready ? (
-            <p className="text-xs text-neutral-500">Wartet auf Syncthing…</p>
-          ) : (
-            <dl className="text-xs space-y-1.5">
-              <Row
-                label="myID"
-                value={
-                  status.data ? shortDeviceID(status.data.myID) : "…"
-                }
-                mono
-              />
-              <Row
-                label="Geräte"
-                value={`${connected} / ${total} verbunden`}
-              />
-              <Row
-                label="Ordner"
-                value={
-                  config.data
-                    ? config.data.folders.length === 0
-                      ? "keine"
-                      : config.data.folders
-                          .map((f) => f.label || f.id)
-                          .join(", ")
-                    : "…"
-                }
-              />
-            </dl>
-          )}
-        </section>
-
-        <section className="mt-5">
-          <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
-            Stand
-          </p>
-          <ul className="space-y-1.5 text-sm text-neutral-200">
-            <li className="flex items-center gap-2">
-              <StatusDot tone="ok" /> Schritt 1 · Skelett &amp; Sidecar-Slot
-            </li>
-            <li className="flex items-center gap-2">
-              <StatusDot tone={ready ? "ok" : "wait"} /> Schritt 2 ·
-              Sidecar-Lifecycle
-            </li>
-            <li className="flex items-center gap-2">
-              <StatusDot
-                tone={
-                  firstError ? "off" : status.data ? "ok" : "wait"
-                }
-              />{" "}
-              Schritt 3 · REST-Client &amp; Events
-            </li>
-          </ul>
-        </section>
-
-        <div className="mt-6 pt-4 border-t border-neutral-800 flex items-center justify-between text-[11px] text-neutral-500">
-          <span>Nächster Schritt · UI nach §5</span>
-          <span>v0.1.0</span>
-        </div>
-      </div>
-    </main>
+  const connList = useMemo(
+    () =>
+      connections.data ? Object.entries(connections.data.connections) : [],
+    [connections.data],
   );
-}
+  const connectionsByID = useMemo(() => {
+    const r: Record<string, (typeof connList)[number][1]> = {};
+    for (const [id, c] of connList) r[id] = c;
+    return r;
+  }, [connList]);
 
-function Row({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
+  const peers = devices.filter((d) => d.deviceID !== myID);
+  const peersConnected = peers.filter(
+    (d) => connectionsByID[d.deviceID]?.connected,
+  ).length;
+
+  const headerTone = !ready
+    ? "wait"
+    : peers.length === 0
+      ? "off"
+      : peersConnected > 0
+        ? "ok"
+        : "wait";
+
+  const isFirstRun =
+    ready &&
+    config.data !== null &&
+    peers.length === 0 &&
+    folders.length === 0 &&
+    (pendingFolders.data?.length ?? 0) === 0 &&
+    (pendingDevices.data?.length ?? 0) === 0;
+
+  const onScan = async () => {
+    if (!endpoint || folders.length === 0) return;
+    setScanning(true);
+    try {
+      await scanAllFolders(endpoint, folders);
+    } catch (e) {
+      console.error("[syncomat] scan failed", e);
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const onPauseToggle = async (f: Folder) => {
+    if (!endpoint) return;
+    await putFolder(endpoint, { ...f, paused: !f.paused });
+  };
+
+  const onRename = async (f: Folder, newLabel: string) => {
+    if (!endpoint) return;
+    await putFolder(endpoint, { ...f, label: newLabel });
+  };
+
+  const onLink = (pf: PendingFolder) => setModal({ kind: "link", pending: pf });
+
+  const onLinkConfirm = async (
+    pending: PendingFolder,
+    label: string,
+    localPath: string,
+  ) => {
+    if (!endpoint || !myID) throw new Error("Endpoint nicht bereit");
+    const offerers = Object.keys(pending.offeredBy);
+    const folder: Folder = {
+      id: pending.folderID,
+      label,
+      path: localPath,
+      type: "sendreceive",
+      paused: false,
+      devices: [
+        { deviceID: myID },
+        ...offerers.map((deviceID) => ({ deviceID })),
+      ],
+    };
+    await putFolder(endpoint, folder);
+  };
+
+  const onAcceptDevice = async (pd: PendingDevice) => {
+    if (!endpoint) return;
+    await putDevice(endpoint, {
+      deviceID: pd.deviceID,
+      name: pd.name || pd.deviceID.slice(0, 7),
+      addresses: ["dynamic"],
+      introducer: false,
+      autoAcceptFolders: false,
+      paused: false,
+    });
+  };
+
+  const onIgnoreDevice = async (pd: PendingDevice) => {
+    if (!endpoint) return;
+    await deletePendingDevice(endpoint, pd.deviceID);
+  };
+
   return (
-    <div className="flex justify-between gap-3">
-      <dt className="text-neutral-500">{label}</dt>
-      <dd
-        className={
-          mono
-            ? "font-mono text-neutral-200 text-right"
-            : "text-neutral-200 text-right truncate max-w-[260px]"
-        }
-      >
-        {value}
-      </dd>
-    </div>
+    <main className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased flex items-start justify-center pt-8 px-5 pb-8">
+      <div className="w-full max-w-md rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 shadow-xl shadow-black/5 dark:shadow-black/40 p-5">
+        <Header
+          tone={headerTone}
+          connected={peersConnected}
+          total={peers.length}
+          onScan={onScan}
+          scanning={scanning}
+          canScan={folders.length > 0}
+        />
+
+        {isFirstRun && !forceMain ? (
+          <EmptyState
+            onRedeemCode={() => setModal({ kind: "code-redeem" })}
+            onShowCode={() => setModal({ kind: "code-show" })}
+            onContinueAlone={() => setForceMain(true)}
+          />
+        ) : (
+          <>
+            {(pendingDevices.data?.length ?? 0) > 0 && (
+              <section className="mt-5 space-y-2">
+                {pendingDevices.data!.map((pd) => (
+                  <div
+                    key={pd.deviceID}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-blue-400/40 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-950/30"
+                  >
+                    <div className="min-w-0 flex-1 text-xs">
+                      <div className="font-medium text-blue-900 dark:text-blue-200 truncate">
+                        {pd.name || pd.deviceID.slice(0, 7)} möchte sich verbinden
+                      </div>
+                      <p className="text-blue-700/80 dark:text-blue-300/80 truncate">
+                        {pd.address}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => onIgnoreDevice(pd)}
+                      className="text-xs px-2.5 py-1 rounded-md text-blue-900 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                    >
+                      Ablehnen
+                    </button>
+                    <button
+                      onClick={() => onAcceptDevice(pd)}
+                      className="text-xs font-medium px-2.5 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      Akzeptieren
+                    </button>
+                  </div>
+                ))}
+              </section>
+            )}
+
+            <section className="mt-6">
+              <p className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
+                Geräte
+              </p>
+              <DeviceRow
+                devices={devices}
+                connections={connectionsByID}
+                myID={myID}
+              />
+            </section>
+
+            <section className="mt-5">
+              <p className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
+                Ordner
+              </p>
+              <FolderList
+                linked={folders}
+                pending={pendingFolders.data ?? []}
+                endpoint={endpoint}
+                ready={ready}
+                devices={devices}
+                connections={connectionsByID}
+                myID={myID}
+                onLink={onLink}
+                onPauseToggle={onPauseToggle}
+                onRename={onRename}
+              />
+            </section>
+
+            <section className="mt-5 flex gap-2">
+              <button
+                onClick={() => setModal({ kind: "code-redeem" })}
+                className="flex-1 text-xs font-medium px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              >
+                Code einlösen
+              </button>
+              <button
+                onClick={() => setModal({ kind: "code-show" })}
+                className="flex-1 text-xs font-medium px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              >
+                Code anzeigen
+              </button>
+            </section>
+          </>
+        )}
+
+        <Statusbar
+          aggregateState={aggregate.state}
+          needBytes={aggregate.needBytes}
+          errorCount={aggregate.errorCount}
+          lastSyncAt={aggregate.lastUpdate}
+        />
+      </div>
+
+      {modal?.kind === "link" && (
+        <LinkFolderModal
+          pending={modal.pending}
+          onConfirm={(label, path) => onLinkConfirm(modal.pending, label, path)}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.kind === "code-show" && (
+        <CodeShowModal onClose={() => setModal(null)} />
+      )}
+      {modal?.kind === "code-redeem" && (
+        <CodeRedeemModal onClose={() => setModal(null)} />
+      )}
+    </main>
   );
 }
 
