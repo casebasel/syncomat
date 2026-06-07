@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import "./App.css";
-
-type SyncthingEndpoint = { url: string; api_key: string };
+import {
+  shortDeviceID,
+  useConfig,
+  useConnections,
+  useEndpoint,
+  useStatus,
+  useSyncthingReady,
+} from "./lib/syncthing";
 
 function maskKey(k: string) {
   if (k.length <= 10) return "••••";
@@ -42,27 +45,27 @@ function StatusDot({ tone }: { tone: "ok" | "wait" | "off" }) {
 }
 
 function App() {
-  const [endpoint, setEndpoint] = useState<SyncthingEndpoint | null>(null);
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const endpoint = useEndpoint();
+  const ready = useSyncthingReady(endpoint);
+  const status = useStatus(endpoint, ready);
+  const connections = useConnections(endpoint, ready);
+  const config = useConfig(endpoint, ready);
 
-  useEffect(() => {
-    invoke<SyncthingEndpoint>("syncthing_endpoint")
-      .then(setEndpoint)
-      .catch((e) => setError(String(e)));
+  const firstError =
+    status.error || connections.error || config.error || null;
 
-    const unlisten = listen("syncthing://ready", () => setReady(true));
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
-
-  const tone = error ? "off" : ready ? "ok" : "wait";
-  const statusText = error
-    ? "Sidecar-Fehler"
+  const tone = firstError ? "off" : ready ? "ok" : "wait";
+  const statusText = firstError
+    ? "Verbindungsfehler"
     : ready
       ? "Syncthing bereit"
       : "Starte Syncthing…";
+
+  const connList = connections.data
+    ? Object.values(connections.data.connections)
+    : [];
+  const connected = connList.filter((c) => c.connected).length;
+  const total = connList.length;
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100 antialiased flex items-start justify-center pt-8 px-5">
@@ -71,7 +74,9 @@ function App() {
           <div className="flex items-center gap-3">
             <SyncMark />
             <div>
-              <h1 className="text-base font-semibold tracking-tight leading-none">Sync</h1>
+              <h1 className="text-base font-semibold tracking-tight leading-none">
+                Sync
+              </h1>
               <p className="mt-1.5 text-xs text-neutral-400 flex items-center gap-1.5">
                 <StatusDot tone={tone} />
                 {statusText}
@@ -90,25 +95,51 @@ function App() {
           <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
             Sidecar
           </p>
-          {error ? (
-            <p className="text-xs text-rose-400 font-mono break-all">{error}</p>
-          ) : !endpoint ? (
+          {!endpoint ? (
             <p className="text-xs text-neutral-500">Endpoint wird geladen…</p>
           ) : (
             <dl className="text-xs space-y-1.5">
-              <div className="flex justify-between gap-3">
-                <dt className="text-neutral-500">URL</dt>
-                <dd className="font-mono text-neutral-200">{endpoint.url}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-neutral-500">API-Key</dt>
-                <dd
-                  className="font-mono text-neutral-200"
-                  title="vollständigen Key im Tauri-State"
-                >
-                  {maskKey(endpoint.api_key)}
-                </dd>
-              </div>
+              <Row label="URL" value={endpoint.url} />
+              <Row label="API-Key" value={maskKey(endpoint.api_key)} />
+            </dl>
+          )}
+        </section>
+
+        <section className="mt-5">
+          <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
+            Live
+          </p>
+          {firstError ? (
+            <p className="text-xs text-rose-400 font-mono break-all">
+              {firstError.message}
+            </p>
+          ) : !ready ? (
+            <p className="text-xs text-neutral-500">Wartet auf Syncthing…</p>
+          ) : (
+            <dl className="text-xs space-y-1.5">
+              <Row
+                label="myID"
+                value={
+                  status.data ? shortDeviceID(status.data.myID) : "…"
+                }
+                mono
+              />
+              <Row
+                label="Geräte"
+                value={`${connected} / ${total} verbunden`}
+              />
+              <Row
+                label="Ordner"
+                value={
+                  config.data
+                    ? config.data.folders.length === 0
+                      ? "keine"
+                      : config.data.folders
+                          .map((f) => f.label || f.id)
+                          .join(", ")
+                    : "…"
+                }
+              />
             </dl>
           )}
         </section>
@@ -122,17 +153,51 @@ function App() {
               <StatusDot tone="ok" /> Schritt 1 · Skelett &amp; Sidecar-Slot
             </li>
             <li className="flex items-center gap-2">
-              <StatusDot tone={tone} /> Schritt 2 · Sidecar-Lifecycle
+              <StatusDot tone={ready ? "ok" : "wait"} /> Schritt 2 ·
+              Sidecar-Lifecycle
+            </li>
+            <li className="flex items-center gap-2">
+              <StatusDot
+                tone={
+                  firstError ? "off" : status.data ? "ok" : "wait"
+                }
+              />{" "}
+              Schritt 3 · REST-Client &amp; Events
             </li>
           </ul>
         </section>
 
         <div className="mt-6 pt-4 border-t border-neutral-800 flex items-center justify-between text-[11px] text-neutral-500">
-          <span>Nächster Schritt · REST-Client (TS)</span>
+          <span>Nächster Schritt · UI nach §5</span>
           <span>v0.1.0</span>
         </div>
       </div>
     </main>
+  );
+}
+
+function Row({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex justify-between gap-3">
+      <dt className="text-neutral-500">{label}</dt>
+      <dd
+        className={
+          mono
+            ? "font-mono text-neutral-200 text-right"
+            : "text-neutral-200 text-right truncate max-w-[260px]"
+        }
+      >
+        {value}
+      </dd>
+    </div>
   );
 }
 
