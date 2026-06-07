@@ -146,7 +146,6 @@ export async function encodeInvite(opts: EncodeOptions): Promise<{
 export async function decodeInvite(
   rawCode: string,
   myDeviceId: string,
-  isConsumedLocally: (codeId: string) => Promise<boolean>,
 ): Promise<DecodeResult> {
   const code = rawCode.trim();
   if (code.length === 0) return { ok: false, reason: "malformed", detail: "empty" };
@@ -223,9 +222,8 @@ export async function decodeInvite(
     return { ok: false, reason: "expired" };
   }
 
-  if (await isConsumedLocally(p.id)) {
-    return { ok: false, reason: "already-consumed" };
-  }
+  // Replay-check is done in the redemption flow via atomic invite_consume_once.
+  // Decode is pure (no I/O) so it can be called freely for live-preview.
 
   return { ok: true, payload: p };
 }

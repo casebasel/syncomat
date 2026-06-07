@@ -53,21 +53,19 @@ export function CodeShowModal({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const issuedAtRef = useRef<number | null>(null);
-  const seenDeviceIdsRef = useRef<Set<string>>(new Set());
+  const seenDeviceIdsRef = useRef<Set<string> | null>(null);
 
   const pending = usePendingDevices(endpoint, ready);
   const [acceptPrompt, setAcceptPrompt] = useState<PendingDevice | null>(null);
 
-  // Beim Mount: Pending-Devices-Snapshot — die zählen nicht als "neu".
-  useEffect(() => {
-    if (!pending.data || issuedAtRef.current !== null) return;
-    seenDeviceIdsRef.current = new Set(pending.data.map((d) => d.deviceID));
-  }, [pending.data]);
+  // Snapshot wird erst beim generate() gezogen (siehe unten) — sonst Race:
+  // wenn Modal länger offen war als der erste Poll, hätten wir verpasste Devices
+  // als "schon gesehen" markiert.
 
   // Neue Pending-Devices nach Code-Generierung → Prompt zeigen.
   useEffect(() => {
     if (!pending.data || generated === null || acceptPrompt !== null) return;
+    if (seenDeviceIdsRef.current === null) return;
     for (const pd of pending.data) {
       if (!seenDeviceIdsRef.current.has(pd.deviceID)) {
         setAcceptPrompt(pd);
@@ -112,7 +110,10 @@ export function CodeShowModal({
         note: note.trim() || undefined,
         addresses: addresses.length > 0 ? addresses : undefined,
       });
+      // CRITICAL: dieselbe ID rüber an Rust, damit invite_mark_redeemed + invite_revoke
+      // auf demselben Record arbeiten wie der signierte Payload.
       await inviteCreate({
+        id: codeId,
         options: {
           rw,
           note: note.trim() || null,
@@ -120,11 +121,10 @@ export function CodeShowModal({
         },
         expires_at: expiresAt,
       });
-      // Der Tauri-command nutzt seine eigene UUID; wir überschreiben mit unserem
-      // Frontend-codeId nicht — der Frontend-Code dient nur dem Verifikations-Marker.
-      // Für die UI reicht das.
+      // Snapshot der aktuellen Pending-Devices ZIEHEN — alles was hier schon drin ist
+      // zählt nicht als "neu" für unseren Auto-Accept-Prompt.
+      seenDeviceIdsRef.current = new Set((pending.data ?? []).map((d) => d.deviceID));
       setGenerated({ raw: code, codeId, expiresAt });
-      issuedAtRef.current = Math.floor(Date.now() / 1000);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -157,26 +157,30 @@ export function CodeShowModal({
         autoAcceptFolders: false,
         paused: false,
       });
-      // 2) Auto-Share alle eigenen Folders mit dem neuen Device
-      const sharePromises = folders.map((f) => {
-        const alreadyShared = f.devices.some(
-          (d) => d.deviceID === acceptPrompt.deviceID,
-        );
-        if (alreadyShared) return Promise.resolve();
-        const updated: Folder = {
-          ...f,
-          devices: [...f.devices, { deviceID: acceptPrompt.deviceID }],
-        };
-        return putFolder(endpoint, updated);
-      });
-      await Promise.all(sharePromises);
-      // 3) Mark invite as redeemed
+      // 2) Auto-Share alle eigenen Folders mit dem neuen Device.
+      // Promise.allSettled damit ein einzelner Folder-PUT-Fehler nicht die anderen abbricht.
+      const results = await Promise.allSettled(
+        folders.map((f) => {
+          const alreadyShared = f.devices.some(
+            (d) => d.deviceID === acceptPrompt.deviceID,
+          );
+          if (alreadyShared) return Promise.resolve();
+          const updated: Folder = {
+            ...f,
+            devices: [...f.devices, { deviceID: acceptPrompt.deviceID }],
+          };
+          return putFolder(endpoint, updated);
+        }),
+      );
+      const failed = results.filter((r) => r.status === "rejected").length;
+      if (failed > 0) {
+        console.warn(`[CodeShowModal] ${failed}/${folders.length} folder-shares failed`);
+      }
+      // 3) Mark invite as redeemed — IDs sind jetzt synchron (siehe generate())
       try {
         await inviteMarkRedeemed(generated.codeId, acceptPrompt.deviceID);
-      } catch {
-        // Frontend-codeId entspricht nicht dem Rust-codeId (siehe Kommentar in generate).
-        // In v1 akzeptiert: der Status im ActiveInvitesPanel zeigt "redeemed" ggf. erst
-        // nach manuellem Refresh. Schritt 5b kann beide IDs angleichen.
+      } catch (e) {
+        console.warn("[CodeShowModal] mark_redeemed failed", e);
       }
       // 4) Close
       onClose();
@@ -191,7 +195,7 @@ export function CodeShowModal({
 
   if (acceptPrompt && generated) {
     return (
-      <Modal title="Neues Gerät möchte verbinden" onClose={onClose}>
+      <Modal title="Neues Gerät möchte verbinden" onClose={onClose} dismissible={!busy}>
         <div className="space-y-4">
           <p className="text-sm text-neutral-700 dark:text-neutral-300">
             <span className="font-mono">{acceptPrompt.name || acceptPrompt.deviceID.slice(0, 7)}</span> versucht sich
@@ -268,7 +272,7 @@ export function CodeShowModal({
   }
 
   return (
-    <Modal title="Einladungscode erstellen" onClose={onClose}>
+    <Modal title="Einladungscode erstellen" onClose={onClose} dismissible={!busy}>
       <div className="space-y-4">
         <div>
           <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">

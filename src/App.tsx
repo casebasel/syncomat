@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
 import {
@@ -19,6 +19,7 @@ import {
   type PendingFolder,
 } from "./lib/syncthing";
 
+import { invitePurgeExpired } from "./lib/invitesStore";
 import { ActiveInvitesPanel } from "./components/ActiveInvitesPanel";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { CodeShowModal } from "./components/CodeShowModal";
@@ -85,6 +86,11 @@ function App() {
     folders.length === 0 &&
     (pendingFolders.data?.length ?? 0) === 0 &&
     (pendingDevices.data?.length ?? 0) === 0;
+
+  // Beim App-Start expired Codes purgen (sonst wächst die invites.json unbounded).
+  useEffect(() => {
+    invitePurgeExpired().catch((e) => console.warn("[invites] purge failed", e));
+  }, []);
 
   const onScan = async () => {
     if (!endpoint || folders.length === 0) return;
@@ -168,7 +174,7 @@ function App() {
           />
         ) : (
           <>
-            {(pendingDevices.data?.length ?? 0) > 0 && (
+            {(pendingDevices.data?.length ?? 0) > 0 && modal?.kind !== "code-show" && (
               <section className="mt-5 space-y-2">
                 {pendingDevices.data!.map((pd) => (
                   <div

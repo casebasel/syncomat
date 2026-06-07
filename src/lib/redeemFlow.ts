@@ -1,9 +1,9 @@
 import type { InvitePayload } from "./invite";
 import { reasonToHuman, decodeInvite } from "./invite";
-import { inviteCheckConsumed, inviteMarkConsumed } from "./invitesStore";
-import { patchDevice, putDevice, type Device, type Endpoint } from "./syncthing";
+import { inviteConsumeOnce, inviteReleaseConsumed } from "./invitesStore";
+import { getConfig, patchDevice, putDevice, type Device, type Endpoint } from "./syncthing";
 
-export type RedeemPhase = "verify" | "add-device" | "wait-config" | "unpause";
+export type RedeemPhase = "verify" | "consume" | "add-device" | "wait-config" | "unpause";
 
 export type RedeemProgress = {
   phase: RedeemPhase;
@@ -32,15 +32,15 @@ export function isSuccess(r: RedeemFinal): r is RedeemSuccess {
  * Orchestriert das Einlösen eines Einladungs-Codes auf der Empfänger-Seite.
  *
  * Schritte:
- *   1. decode + sanity check
- *   2. mark consumed locally (vor PUT, damit Race + Doppelklick blockiert ist)
- *   3. PUT device (paused: true) — damit der erste Connect erst nach config-write passiert
- *   4. PATCH device (paused: false) — jetzt darf Syncthing connecten
- *   5. done — UI zeigt "verbunden, warte auf Ordner-Angebote"
+ *   1. decodeInvite (pure, no I/O — Schema + HMAC + Self-Pair + Expiry)
+ *   2. inviteConsumeOnce (atomic check-and-mark) — blockiert Doppel-Einlösung
+ *   3. PUT device (paused: true)
+ *   4. Wait until Syncthing's config picked up the device (poll, max 5s)
+ *   5. PATCH device (paused: false) — connect
+ *   6. done
  *
- * Auto-Share-on-Pair passiert auf der Issuer-Seite (CodeShowModal) wenn der
- * Pending-Device auftaucht. Der Redeemer macht hier nichts mit folders — die
- * kommen via Pending-Folders rein, der User verknüpft sie mit Pfad-Picker (Schritt 4).
+ * Bei Fehler in Schritt 3-5: inviteReleaseConsumed rollback'd den consume-marker,
+ * der User kann den Code nochmal probieren (oder den Issuer um einen neuen bitten).
  */
 export async function* executeRedemption(
   rawCode: string,
@@ -49,7 +49,7 @@ export async function* executeRedemption(
 ): AsyncGenerator<RedeemProgress, RedeemFinal, void> {
   yield { phase: "verify", message: "Code prüfen…" };
 
-  const decoded = await decodeInvite(rawCode, myDeviceId, inviteCheckConsumed);
+  const decoded = await decodeInvite(rawCode, myDeviceId);
   if (!decoded.ok) {
     return {
       phase: "verify",
@@ -60,15 +60,32 @@ export async function* executeRedemption(
   const payload: InvitePayload = decoded.payload;
   const peerName = payload.n || payload.iss.slice(0, 7);
 
+  yield { phase: "consume", message: "Code reservieren…" };
+
+  let consumed = false;
   try {
-    await inviteMarkConsumed(payload.id);
+    consumed = await inviteConsumeOnce(payload.id);
   } catch (e) {
     return {
-      phase: "verify",
-      message: "Konnte Code nicht als verbraucht markieren.",
+      phase: "consume",
+      message: "Konnte Code-Marker nicht setzen.",
       detail: String(e),
     };
   }
+  if (!consumed) {
+    return {
+      phase: "consume",
+      message: reasonToHuman("already-consumed"),
+    };
+  }
+
+  const rollback = async () => {
+    try {
+      await inviteReleaseConsumed(payload.id);
+    } catch (e) {
+      console.warn("[redeemFlow] release-consumed failed", e);
+    }
+  };
 
   yield { phase: "add-device", message: `Verbinde mit ${peerName}…` };
 
@@ -85,6 +102,7 @@ export async function* executeRedemption(
   try {
     await putDevice(ep, device);
   } catch (e) {
+    await rollback();
     return {
       phase: "add-device",
       message: "Konnte Gerät nicht zur Syncthing-Konfiguration hinzufügen.",
@@ -94,13 +112,22 @@ export async function* executeRedemption(
 
   yield { phase: "wait-config", message: "Konfiguration speichern…" };
 
-  await new Promise((r) => setTimeout(r, 600));
+  // Statt fester Sleep: poll bis Syncthing das Device in seiner Config sieht.
+  const configReady = await waitForDeviceInConfig(ep, payload.iss, 5000);
+  if (!configReady) {
+    await rollback();
+    return {
+      phase: "wait-config",
+      message: "Syncthing hat die Konfiguration nicht innerhalb 5s übernommen.",
+    };
+  }
 
   yield { phase: "unpause", message: "Verbindung aufbauen…" };
 
   try {
     await patchDevice(ep, payload.iss, { paused: false });
   } catch (e) {
+    await rollback();
     return {
       phase: "unpause",
       message: "Konnte Verbindung nicht aktivieren.",
@@ -113,4 +140,22 @@ export async function* executeRedemption(
     deviceId: payload.iss,
     deviceName: peerName,
   };
+}
+
+async function waitForDeviceInConfig(
+  ep: Endpoint,
+  deviceId: string,
+  timeoutMs: number,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const config = await getConfig(ep);
+      if (config.devices.some((d) => d.deviceID === deviceId)) return true;
+    } catch {
+      // ignore transient errors and keep polling
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return false;
 }

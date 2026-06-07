@@ -21,6 +21,8 @@ export type ActiveInvite = {
 };
 
 export type CreateInviteInput = {
+  /** Frontend-generated UUID — must match the one baked into the signed code. */
+  id: string;
   options: InviteOptions;
   expires_at: number;
 };
@@ -43,11 +45,13 @@ export const inviteRevoke = (id: string) => invoke<void>("invite_revoke", { id }
 export const inviteGetIssuerSecret = () =>
   invoke<string>("invite_get_issuer_secret");
 
-export const inviteCheckConsumed = (id: string) =>
-  invoke<boolean>("invite_check_consumed", { id });
+/** Atomic check-and-mark. Returns true if newly consumed, false if already. */
+export const inviteConsumeOnce = (id: string) =>
+  invoke<boolean>("invite_consume_once", { id });
 
-export const inviteMarkConsumed = (id: string) =>
-  invoke<void>("invite_mark_consumed", { id });
+/** Rollback for consume-once when a downstream PUT call failed. */
+export const inviteReleaseConsumed = (id: string) =>
+  invoke<void>("invite_release_consumed", { id });
 
 export const invitePurgeExpired = () => invoke<number>("invite_purge_expired");
 

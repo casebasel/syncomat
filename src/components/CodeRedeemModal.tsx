@@ -164,7 +164,7 @@ export function CodeRedeemModal({
 
   if (phase === "running") {
     return (
-      <Modal title="Einlösen…" onClose={onClose}>
+      <Modal title="Einlösen…" onClose={onClose} dismissible={false}>
         <div className="space-y-2">
           {steps.map((s, i) => {
             const isLast = i === steps.length - 1;

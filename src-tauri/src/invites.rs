@@ -122,11 +122,23 @@ fn load_or_init(path: &Path) -> Result<StoreFile, InviteError> {
         return Ok(s);
     }
     let raw = fs::read_to_string(path)?;
-    let parsed: StoreFile = serde_json::from_str(&raw).unwrap_or_else(|_| {
-        eprintln!("[invites] WARN: invites.json corrupted, starting fresh (existing data lost)");
-        StoreFile::default()
-    });
-    Ok(parsed)
+    match serde_json::from_str::<StoreFile>(&raw) {
+        Ok(parsed) => Ok(parsed),
+        Err(e) => {
+            // Backup the corrupt file so the user can recover by hand instead of
+            // silently losing the issuer-secret + consumed-codes list.
+            let backup = path.with_extension(format!("json.corrupt.{}", now_unix()));
+            let _ = fs::rename(path, &backup);
+            eprintln!(
+                "[invites] ERR: invites.json corrupted ({e}); backed up to {} and starting fresh",
+                backup.display()
+            );
+            let s = StoreFile::default();
+            save_atomic(path, &s)?;
+            set_perms_600(path);
+            Ok(s)
+        }
+    }
 }
 
 fn save_atomic(path: &Path, store: &StoreFile) -> Result<(), InviteError> {
@@ -184,22 +196,16 @@ impl InviteStore {
         Ok(f(&guard))
     }
 
-    fn refresh_expired(&self) -> Result<(), InviteError> {
-        let now = now_unix();
-        self.with_save(|store| {
-            for invite in store.invites.iter_mut() {
-                if matches!(invite.status, InviteStatus::Pending) && invite.expires_at < now {
-                    // Don't mutate — we'll let the UI filter / decoder reject expired ones.
-                    // (Could move to a separate "expired" status if we want auditability.)
-                }
-            }
-            Ok(())
-        })
-    }
+    // refresh_expired() was previously called on every list() — that wrote the file
+    // each time even though nothing changed. UI + decoder both filter expired entries
+    // already; expired records get GC'd by invite_purge_expired (called on app start).
 }
 
 #[derive(Deserialize)]
 pub struct CreateInput {
+    /// Frontend-generated UUID — same value baked into the signed code payload.
+    /// Pflicht damit Frontend & Rust dieselbe ID kennen (sonst Revoke/mark_redeemed broken).
+    pub id: String,
     pub options: InviteOptions,
     pub expires_at: i64,
 }
@@ -210,6 +216,9 @@ pub fn invite_create(
     input: CreateInput,
 ) -> Result<ActiveInvite, String> {
     let now = now_unix();
+    if Uuid::parse_str(&input.id).is_err() {
+        return Err("id must be a valid UUID".into());
+    }
     if input.expires_at <= now {
         return Err("expires_at must be in the future".into());
     }
@@ -217,15 +226,15 @@ pub fn invite_create(
         return Err("expires_at must be at most 30 days from now".into());
     }
     if let Some(note) = &input.options.note {
-        if note.len() > 40 {
-            return Err("note must be at most 40 chars".into());
+        if note.chars().count() > 40 {
+            return Err("note must be at most 40 characters".into());
         }
     }
     if input.options.addresses.len() > 4 {
         return Err("at most 4 addresses".into());
     }
     let invite = ActiveInvite {
-        id: Uuid::now_v7().to_string(),
+        id: input.id,
         issued_at: now,
         expires_at: input.expires_at,
         options: input.options,
@@ -234,6 +243,9 @@ pub fn invite_create(
     let clone = invite.clone();
     state
         .with_save(|store| {
+            if store.invites.iter().any(|i| i.id == invite.id) {
+                return Err(InviteError::NotFound); // misuse but matches surface area
+            }
             store.invites.push(invite);
             Ok(())
         })
@@ -243,7 +255,6 @@ pub fn invite_create(
 
 #[tauri::command]
 pub fn invite_list(state: tauri::State<'_, InviteStore>) -> Result<Vec<ActiveInvite>, String> {
-    let _ = state.refresh_expired();
     state
         .with_read(|s| {
             let mut v = s.invites.clone();
@@ -329,21 +340,40 @@ pub fn invite_check_consumed(
         .map_err(|e| e.to_string())
 }
 
+/// Atomically check-and-mark a code as consumed.
+/// Returns true if the code was newly added (caller may proceed), false if it was
+/// already consumed (caller must abort). Closes the TOCTOU window between a separate
+/// check + mark.
 #[tauri::command]
-pub fn invite_mark_consumed(
+pub fn invite_consume_once(
+    state: tauri::State<'_, InviteStore>,
+    id: String,
+) -> Result<bool, String> {
+    state
+        .with_save(|store| {
+            if store.consumed_codes.contains(&id) {
+                return Ok(false);
+            }
+            store.consumed_codes.push(id);
+            if store.consumed_codes.len() > 200 {
+                let drop = store.consumed_codes.len() - 200;
+                store.consumed_codes.drain(0..drop);
+            }
+            Ok(true)
+        })
+        .map_err(|e| e.to_string())
+}
+
+/// Rollback for consume_once when downstream PUT calls fail — frees the code so the
+/// user can retry the redemption.
+#[tauri::command]
+pub fn invite_release_consumed(
     state: tauri::State<'_, InviteStore>,
     id: String,
 ) -> Result<(), String> {
     state
         .with_save(|store| {
-            if !store.consumed_codes.contains(&id) {
-                store.consumed_codes.push(id);
-            }
-            // Keep list bounded — only the last 200 redemptions.
-            if store.consumed_codes.len() > 200 {
-                let drop = store.consumed_codes.len() - 200;
-                store.consumed_codes.drain(0..drop);
-            }
+            store.consumed_codes.retain(|x| x != &id);
             Ok(())
         })
         .map_err(|e| e.to_string())

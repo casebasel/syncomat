@@ -58,7 +58,8 @@ pub fn run() {
             invites::invite_revoke,
             invites::invite_get_issuer_secret,
             invites::invite_check_consumed,
-            invites::invite_mark_consumed,
+            invites::invite_consume_once,
+            invites::invite_release_consumed,
             invites::invite_purge_expired,
         ])
         .build(tauri::generate_context!())
