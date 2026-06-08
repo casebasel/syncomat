@@ -19,17 +19,20 @@ jobs:
           - platform: macos-latest
             target: aarch64-apple-darwin
             args: '--target aarch64-apple-darwin'
-          - platform: windows-latest
+          # windows-latest → windows-2025-vs2026 ab 15.06.2026; jetzt schon
+          # explizit windows-2025 pinnen damit deterministisch.
+          - platform: windows-2025
             target: x86_64-pc-windows-msvc
             args: '--target x86_64-pc-windows-msvc'
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4
+      # v5 = Node-24-kompatibel (v4 wird ab 16.06.2026 deprecated)
+      - uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -59,14 +62,14 @@ jobs:
       # mit unserem eigenen Retry-Loop vor und legen es in den Pfad wo tauri-bundler
       # nach existing cache schaut.
       - name: Cache Tauri NSIS bundler resources
-        if: matrix.platform == 'windows-latest'
+        if: matrix.platform == 'windows-2025'
         uses: actions/cache@v4
         with:
           path: ~/AppData/Local/tauri
           key: tauri-nsis-3.11-v1
 
       - name: Pre-fetch NSIS bundler (Windows-only, workaround for CDN-Flapping)
-        if: matrix.platform == 'windows-latest'
+        if: matrix.platform == 'windows-2025'
         shell: bash
         run: |
           NSIS_DIR="$LOCALAPPDATA/tauri/NSIS"
