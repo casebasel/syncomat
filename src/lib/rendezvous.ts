@@ -6,9 +6,8 @@
  * + Signatur — die 4 Ziffern sind nur ein Schlüssel zu dem Ablageort.
  */
 
-// ⚠️ Nach dem Worker-Deploy (siehe pair-worker/README.md) hier die echte URL
-// eintragen. Default ist die ca-se.ch-Route die du optional einrichten kannst.
-export const RENDEZVOUS_URL = "https://syncomat-pair.ca-se.ch";
+// Cloudflare Worker (pair-worker/), deployed 2026-06-09 auf casebasel-Account.
+export const RENDEZVOUS_URL = "https://syncomat-pair.casebasel.workers.dev";
 
 /** Ist Quick-Pair konfiguriert? (false wenn URL noch Platzhalter) */
 export const QUICK_PAIR_ENABLED =

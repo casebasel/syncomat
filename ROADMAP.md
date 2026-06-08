@@ -2,6 +2,30 @@
 
 Was als nächstes ansteht. Strikt sortiert: oben = bald, unten = vielleicht/später.
 
+## Bekannte Bugs (zuerst fixen)
+
+### Remote-Folder-Löschen (Cluster-Delete) greift nicht
+**Gemeldet:** 2026-06-09 (Marlon). Beim Versuch einen Ordner Cluster-weit zu
+entfernen (FolderSettings → "Verknüpfung entfernen" → "Auch auf allen anderen
+Geräten vorschlagen") kommt auf dem anderen Gerät kein Banner / der Folder
+verschwindet dort nicht.
+
+**Wahrscheinliche Ursachen (zu prüfen):**
+- `deletion_requested` wird in `.syncomat/folder-defaults.json` geschrieben,
+  aber das File wird durch den lokalen `deleteFolder` evtl. nicht mehr synct
+  (Folder ist aus Syncthing-Config raus BEVOR Sync den Marker propagiert hat).
+  Das 1s-`setTimeout` in `FolderSettingsModal.remove()` reicht vielleicht nicht.
+- `useFolderSettingsReplication` AUTH-Check: `updated_by` muss in
+  `folder.devices` sein — wenn der löschende Peer sich selbst schon entfernt
+  hat, schlägt der Check fehl und der Banner kommt nie.
+- Reihenfolge: erst Marker schreiben + warten bis Peer ihn GELESEN hat, DANN
+  lokal löschen. Aktuell zu optimistisch.
+
+**Fix-Idee:** Marker schreiben → NICHT sofort lokal löschen, sondern auf
+Bestätigung vom Peer warten (oder Marker länger leben lassen). Alternativ
+über einen dedizierten Rust-Command der den Marker schreibt + erst nach
+Sync-Roundtrip den lokalen Folder kappt.
+
 ## Geplant
 
 ### 1. Conflict-Resolution — Ein-Klick-Auflösung
