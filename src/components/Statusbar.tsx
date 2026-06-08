@@ -49,7 +49,7 @@ export function Statusbar({
   if (aggregateState === "syncing")
     left = `Synchronisiere · ${fmtBytes(needBytes)} offen`;
   if (aggregateState === "error")
-    left = `${errorCount} Fehler · prüfen`;
+    left = `${errorCount} Datei-Fehler · siehe Ordner-Karte`;
 
   const leftCls =
     aggregateState === "error"

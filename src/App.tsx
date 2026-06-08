@@ -14,6 +14,7 @@ import {
   usePendingFolders,
   useStatus,
   useSyncthingReady,
+  useTransferRate,
   type Folder,
   type PendingDevice,
   type PendingFolder,
@@ -23,6 +24,10 @@ import { invitePurgeExpired } from "./lib/invitesStore";
 import { ActiveInvitesPanel } from "./components/ActiveInvitesPanel";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { CodeShowModal } from "./components/CodeShowModal";
+import { FolderErrorsModal } from "./components/FolderErrorsModal";
+import { FolderSettingsModal } from "./components/FolderSettingsModal";
+import { TransferRatePill } from "./components/TransferRatePill";
+import { useFolderSettingsReplication } from "./lib/folderSettings";
 import { DeviceRow } from "./components/DeviceRow";
 import { EmptyState } from "./components/EmptyState";
 import { FolderList } from "./components/FolderList";
@@ -34,7 +39,9 @@ type Modal =
   | null
   | { kind: "code-show" }
   | { kind: "code-redeem" }
-  | { kind: "link"; pending: PendingFolder };
+  | { kind: "link"; pending: PendingFolder }
+  | { kind: "folder-errors"; folder: Folder }
+  | { kind: "folder-settings"; folder: Folder };
 
 function App() {
   const endpoint = useEndpoint();
@@ -50,6 +57,8 @@ function App() {
   const myID = status.data?.myID ?? null;
 
   const aggregate = useAggregateStatus(endpoint, ready, folders);
+  const rate = useTransferRate(endpoint, ready);
+  useFolderSettingsReplication(endpoint, ready, folders, myID);
 
   const [modal, setModal] = useState<Modal>(null);
   const [scanning, setScanning] = useState(false);
@@ -133,6 +142,9 @@ function App() {
         { deviceID: myID },
         ...offerers.map((deviceID) => ({ deviceID })),
       ],
+      // Briefing §4: Case-Erkennung anlassen damit zwei Files die sich nur in
+      // der Schreibweise unterscheiden nicht auf case-insensitive FS kollidieren.
+      caseSensitiveFS: true,
     };
     await putFolder(endpoint, folder);
   };
@@ -165,6 +177,18 @@ function App() {
           scanning={scanning}
           canScan={folders.length > 0}
         />
+
+        {ready && peersConnected > 0 && (
+          <div className="mt-3 flex justify-end">
+            <TransferRatePill
+              inBps={rate.inBps}
+              outBps={rate.outBps}
+              historyIn={rate.historyIn}
+              historyOut={rate.historyOut}
+              visible={true}
+            />
+          </div>
+        )}
 
         {isFirstRun && !forceMain ? (
           <EmptyState
@@ -232,6 +256,8 @@ function App() {
                 onLink={onLink}
                 onPauseToggle={onPauseToggle}
                 onRename={onRename}
+                onShowErrors={(f) => setModal({ kind: "folder-errors", folder: f })}
+                onShowSettings={(f) => setModal({ kind: "folder-settings", folder: f })}
               />
             </section>
 
@@ -283,6 +309,22 @@ function App() {
           endpoint={endpoint}
           ready={ready}
           status={status.data}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.kind === "folder-errors" && endpoint && (
+        <FolderErrorsModal
+          endpoint={endpoint}
+          folderId={modal.folder.id}
+          folderLabel={modal.folder.label || modal.folder.id}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.kind === "folder-settings" && endpoint && myID && (
+        <FolderSettingsModal
+          endpoint={endpoint}
+          folder={modal.folder}
+          myDeviceId={myID}
           onClose={() => setModal(null)}
         />
       )}

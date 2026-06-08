@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Folder as FolderIcon, Pause, Pencil, Play } from "lucide-react";
+import { AlertTriangle, Check, Folder as FolderIcon, Pause, Pencil, Play, Settings } from "lucide-react";
 import {
   useFolderStatus,
   type Connection,
@@ -42,6 +42,8 @@ export function LinkedFolderCard({
   myID,
   onPauseToggle,
   onRename,
+  onShowErrors,
+  onShowSettings,
 }: {
   folder: Folder;
   endpoint: Endpoint | null;
@@ -51,6 +53,8 @@ export function LinkedFolderCard({
   myID: DeviceID | null;
   onPauseToggle: (f: Folder) => void;
   onRename: (f: Folder, newLabel: string) => void;
+  onShowErrors: (f: Folder) => void;
+  onShowSettings: (f: Folder) => void;
 }) {
   const { data: status } = useFolderStatus(endpoint, ready, folder.id);
   const [editing, setEditing] = useState(false);
@@ -129,6 +133,25 @@ export function LinkedFolderCard({
           {meta}
         </p>
       </div>
+      {status && (status.errors > 0 || status.pullErrors > 0) && (
+        <button
+          onClick={() => onShowErrors(folder)}
+          title={`${status.errors + status.pullErrors} Datei-Fehler — Details ansehen`}
+          className="flex items-center gap-1 px-1.5 py-1 rounded-md text-amber-600 dark:text-amber-400 hover:bg-amber-100/60 dark:hover:bg-amber-950/40 shrink-0"
+        >
+          <AlertTriangle className="size-3.5" />
+          <span className="text-[11px] font-semibold">
+            {status.errors + status.pullErrors}
+          </span>
+        </button>
+      )}
+      <button
+        onClick={() => onShowSettings(folder)}
+        title="Folder-Einstellungen"
+        className="p-1.5 rounded-md text-neutral-400 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 shrink-0"
+      >
+        <Settings className="size-3.5" />
+      </button>
       <button
         onClick={() => onPauseToggle(folder)}
         title={folder.paused ? "Fortsetzen" : "Pausieren"}

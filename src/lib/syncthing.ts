@@ -29,6 +29,11 @@ export type Connections = {
   total: { inBytesTotal: number; outBytesTotal: number };
 };
 
+export type FolderVersioning = {
+  type: "" | "trashcan" | "simple" | "staggered" | "external";
+  params?: Record<string, string>;
+};
+
 export type Folder = {
   id: FolderID;
   label: string;
@@ -36,7 +41,14 @@ export type Folder = {
   type: "sendreceive" | "sendonly" | "receiveonly";
   paused: boolean;
   devices: { deviceID: DeviceID }[];
+  versioning?: FolderVersioning;
+  ignorePerms?: boolean;
+  caseSensitiveFS?: boolean;
 };
+
+export type FolderError = { path: string; error: string };
+export type FolderErrorList = { folder: FolderID; errors: FolderError[] };
+export type FolderIgnores = { ignore: string[] | null; expanded: string[] | null };
 
 export type Device = {
   deviceID: DeviceID;
@@ -194,6 +206,44 @@ export const deleteDevice = (ep: Endpoint, deviceID: DeviceID) =>
   api<void>(ep, `/rest/config/devices/${encodeURIComponent(deviceID)}`, {
     method: "DELETE",
   });
+
+// ── Cross-OS support: folder errors + ignores ─────────────────
+
+export const getFolderErrors = (ep: Endpoint, folderID: FolderID) =>
+  api<FolderErrorList>(
+    ep,
+    `/rest/folder/errors?folder=${encodeURIComponent(folderID)}&perpage=200`,
+  );
+
+export const getFolderIgnores = (ep: Endpoint, folderID: FolderID) =>
+  api<FolderIgnores>(ep, `/rest/db/ignores?folder=${encodeURIComponent(folderID)}`);
+
+export const setFolderIgnores = (
+  ep: Endpoint,
+  folderID: FolderID,
+  ignore: string[],
+) =>
+  api<void>(ep, `/rest/db/ignores?folder=${encodeURIComponent(folderID)}`, {
+    method: "POST",
+    body: JSON.stringify({ ignore }),
+    headers: { "Content-Type": "application/json" },
+  });
+
+/**
+ * Heuristik: ist der Fehler ein Windows-Namens-Problem (illegal char, reserved name)?
+ * Syncthing-Fehlertexte sind keyword-basiert; wir fangen die häufigsten.
+ */
+export function isWindowsNameError(err: string): boolean {
+  const s = err.toLowerCase();
+  return (
+    s.includes("illegal") ||
+    s.includes("invalid character") ||
+    s.includes("invalid filename") ||
+    s.includes("reserved name") ||
+    s.includes("invalid path") ||
+    /[:?*<>|"]/.test(err)
+  );
+}
 
 // ============================================================
 // Event stream (long-poll on /rest/events)
@@ -430,6 +480,117 @@ export const useFolderStatus = (
     ON("StateChanged", "FolderSummary", "FolderErrors", "ItemFinished", "LocalIndexUpdated"),
     [folderId],
   );
+
+// ── Transfer-Rate (bytes/sec + 1h history) ─────────────────────
+
+export type TransferRateState = {
+  inBps: number;
+  outBps: number;
+  historyIn: number[]; // 1-min buckets, last 60 (newest right)
+  historyOut: number[];
+};
+
+/**
+ * Pollt /rest/system/connections und berechnet Delta-Rates.
+ * History: 1-Minuten-Buckets (gemittelt aus 1s-Samples), max 60 Einträge.
+ */
+export function useTransferRate(
+  ep: Endpoint | null,
+  ready: boolean,
+  samplingMs = 1000,
+): TransferRateState {
+  const [state, setState] = useState<TransferRateState>({
+    inBps: 0,
+    outBps: 0,
+    historyIn: [],
+    historyOut: [],
+  });
+
+  // Mutable state outside React renders.
+  const probeRef = useRef({
+    lastIn: 0,
+    lastOut: 0,
+    lastT: 0,
+    bucketMinute: 0,
+    bucketInSum: 0,
+    bucketOutSum: 0,
+    bucketCount: 0,
+    historyIn: [] as number[],
+    historyOut: [] as number[],
+  });
+
+  useEffect(() => {
+    if (!ep || !ready) return;
+    let cancelled = false;
+    probeRef.current = {
+      lastIn: 0,
+      lastOut: 0,
+      lastT: 0,
+      bucketMinute: 0,
+      bucketInSum: 0,
+      bucketOutSum: 0,
+      bucketCount: 0,
+      historyIn: [],
+      historyOut: [],
+    };
+
+    const tick = async () => {
+      try {
+        const c = await getConnections(ep);
+        if (cancelled) return;
+        const now = Date.now();
+        const inB = c.total?.inBytesTotal ?? 0;
+        const outB = c.total?.outBytesTotal ?? 0;
+        const p = probeRef.current;
+
+        if (p.lastT > 0) {
+          const dtSec = Math.max(0.001, (now - p.lastT) / 1000);
+          const inBps = Math.max(0, (inB - p.lastIn) / dtSec);
+          const outBps = Math.max(0, (outB - p.lastOut) / dtSec);
+
+          const currentMinute = Math.floor(now / 60_000);
+          if (p.bucketMinute === 0) p.bucketMinute = currentMinute;
+          if (currentMinute > p.bucketMinute) {
+            const inAvg = p.bucketCount > 0 ? p.bucketInSum / p.bucketCount : 0;
+            const outAvg = p.bucketCount > 0 ? p.bucketOutSum / p.bucketCount : 0;
+            p.historyIn.push(inAvg);
+            p.historyOut.push(outAvg);
+            if (p.historyIn.length > 60) p.historyIn.shift();
+            if (p.historyOut.length > 60) p.historyOut.shift();
+            p.bucketMinute = currentMinute;
+            p.bucketInSum = 0;
+            p.bucketOutSum = 0;
+            p.bucketCount = 0;
+          }
+          p.bucketInSum += inBps;
+          p.bucketOutSum += outBps;
+          p.bucketCount += 1;
+
+          setState({
+            inBps,
+            outBps,
+            historyIn: [...p.historyIn],
+            historyOut: [...p.historyOut],
+          });
+        }
+        p.lastIn = inB;
+        p.lastOut = outB;
+        p.lastT = now;
+      } catch {
+        // network blip, ignore
+      }
+    };
+
+    tick();
+    const id = setInterval(tick, samplingMs);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [ep?.url, ep?.api_key, ready, samplingMs]);
+
+  return state;
+}
 
 export type AggregateStatus = {
   state: "idle" | "syncing" | "error";

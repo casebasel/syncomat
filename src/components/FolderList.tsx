@@ -19,6 +19,8 @@ export function FolderList({
   onLink,
   onPauseToggle,
   onRename,
+  onShowErrors,
+  onShowSettings,
 }: {
   linked: Folder[];
   pending: PendingFolder[];
@@ -30,6 +32,8 @@ export function FolderList({
   onLink: (pf: PendingFolder) => void;
   onPauseToggle: (f: Folder) => void;
   onRename: (f: Folder, newLabel: string) => void;
+  onShowErrors: (f: Folder) => void;
+  onShowSettings: (f: Folder) => void;
 }) {
   const all = linked.length + pending.length;
 
@@ -54,6 +58,8 @@ export function FolderList({
           myID={myID}
           onPauseToggle={onPauseToggle}
           onRename={onRename}
+          onShowErrors={onShowErrors}
+          onShowSettings={onShowSettings}
         />
       ))}
       {pending.map((pf) => (
