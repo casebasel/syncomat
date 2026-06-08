@@ -89,12 +89,13 @@ function App() {
     (s) => setDeletionSuggestion(s),
   );
   const ignored = useIgnoredFolders();
-  const tagsByFolderID = useFolderTags(folders);
+  const tags = useFolderTags(folders);
+  const tagsByFolderID = tags.byID;
   // Alle existierenden Tags für Autocomplete im TagEditor
   const allTagSuggestions = useMemo(() => {
     const set = new Set<string>();
-    for (const tags of Object.values(tagsByFolderID)) {
-      for (const t of tags) set.add(t);
+    for (const ts of Object.values(tagsByFolderID)) {
+      for (const t of ts) set.add(t);
     }
     return Array.from(set).sort();
   }, [tagsByFolderID]);
@@ -490,6 +491,7 @@ function App() {
           tagSuggestions={allTagSuggestions}
           onClose={() => setModal(null)}
           onRemoved={() => ignored.refresh()}
+          onSaved={() => tags.refresh()}
         />
       )}
       {modal?.kind === "folder-conflicts" && (

@@ -35,6 +35,7 @@ export function FolderSettingsModal({
   tagSuggestions,
   onClose,
   onRemoved,
+  onSaved,
 }: {
   endpoint: Endpoint;
   folder: Folder;
@@ -43,6 +44,9 @@ export function FolderSettingsModal({
   tagSuggestions: string[];
   onClose: () => void;
   onRemoved?: () => void;
+  /** Wird nach erfolgreichem Speichern gefeuert — Parent triggert refresh
+   * von useFolderTags damit die Sidebar sofort neue Tags zeigt. */
+  onSaved?: () => void;
 }) {
   const [defaults, setDefaults] = useState<FolderDefaults>(DEFAULT_FOLDER_DEFAULTS);
   const [loaded, setLoaded] = useState(false);
@@ -86,10 +90,21 @@ export function FolderSettingsModal({
     setBusy(true);
     setError(null);
     try {
+      // WICHTIG: deletion_requested IMMER auf false beim normalen Save —
+      // sonst bleibt ein altes Cluster-Delete-Signal aus früheren Tests
+      // im File und das deletion-Banner re-triggert nach jedem Save.
+      // Cluster-Delete wird ausschliesslich über remove() (mit clusterWide)
+      // gesetzt, nie hier.
+      const cleanedDefaults = {
+        ...defaults,
+        deletion_requested: false,
+        deletion_requested_by: null,
+      };
       // 1. Write the shared defaults file (replicated via Syncthing)
-      await folderSettingsWrite(folder.path, myDeviceId, defaults);
+      await folderSettingsWrite(folder.path, myDeviceId, cleanedDefaults);
       // 2. Apply to local Syncthing config immediately
-      await applyFolderDefaults(endpoint, folder, defaults);
+      await applyFolderDefaults(endpoint, folder, cleanedDefaults);
+      onSaved?.();
       onClose();
     } catch (e) {
       setError(String(e));

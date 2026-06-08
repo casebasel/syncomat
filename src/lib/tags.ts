@@ -7,9 +7,16 @@ import type { Folder } from "./syncthing";
  * Dieser Hook lädt sie für eine Liste von Folders und gibt eine Map
  * folderID → tags[] zurück. Re-polled alle 60s damit Tags vom Peer
  * eingebracht werden ohne UI-Refresh.
+ *
+ * Plus: refresh() für sofortiges re-fetch nach lokalem Save (sonst muesste
+ * der User bis zu 60s warten bis der neue Tag in der Sidebar landet).
  */
-export function useFolderTags(folders: Folder[]): Record<string, string[]> {
+export function useFolderTags(folders: Folder[]): {
+  byID: Record<string, string[]>;
+  refresh: () => void;
+} {
   const [byID, setByID] = useState<Record<string, string[]>>({});
+  const [tick, setTick] = useState(0);
   // Path-set als dep damit Folder-Add/Remove triggert
   const pathKey = folders.map((f) => `${f.id}|${f.path}`).join(",");
 
@@ -35,9 +42,9 @@ export function useFolderTags(folders: Folder[]): Record<string, string[]> {
       cancelled = true;
       clearInterval(id);
     };
-  }, [pathKey]);
+  }, [pathKey, tick]);
 
-  return byID;
+  return { byID, refresh: () => setTick((t) => t + 1) };
 }
 
 /**
