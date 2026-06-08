@@ -37,17 +37,22 @@ export const conflictsKeepBoth = (
 ) =>
   invoke<string>("conflicts_keep_both", { folderPath, conflictRel, peerFragment });
 
-// ── Modul-level Cache + Request-Coalescing ──
+// ── Modul-level Cache + Request-Coalescing + Subscribe-Pattern ──
 //
 // Vor v0.1.13: jede LinkedFolderCard hatte ihren eigenen WalkDir-Poll alle 60s.
 // Bei 5 Folders × 100k Files = 500k stat-calls/min — Audit-Top-Finding.
 // Jetzt: ein einziger WalkDir pro folderPath, gecached 60s, geteilt zwischen
 // FolderCard-Hooks und ConflictResolverModal.
+//
+// v0.1.21: invalidateConflictCache notifiziert alle subscribers — damit die
+// FolderCard's Conflict-Badge SOFORT verschwindet wenn der User im Modal einen
+// Konflikt aufloest, statt erst beim naechsten 5-min-poll.
 
 type CacheEntry = { items: ConflictItem[]; at: number };
 const conflictCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 60_000;
 const pendingFetches = new Map<string, Promise<ConflictItem[]>>();
+const subscribers = new Map<string, Set<() => void>>();
 
 async function fetchConflictsCoalesced(folderPath: string): Promise<ConflictItem[]> {
   const existing = conflictCache.get(folderPath);
@@ -60,6 +65,9 @@ async function fetchConflictsCoalesced(folderPath: string): Promise<ConflictItem
     .then((items) => {
       conflictCache.set(folderPath, { items, at: Date.now() });
       pendingFetches.delete(folderPath);
+      // Notify subscribers — andere offene Hooks bekommen frische Daten
+      const subs = subscribers.get(folderPath);
+      if (subs) for (const s of subs) s();
       return items;
     })
     .catch((e) => {
@@ -70,9 +78,28 @@ async function fetchConflictsCoalesced(folderPath: string): Promise<ConflictItem
   return promise;
 }
 
-/** Manuell den Cache invalidieren — z.B. nach keep_local/take_remote */
+/** Manuell den Cache invalidieren — z.B. nach keep_local/take_remote.
+ * Triggert sofortigen re-fetch in allen subscribed hooks. */
 export function invalidateConflictCache(folderPath: string) {
   conflictCache.delete(folderPath);
+  // Trigger fetch — der wird die subscribers nach success benachrichtigen
+  void fetchConflictsCoalesced(folderPath).catch(() => {});
+}
+
+function subscribe(folderPath: string, fn: () => void): () => void {
+  let subs = subscribers.get(folderPath);
+  if (!subs) {
+    subs = new Set();
+    subscribers.set(folderPath, subs);
+  }
+  subs.add(fn);
+  return () => {
+    const s = subscribers.get(folderPath);
+    if (s) {
+      s.delete(fn);
+      if (s.size === 0) subscribers.delete(folderPath);
+    }
+  };
 }
 
 // ── Hook: pro Folder die Liste der Konflikte ──
@@ -105,9 +132,13 @@ export function useFolderConflicts(
     };
     fetchOnce();
     const id = setInterval(fetchOnce, intervalMs);
+    // Subscribe — wenn jemand anders invalidateConflictCache aufruft,
+    // bekommen wir sofort fetchOnce (statt erst beim naechsten interval-tick).
+    const unsub = subscribe(folderPath, fetchOnce);
     return () => {
       cancelled = true;
       clearInterval(id);
+      unsub();
     };
   }, [folderPath, tick, intervalMs]);
 

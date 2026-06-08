@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertOctagon, AlertTriangle, Check, Folder as FolderIcon, Pause, Pencil, Play, Settings } from "lucide-react";
+import { AlertOctagon, AlertTriangle, Folder as FolderIcon, Pause, Pencil, Play, Settings } from "lucide-react";
 import {
   useFolderStatus,
   type Connection,
@@ -12,27 +12,33 @@ import {
 } from "../lib/syncthing";
 import { useFolderConflicts } from "../lib/conflicts";
 import { TagChip } from "./TagChip";
+import { SyncStatusBadge, type SyncState } from "./SyncStatusBadge";
+
+/** Bestimmt den höchsten relevanten Status für die Ampel. */
+function deriveSyncState(
+  folder: Folder,
+  status: FolderStatus | null,
+  peerOnline: boolean,
+  peersConfigured: number,
+  conflictCount: number,
+): SyncState {
+  if (folder.paused) return "paused";
+  if (status && (status.errors > 0 || status.pullErrors > 0)) return "error";
+  if (conflictCount > 0) return "conflicts";
+  if (peersConfigured === 0) return "local-only";
+  if (status?.state === "syncing") return "syncing";
+  if (status?.state === "scanning") return "scanning";
+  if (status && status.needBytes > 0) {
+    return peerOnline ? "waiting-data" : "waiting-peer";
+  }
+  if (!peerOnline) return "waiting-peer";
+  return "synced";
+}
 
 function shortDevice(id: DeviceID, devices: Device[]): string {
   const d = devices.find((x) => x.deviceID === id);
   if (d?.name) return d.name;
   return id.slice(0, 7);
-}
-
-function syncStateLabel(s: FolderStatus | null): string {
-  if (!s) return "lädt";
-  if (s.errors > 0 || s.pullErrors > 0) return "Fehler";
-  if (s.state === "syncing") return "synct";
-  if (s.state === "scanning") return "scannt";
-  if (s.state === "idle") return s.needBytes > 0 ? "wartet" : "synct";
-  return s.state;
-}
-
-function syncStateTone(s: FolderStatus | null): "ok" | "wait" | "off" {
-  if (!s) return "wait";
-  if (s.errors > 0 || s.pullErrors > 0) return "off";
-  if (s.needBytes > 0) return "wait";
-  return "ok";
 }
 
 export function LinkedFolderCard({
@@ -68,7 +74,6 @@ export function LinkedFolderCard({
   const { count: conflictCount } = useFolderConflicts(folder.path);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(folder.label || folder.id);
-  const tone = folder.paused ? "off" : syncStateTone(status);
 
   const others = folder.devices
     .map((d) => d.deviceID)
@@ -78,10 +83,6 @@ export function LinkedFolderCard({
       ? "nur lokal"
       : shortDevice(others[0]!, devices) +
         (others.length > 1 ? ` +${others.length - 1}` : "");
-
-  const meta = folder.paused
-    ? `${sourceName} · pausiert`
-    : `${sourceName} · ${syncStateLabel(status)}`;
 
   const commitRename = () => {
     setEditing(false);
@@ -94,11 +95,24 @@ export function LinkedFolderCard({
   };
 
   const peerOnline = others.some((id) => connections[id]?.connected);
+  const syncState = deriveSyncState(
+    folder,
+    status,
+    peerOnline,
+    others.length,
+    conflictCount,
+  );
 
   return (
     <div className="flex items-center gap-3 px-3 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900">
-      <div className="size-9 rounded-lg bg-neutral-200/70 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 dark:text-neutral-400 shrink-0">
-        <FolderIcon className="size-4" />
+      <div className="relative shrink-0">
+        <div className="size-9 rounded-lg bg-neutral-200/70 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 dark:text-neutral-400">
+          <FolderIcon className="size-4" />
+        </div>
+        {/* Status-Ampel als Dot oben rechts auf dem Icon */}
+        <div className="absolute -top-0.5 -right-0.5 ring-2 ring-neutral-50 dark:ring-neutral-900 rounded-full">
+          <SyncStatusBadge state={syncState} size="md" />
+        </div>
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
@@ -132,15 +146,12 @@ export function LinkedFolderCard({
             </>
           )}
         </div>
-        <p
-          className={`text-xs ${
-            tone === "off"
-              ? "text-rose-500 dark:text-rose-400"
-              : "text-neutral-500 dark:text-neutral-400"
-          }`}
-        >
-          {meta}
-        </p>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <SyncStatusBadge state={syncState} variant="pill" size="sm" />
+          <span className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
+            {sourceName}
+          </span>
+        </div>
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1.5">
             {tags.map((t) => (
@@ -190,9 +201,6 @@ export function LinkedFolderCard({
       >
         {folder.paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
       </button>
-      {!folder.paused && tone === "ok" && peerOnline && (
-        <Check className="size-4 text-emerald-500 shrink-0" />
-      )}
     </div>
   );
 }
