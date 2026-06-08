@@ -2,6 +2,29 @@
 
 Was als nächstes ansteht. Strikt sortiert: oben = bald, unten = vielleicht/später.
 
+## 🔴 Look & Feel — weg vom Web-App-Gefühl (Marlons Kernkritik)
+
+**Marlons Originaltext (2026-06-09):**
+
+> was ich an der app ncith mag es ist der look and weel einer wegapp, das ist
+> door, häufig haben die funktionen nicht richtig platz, alles ist viel zu eng
+> man muss scrollen und so , das ist scheisse
+
+**Konkret anzugehen:**
+- Fühlt sich an wie eine Web-App, nicht wie eine native Mac/Windows-App
+- Funktionen haben oft nicht richtig Platz → alles zu eng
+- Zu viel Scrollen für Dinge die auf einen Screen passen sollten
+- Modals quetschen Inhalt in zu wenig Raum (Settings, Folder-Settings)
+
+**Richtung (noch zu shapen):**
+- Native-App-Look statt Card-im-Browser-Look
+- Mehr Raum pro Funktion, weniger Scroll-Zwang — Modals breiter/höher oder
+  ganz durch eingebettete Panels ersetzen statt Overlay-Dialoge
+- Größere Default-Fenstergröße + bessere Nutzung der Breite
+- Ggf. komplett raus aus dem „alles ist ein Modal"-Pattern → Inhalte direkt
+  im Inspector statt im Popup
+- `/impeccable` Redesign-Runde gezielt auf „native, luftig, kein Web-Feel"
+
 ## Bekannte Bugs (zuerst fixen)
 
 ### Remote-Folder-Löschen (Cluster-Delete) greift nicht
