@@ -75,15 +75,15 @@ export function FolderInspector({
 
   return (
     <section className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-neutral-900">
-      {/* Header */}
-      <header className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 flex items-start gap-3">
-        <div className="size-10 rounded-lg bg-neutral-200/70 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 dark:text-neutral-400 shrink-0">
-          <FolderOpen className="size-5" />
+      {/* Header — luftiger (Native-Redesign Welle 1) */}
+      <header className="px-7 py-5 border-b border-neutral-200/70 dark:border-neutral-800/70 flex items-start gap-4">
+        <div className="size-11 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 dark:text-neutral-400 shrink-0">
+          <FolderOpen className="size-[22px]" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <h1
-              className="text-lg font-bold text-neutral-900 dark:text-neutral-100 truncate"
+              className="text-[21px] font-bold tracking-tight text-neutral-900 dark:text-neutral-100 truncate"
               style={{ textWrap: "balance" } as React.CSSProperties}
             >
               {folder.label || folder.id}
@@ -92,9 +92,9 @@ export function FolderInspector({
               <TagChip key={t} tag={t} size="sm" />
             ))}
           </div>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
+          <div className="flex items-center gap-2.5 mt-2 flex-wrap">
             <SyncStatusBadge state={state} label={statusLabel} variant="pill" size="sm" />
-            <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+            <span className="text-[13px] text-neutral-500 dark:text-neutral-400">
               {fmtMeta(folder, status, others.length, peerOnline)}
             </span>
           </div>
@@ -118,7 +118,7 @@ export function FolderInspector({
       </header>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+      <div className="flex-1 overflow-y-auto px-7 py-6 space-y-7">
         {/* Konflikt-Banner (priority) */}
         {conflictCount > 0 && (
           <button

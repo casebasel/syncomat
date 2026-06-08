@@ -163,7 +163,7 @@ export function Sidebar({
       <button
         onClick={() => onSelectFolder({ id: GLOBAL_ACTIVITY_KEY } as Folder)}
         aria-current={selectedFolderId === GLOBAL_ACTIVITY_KEY ? "true" : undefined}
-        className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 focus-visible:outline-none ${
+        className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 focus-visible:outline-none ${
           selectedFolderId === GLOBAL_ACTIVITY_KEY
             ? "bg-blue-100/70 dark:bg-blue-950/60 text-blue-900 dark:text-blue-100 font-semibold border-l-2 border-blue-600"
             : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40 border-l-2 border-transparent"
@@ -251,7 +251,7 @@ export function Sidebar({
           className="w-full text-left px-2 py-1.5 rounded-md hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 text-blue-600 dark:text-blue-400 flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
         >
           <Plus className="size-3.5" />
-          <span className="text-xs font-medium">Ordner</span>
+          <span className="text-[13px] font-medium">Ordner</span>
         </button>
       </div>
 
@@ -263,9 +263,9 @@ export function Sidebar({
       </div>
       <div className="px-1.5 pb-2 space-y-0.5">
         {myID && (
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md">
+          <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md">
             <SyncStatusBadge state="synced" size="md" />
-            <span className="text-[11px] font-medium flex-1 text-neutral-900 dark:text-neutral-100 truncate">
+            <span className="text-[13px] font-medium flex-1 text-neutral-900 dark:text-neutral-100 truncate">
               {myID.slice(0, 7)}
             </span>
             <span className="text-[10px] text-neutral-500 dark:text-neutral-500">
@@ -280,12 +280,12 @@ export function Sidebar({
             <button
               key={p.deviceID}
               onClick={() => onSelectDevice(p)}
-              className="w-full flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none text-left"
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none text-left"
               title={`${p.name || p.deviceID.slice(0, 7)} — Details ansehen`}
             >
               <SyncStatusBadge state={online ? "synced" : "waiting-peer"} size="md" />
               <span
-                className={`text-[11px] flex-1 truncate ${online ? "font-medium text-neutral-900 dark:text-neutral-100" : "text-neutral-500"}`}
+                className={`text-[13px] flex-1 truncate ${online ? "font-medium text-neutral-900 dark:text-neutral-100" : "text-neutral-500"}`}
               >
                 {p.name || p.deviceID.slice(0, 7)}
               </span>
@@ -304,14 +304,14 @@ export function Sidebar({
           className="w-full text-left px-2 py-1.5 rounded-md hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 flex items-center gap-1.5 text-neutral-700 dark:text-neutral-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
         >
           <Plus className="size-3.5" />
-          <span className="text-xs font-medium">Gerät einladen</span>
+          <span className="text-[13px] font-medium">Gerät einladen</span>
         </button>
         <button
           onClick={onRedeemCode}
           className="w-full text-left px-2 py-1.5 rounded-md hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 flex items-center gap-1.5 text-neutral-700 dark:text-neutral-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
         >
           <KeyRound className="size-3.5" />
-          <span className="text-xs font-medium">Code einlösen</span>
+          <span className="text-[13px] font-medium">Code einlösen</span>
         </button>
       </div>
     </aside>
@@ -412,7 +412,7 @@ const FolderItem = memo(function FolderItem({
       onClick={() => onSelect(folder)}
       aria-current={selected ? "true" : undefined}
       title={tooltip}
-      className={`w-full text-left px-2 py-1.5 rounded-md flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+      className={`w-full text-left px-2.5 py-2 rounded-md flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
         selected
           ? "bg-blue-100/70 dark:bg-blue-950/60 ring-1 ring-inset ring-blue-200 dark:ring-blue-500/30"
           : "hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60"
@@ -420,7 +420,7 @@ const FolderItem = memo(function FolderItem({
     >
       <SyncStatusBadge state={state} label={tooltip} size="md" />
       <span
-        className={`text-xs truncate flex-1 ${selected ? "font-semibold text-blue-900 dark:text-blue-100" : folder.paused ? "text-neutral-500" : "font-medium text-neutral-900 dark:text-neutral-100"}`}
+        className={`text-[13px] truncate flex-1 ${selected ? "font-semibold text-blue-900 dark:text-blue-100" : folder.paused ? "text-neutral-500" : "font-medium text-neutral-900 dark:text-neutral-100"}`}
       >
         {folder.label || folder.id}
       </span>

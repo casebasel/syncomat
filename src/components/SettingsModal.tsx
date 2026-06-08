@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
+  ArrowLeft,
   Bell,
   CheckCircle2,
   Copy,
@@ -12,14 +13,18 @@ import {
   RefreshCw,
   RotateCcw,
 } from "lucide-react";
-import { Modal } from "./Modal";
 import type { Endpoint, SystemStatus } from "../lib/syncthing";
 import type { UpdateState } from "../lib/updater";
 import { ignoredFoldersRemove, useIgnoredFolders } from "../lib/ignored";
 
 type Tab = "general" | "updates" | "notifications" | "ignored" | "power-user";
 
-export function SettingsModal({
+/**
+ * Einstellungen als INLINE-Ansicht im Hauptbereich (kein Overlay-Modal mehr).
+ * Ersetzt den Inspector solange offen; „Zurück" kehrt zur vorigen Ansicht.
+ * Teil von Welle 1 des Native-Redesigns (weg vom Web-App-Feel).
+ */
+export function SettingsPanel({
   endpoint,
   status,
   version,
@@ -28,7 +33,7 @@ export function SettingsModal({
   onInstallUpdate,
   notificationsEnabled,
   onSetNotificationsEnabled,
-  onClose,
+  onBack,
 }: {
   endpoint: Endpoint | null;
   status: SystemStatus | null;
@@ -38,83 +43,97 @@ export function SettingsModal({
   onInstallUpdate: () => void;
   notificationsEnabled: boolean;
   onSetNotificationsEnabled: (v: boolean) => void;
-  onClose: () => void;
+  onBack: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("general");
   const ignored = useIgnoredFolders();
 
   return (
-    <Modal title="Einstellungen" size="wide" noPadding onClose={onClose}>
-      <div className="flex h-full">
-        {/* Sidebar Tabs */}
+    <section className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-neutral-900">
+      {/* Header mit Zurück */}
+      <header className="px-6 py-4 border-b border-neutral-200/70 dark:border-neutral-800/70 flex items-center gap-3 shrink-0">
+        <button
+          onClick={onBack}
+          className="size-8 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          title="Zurück"
+        >
+          <ArrowLeft className="size-[18px]" />
+        </button>
+        <h1 className="text-lg font-bold tracking-tight">Einstellungen</h1>
+      </header>
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Tab-Spalte */}
         <nav
-          className="w-44 shrink-0 border-r border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 py-3"
+          className="w-48 shrink-0 border-r border-neutral-200/70 dark:border-neutral-800/70 bg-neutral-50/60 dark:bg-neutral-950/40 py-3 overflow-y-auto"
           aria-label="Einstellungs-Sektionen"
         >
           <TabButton
             label="Allgemein"
-            icon={<Info className="size-3.5" />}
+            icon={<Info className="size-[15px]" />}
             active={tab === "general"}
             onClick={() => setTab("general")}
           />
           <TabButton
             label="Aktualisierung"
-            icon={<RefreshCw className="size-3.5" />}
+            icon={<RefreshCw className="size-[15px]" />}
             active={tab === "updates"}
             onClick={() => setTab("updates")}
             badge={updateState.kind === "available" ? "neu" : undefined}
           />
           <TabButton
             label="Benachrichtigungen"
-            icon={<Bell className="size-3.5" />}
+            icon={<Bell className="size-[15px]" />}
             active={tab === "notifications"}
             onClick={() => setTab("notifications")}
           />
           <TabButton
             label="Ignorierte Ordner"
-            icon={<FolderX className="size-3.5" />}
+            icon={<FolderX className="size-[15px]" />}
             active={tab === "ignored"}
             onClick={() => setTab("ignored")}
             badge={ignored.data.length > 0 ? String(ignored.data.length) : undefined}
           />
           <TabButton
             label="Power-User"
-            icon={<ExternalLink className="size-3.5" />}
+            icon={<ExternalLink className="size-[15px]" />}
             active={tab === "power-user"}
             onClick={() => setTab("power-user")}
           />
         </nav>
 
-        {/* Tab Content */}
-        <div className="flex-1 px-5 py-4 overflow-y-auto">
-          {tab === "general" && <GeneralTab status={status} version={version} />}
-          {tab === "updates" && (
-            <UpdatesTab
-              updateState={updateState}
-              version={version}
-              onRecheck={onRecheckUpdates}
-              onInstall={onInstallUpdate}
-            />
-          )}
-          {tab === "notifications" && (
-            <NotificationsTab
-              enabled={notificationsEnabled}
-              onSet={onSetNotificationsEnabled}
-            />
-          )}
-          {tab === "ignored" && (
-            <IgnoredTab
-              entries={ignored.data}
-              onReactivate={async (id) => {
-                await ignoredFoldersRemove(id).catch(() => {});
-                ignored.refresh();
-              }}
-            />
-          )}
-          {tab === "power-user" && <PowerUserTab endpoint={endpoint} />}
+        {/* Tab-Inhalt — luftig, max-Breite damit Zeilen nicht zu breit werden */}
+        <div className="flex-1 px-8 py-7 overflow-y-auto">
+          <div className="max-w-xl">
+            {tab === "general" && <GeneralTab status={status} version={version} />}
+            {tab === "updates" && (
+              <UpdatesTab
+                updateState={updateState}
+                version={version}
+                onRecheck={onRecheckUpdates}
+                onInstall={onInstallUpdate}
+              />
+            )}
+            {tab === "notifications" && (
+              <NotificationsTab
+                enabled={notificationsEnabled}
+                onSet={onSetNotificationsEnabled}
+              />
+            )}
+            {tab === "ignored" && (
+              <IgnoredTab
+                entries={ignored.data}
+                onReactivate={async (id) => {
+                  await ignoredFoldersRemove(id).catch(() => {});
+                  ignored.refresh();
+                }}
+              />
+            )}
+            {tab === "power-user" && <PowerUserTab endpoint={endpoint} />}
+          </div>
         </div>
       </div>
-    </Modal>
+    </section>
   );
 }
 
@@ -135,7 +154,7 @@ function TabButton({
     <button
       onClick={onClick}
       aria-current={active ? "true" : undefined}
-      className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${
+      className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${
         active
           ? "bg-blue-100/70 dark:bg-blue-950/60 text-blue-900 dark:text-blue-100 font-semibold border-l-2 border-blue-600"
           : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 border-l-2 border-transparent"
@@ -146,7 +165,7 @@ function TabButton({
       </span>
       <span className="flex-1 truncate">{label}</span>
       {badge && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white font-semibold tabular-nums">
+        <span className="text-[11px] px-1.5 py-0.5 rounded bg-blue-600 text-white font-semibold tabular-nums">
           {badge}
         </span>
       )}
@@ -156,7 +175,7 @@ function TabButton({
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-2">
+    <h3 className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-2.5">
       {children}
     </h3>
   );

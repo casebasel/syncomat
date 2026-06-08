@@ -36,7 +36,7 @@ import { ConflictResolverModal } from "./components/ConflictResolverModal";
 import { DeviceDetailModal } from "./components/DeviceDetailModal";
 import { FolderErrorsModal } from "./components/FolderErrorsModal";
 import { FolderSettingsModal } from "./components/FolderSettingsModal";
-import { SettingsModal } from "./components/SettingsModal";
+import { SettingsPanel } from "./components/SettingsModal";
 import { UpdateBanner } from "./components/UpdateBanner";
 import {
   useFolderSettingsReplication,
@@ -66,7 +66,6 @@ type Modal =
   | { kind: "folder-errors"; folder: Folder }
   | { kind: "folder-settings"; folder: Folder }
   | { kind: "folder-conflicts"; folder: Folder }
-  | { kind: "settings" }
   | { kind: "device-detail"; deviceID: string };
 
 function App() {
@@ -230,6 +229,9 @@ function App() {
 
   const selectedFolder = folders.find((f) => f.id === selectedFolderId) ?? null;
   const showGlobalActivity = selectedFolderId === GLOBAL_ACTIVITY_KEY;
+  // Welle 1 Native-Redesign: Settings ist eine Inline-Ansicht im Hauptbereich,
+  // kein Overlay-Modal mehr. settingsOpen überlagert die Inspector/Activity-View.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const visiblePending = (pendingFolders.data ?? []).filter(
     (pf) => !ignored.isIgnored(pf.folderID),
   );
@@ -396,7 +398,7 @@ function App() {
             onCreateFolder={() => setModal({ kind: "create-folder" })}
             onShowCode={() => setModal({ kind: "code-show" })}
             onRedeemCode={() => setModal({ kind: "code-redeem" })}
-            onOpenSettings={() => setModal({ kind: "settings" })}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
         ) : (
           <>
@@ -423,7 +425,19 @@ function App() {
               pauseDates={pauseDates}
             />
 
-            {showGlobalActivity ? (
+            {settingsOpen ? (
+              <SettingsPanel
+                endpoint={endpoint}
+                status={status.data}
+                version={version}
+                updateState={updater.state}
+                onRecheckUpdates={updater.recheck}
+                onInstallUpdate={updater.installAndRestart}
+                notificationsEnabled={notifications.enabled}
+                onSetNotificationsEnabled={notifications.setEnabled}
+                onBack={() => setSettingsOpen(false)}
+              />
+            ) : showGlobalActivity ? (
               <GlobalActivityView
                 folders={folders}
                 onSelectFolder={(f) => setSelectedFolderId(f.id)}
@@ -466,9 +480,14 @@ function App() {
           />
         </div>
         <button
-          onClick={() => setModal({ kind: "settings" })}
+          onClick={() => setSettingsOpen((v) => !v)}
           title="Einstellungen"
-          className="px-3 flex items-center text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 border-l border-neutral-200 dark:border-neutral-800 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          aria-pressed={settingsOpen}
+          className={`px-3 flex items-center border-l border-neutral-200 dark:border-neutral-800 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
+            settingsOpen
+              ? "text-blue-600 dark:text-blue-400 bg-blue-500/10"
+              : "text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
+          }`}
         >
           <SettingsIcon className="size-3.5" />
         </button>
@@ -544,19 +563,6 @@ function App() {
           />
         );
       })()}
-      {modal?.kind === "settings" && (
-        <SettingsModal
-          endpoint={endpoint}
-          status={status.data}
-          version={version}
-          updateState={updater.state}
-          onRecheckUpdates={updater.recheck}
-          onInstallUpdate={updater.installAndRestart}
-          notificationsEnabled={notifications.enabled}
-          onSetNotificationsEnabled={notifications.setEnabled}
-          onClose={() => setModal(null)}
-        />
-      )}
       {modal?.kind === "create-folder" && (
         <CreateFolderModal
           endpoint={endpoint}
