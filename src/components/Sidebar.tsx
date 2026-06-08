@@ -57,6 +57,7 @@ export function Sidebar({
   onAddFolder,
   onShowCode,
   onRedeemCode,
+  onSelectDevice,
   pauseDates,
 }: {
   folders: Folder[];
@@ -75,6 +76,8 @@ export function Sidebar({
   onAddFolder: () => void;
   onShowCode: () => void;
   onRedeemCode: () => void;
+  /** Klick auf Geraet-Item öffnet Device-Detail-Modal. self device wird nicht durchgereicht. */
+  onSelectDevice: (d: Device) => void;
   /** Lokale Pause-Dates pro folderId → unixMs für "Pausiert seit X" labels */
   pauseDates: Record<string, number>;
 }) {
@@ -250,9 +253,11 @@ export function Sidebar({
           const conn = connections[p.deviceID];
           const online = !!conn?.connected;
           return (
-            <div
+            <button
               key={p.deviceID}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-md"
+              onClick={() => onSelectDevice(p)}
+              className="w-full flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none text-left"
+              title={`${p.name || p.deviceID.slice(0, 7)} — Details ansehen`}
             >
               <SyncStatusBadge state={online ? "synced" : "waiting-peer"} size="md" />
               <span
@@ -263,7 +268,7 @@ export function Sidebar({
               <span className="text-[10px] text-neutral-500 dark:text-neutral-500">
                 {online ? "online" : "offline"}
               </span>
-            </div>
+            </button>
           );
         })}
       </div>

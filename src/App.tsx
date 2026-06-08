@@ -33,6 +33,7 @@ import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { CodeShowModal } from "./components/CodeShowModal";
 import { CreateFolderModal } from "./components/CreateFolderModal";
 import { ConflictResolverModal } from "./components/ConflictResolverModal";
+import { DeviceDetailModal } from "./components/DeviceDetailModal";
 import { FolderErrorsModal } from "./components/FolderErrorsModal";
 import { FolderSettingsModal } from "./components/FolderSettingsModal";
 import { SettingsModal } from "./components/SettingsModal";
@@ -64,7 +65,8 @@ type Modal =
   | { kind: "folder-errors"; folder: Folder }
   | { kind: "folder-settings"; folder: Folder }
   | { kind: "folder-conflicts"; folder: Folder }
-  | { kind: "settings" };
+  | { kind: "settings" }
+  | { kind: "device-detail"; deviceID: string };
 
 function App() {
   // WebView2-Default-Shortcuts (Find/Print/Reload) blockieren — sonst
@@ -411,6 +413,9 @@ function App() {
               onAddFolder={() => setModal({ kind: "create-folder" })}
               onShowCode={() => setModal({ kind: "code-show" })}
               onRedeemCode={() => setModal({ kind: "code-redeem" })}
+              onSelectDevice={(d) =>
+                setModal({ kind: "device-detail", deviceID: d.deviceID })
+              }
               pauseDates={pauseDates}
             />
 
@@ -512,6 +517,24 @@ function App() {
           onClose={() => setModal(null)}
         />
       )}
+      {modal?.kind === "device-detail" && endpoint && (() => {
+        const device = devices.find((d) => d.deviceID === modal.deviceID);
+        if (!device) return null;
+        return (
+          <DeviceDetailModal
+            device={device}
+            endpoint={endpoint}
+            connection={connectionsByID[device.deviceID]}
+            folders={folders}
+            onClose={() => setModal(null)}
+            onRemoved={() => {
+              // Reconciliation entfernt das Gerät automatisch aus folder.devices
+              // beim nächsten Tick (config-watcher), nothing to do here.
+            }}
+            onSelectFolder={(f) => setSelectedFolderId(f.id)}
+          />
+        );
+      })()}
       {modal?.kind === "settings" && (
         <SettingsModal
           endpoint={endpoint}
