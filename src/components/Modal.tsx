@@ -8,6 +8,7 @@ export function Modal({
   dismissible = true,
   size = "default",
   noPadding = false,
+  footer,
 }: {
   title: string;
   children: ReactNode;
@@ -18,6 +19,8 @@ export function Modal({
   size?: "default" | "wide";
   /** Body ohne padding rendern — bei eigenen Layout-Containern */
   noPadding?: boolean;
+  /** Sticky footer am Boden (z.B. Save/Cancel + Meta). Body scrollt darüber. */
+  footer?: ReactNode;
 }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -104,6 +107,11 @@ export function Modal({
           )}
         </header>
         <div className={`${noPadding ? "" : "px-5 py-4"} overflow-y-auto flex-1`}>{children}</div>
+        {footer && (
+          <div className="border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 px-5 py-3 shrink-0">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

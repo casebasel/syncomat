@@ -201,22 +201,71 @@ export function FolderSettingsModal({
     );
   }
 
+  const footerNode = !confirmRemove ? (
+    <div className="flex items-center gap-3">
+      {meta && (
+        <span className="text-[10px] text-neutral-500 dark:text-neutral-500 truncate flex-1">
+          Geändert von{" "}
+          <span className="font-mono">{meta.updatedBy.slice(0, 7)}</span> ·{" "}
+          {fmtTime(meta.updatedAt)}
+        </span>
+      )}
+      {!meta && <span className="flex-1" />}
+      <button
+        onClick={onClose}
+        disabled={busy}
+        className="text-xs font-medium px-3 py-1.5 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 shrink-0"
+      >
+        Abbrechen
+      </button>
+      <button
+        onClick={save}
+        disabled={busy}
+        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+      >
+        {busy && <Loader2 className="size-3.5 animate-spin" />}
+        Speichern
+      </button>
+    </div>
+  ) : (
+    <div className="flex items-center gap-2 justify-end">
+      <button
+        onClick={() => {
+          setConfirmRemove(false);
+          setClusterWide(false);
+        }}
+        disabled={busy}
+        className="text-xs font-medium px-3 py-1.5 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+      >
+        Abbrechen
+      </button>
+      <button
+        onClick={remove}
+        disabled={busy}
+        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
+      >
+        {busy ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : (
+          <Trash2 className="size-3.5" />
+        )}
+        {clusterWide ? "Überall entfernen" : "Hier entfernen"}
+      </button>
+    </div>
+  );
+
   return (
     <Modal
       title={`Einstellungen — ${folder.label}`}
       onClose={onClose}
-      dismissible={!busy}
+      dismissible={!busy && !confirmRemove}
+      footer={footerNode}
     >
       <div className="space-y-4">
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          Diese Einstellungen werden über alle Geräte synchronisiert (via versteckter
-          Datei <code className="font-mono text-[10px]">.syncomat/folder-defaults.json</code> im Ordner).
-        </p>
-
         {/* Tags — kommen ueber dieselbe folder-defaults.json Replikation,
             damit Gruppierung auf allen Geraeten konsistent ist. */}
         <section>
-          <h3 className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1.5">
+          <h3 className="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-1.5">
             Tags
           </h3>
           <TagEditor
@@ -225,8 +274,7 @@ export function FolderSettingsModal({
             suggestions={tagSuggestions}
           />
           <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-1.5">
-            Tags gruppieren Folder in der Liste — die Gruppierung syncht
-            sich automatisch zu allen verbundenen Geräten.
+            Gruppieren Ordner in der Liste — synct automatisch zu allen Geräten.
           </p>
         </section>
 
@@ -268,14 +316,6 @@ export function FolderSettingsModal({
               className="w-24 px-2 py-1 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
             />
           </div>
-        )}
-
-        {meta && (
-          <p className="text-[11px] text-neutral-400 dark:text-neutral-500 pt-2 border-t border-neutral-200 dark:border-neutral-800">
-            Zuletzt geändert von <span className="font-mono">{meta.updatedBy.slice(0, 7)}</span>
-            {" · "}
-            {fmtTime(meta.updatedAt)}
-          </p>
         )}
 
         {/* Performance-Tuning für existierende Folders. Misst Größe + Workload-
@@ -373,27 +413,10 @@ export function FolderSettingsModal({
           <p className="text-xs text-rose-500 dark:text-rose-400 break-words">{error}</p>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            onClick={onClose}
-            disabled={busy}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          >
-            Abbrechen
-          </button>
-          <button
-            onClick={save}
-            disabled={busy}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5"
-          >
-            {busy && <Loader2 className="size-3.5 animate-spin" />}
-            Speichern
-          </button>
-        </div>
-
-        {/* Danger Zone */}
+        {/* Danger Zone — am Ende des scrollbaren Inhalts. Confirm-Dialog
+            ersetzt die ganze Section inline statt einen weiteren Modal-Push. */}
         {!confirmRemove ? (
-          <details className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-800">
+          <details className="mt-2 pt-3 border-t border-neutral-200 dark:border-neutral-800">
             <summary className="cursor-pointer text-xs text-rose-600 dark:text-rose-400 select-none hover:underline">
               Ordner-Verknüpfung entfernen
             </summary>
@@ -411,7 +434,7 @@ export function FolderSettingsModal({
             </button>
           </details>
         ) : (
-          <div className="mt-3 pt-3 border-t border-rose-300 dark:border-rose-500/40 space-y-3">
+          <div className="mt-2 pt-3 border-t border-rose-300 dark:border-rose-500/40 space-y-3">
             <div className="flex items-start gap-2">
               <AlertTriangle className="size-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
               <div className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">
@@ -452,30 +475,6 @@ export function FolderSettingsModal({
                 </p>
               </div>
             </label>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setConfirmRemove(false);
-                  setClusterWide(false);
-                }}
-                disabled={busy}
-                className="text-xs font-medium px-3 py-1.5 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                Abbrechen
-              </button>
-              <button
-                onClick={remove}
-                disabled={busy}
-                className="text-xs font-medium px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {busy ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="size-3.5" />
-                )}
-                {clusterWide ? "Überall entfernen" : "Hier entfernen"}
-              </button>
-            </div>
           </div>
         )}
       </div>
