@@ -36,3 +36,6 @@ src-tauri/target
 # is excluded for cleanliness.
 syncomat-updater.key
 syncomat-updater.key.pub
+
+# Wiki-Snapshot (generiert via /wiki-snapshot, gepushed an wiki.ca-se.ch — kein Repo-Asset)
+wiki-snapshot.md
