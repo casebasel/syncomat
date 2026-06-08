@@ -22,11 +22,13 @@ import {
 export function CreateFolderModal({
   endpoint,
   myDeviceId,
+  ready,
   onClose,
   onCreated,
 }: {
-  endpoint: Endpoint;
-  myDeviceId: string;
+  endpoint: Endpoint | null;
+  myDeviceId: string | null;
+  ready: boolean;
   onClose: () => void;
   onCreated?: (folder: Folder) => void;
 }) {
@@ -82,6 +84,10 @@ export function CreateFolderModal({
 
   const submit = async () => {
     if (!label.trim() || !path) return;
+    if (!endpoint || !myDeviceId) {
+      setError("Syncthing ist noch nicht bereit. Bitte einen Moment warten.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -126,6 +132,8 @@ export function CreateFolderModal({
     }
   };
 
+  const notReady = !ready || !endpoint || !myDeviceId;
+
   return (
     <Modal title="Neuen Ordner anlegen" onClose={onClose} dismissible={!busy}>
       <div className="space-y-4">
@@ -133,6 +141,15 @@ export function CreateFolderModal({
           Lege einen Ordner an, den du später per Einladungs-Code mit anderen
           Geräten teilen kannst.
         </p>
+        {notReady && (
+          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/40 text-[11px] text-amber-800 dark:text-amber-300">
+            <Loader2 className="size-3.5 animate-spin shrink-0 mt-0.5" />
+            <div>
+              Sync-Dienst startet noch. Du kannst den Ordner schon auswählen —
+              "Anlegen" funktioniert sobald die Verbindung steht.
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
@@ -258,7 +275,8 @@ export function CreateFolderModal({
           </button>
           <button
             onClick={submit}
-            disabled={!label.trim() || !path || busy || estimating}
+            disabled={!label.trim() || !path || busy || estimating || notReady}
+            title={notReady ? "Sync-Dienst startet noch…" : undefined}
             className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             {busy && <Loader2 className="size-3.5 animate-spin" />}

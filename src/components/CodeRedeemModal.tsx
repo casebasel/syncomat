@@ -221,6 +221,16 @@ export function CodeRedeemModal({
           </div>
         )}
 
+        {!ready && (
+          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/40 text-[11px] text-amber-800 dark:text-amber-300">
+            <Loader2 className="size-3.5 animate-spin shrink-0 mt-0.5" />
+            <div>
+              Sync-Dienst startet noch — der Einlösen-Button wird aktiv sobald
+              die Verbindung steht. Code kannst du schon eingeben.
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-end gap-2 pt-2">
           <button
             onClick={onClose}
@@ -231,6 +241,7 @@ export function CodeRedeemModal({
           <button
             onClick={submit}
             disabled={!code.trim() || !ready}
+            title={!ready ? "Sync-Dienst startet noch…" : undefined}
             className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             <ChevronRight className="size-3.5" />

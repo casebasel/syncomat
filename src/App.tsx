@@ -499,10 +499,11 @@ function App() {
           onClose={() => setModal(null)}
         />
       )}
-      {modal?.kind === "create-folder" && endpoint && myID && (
+      {modal?.kind === "create-folder" && (
         <CreateFolderModal
           endpoint={endpoint}
           myDeviceId={myID}
+          ready={ready}
           onClose={() => setModal(null)}
         />
       )}
