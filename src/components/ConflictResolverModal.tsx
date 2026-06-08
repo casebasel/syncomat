@@ -20,7 +20,7 @@ export function ConflictResolverModal({
   folderLabel: string;
   onClose: () => void;
 }) {
-  const { items, refresh } = useFolderConflicts(folderPath);
+  const { items, refresh } = useFolderConflicts(folderPath, { active: true });
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 

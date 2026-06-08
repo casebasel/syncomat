@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { Modal } from "./Modal";
 import { executeRedemption, isSuccess, type RedeemPhase } from "../lib/redeemFlow";
@@ -27,26 +27,23 @@ export function CodeRedeemModal({
   const [clipboardHint, setClipboardHint] = useState(false);
   const submittingRef = useRef(false);
 
-  // Auto-detect Code in Clipboard beim Öffnen.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const cb = await navigator.clipboard.readText();
-        if (cancelled) return;
-        if (cb.trim().startsWith("syncomat1.")) {
-          setCode(cb.trim());
-          setClipboardHint(true);
-          setTimeout(() => setClipboardHint(false), 4000);
-        }
-      } catch {
-        // Clipboard permission denied — ignore silently.
+  // Audit-Finding: Clipboard NICHT silent auto-lesen — das wäre ein Privacy-
+  // Bug (App schluckt potentiell Passwörter aus der Zwischenablage). Stattdessen
+  // expliziter "Aus Zwischenablage einfügen"-Button, getriggert durch User-Geste.
+  const pasteFromClipboard = async () => {
+    try {
+      const cb = await navigator.clipboard.readText();
+      if (cb.trim().startsWith("syncomat1.")) {
+        setCode(cb.trim());
+        setClipboardHint(true);
+        setTimeout(() => setClipboardHint(false), 4000);
+      } else {
+        setCode(cb.trim());
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    } catch (e) {
+      console.warn("clipboard read denied", e);
+    }
+  };
 
   // Live-Preview parsen (ohne HMAC-Verify) damit der User früh Feedback hat.
   const preview = parsePreview(code);
@@ -195,14 +192,25 @@ export function CodeRedeemModal({
             Code aus Zwischenablage übernommen
           </p>
         )}
-        <textarea
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          onBlur={(e) => setCode(e.target.value.trim())}
-          placeholder="syncomat1...."
-          rows={5}
-          className="w-full font-mono text-[11px] p-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 break-all resize-none focus:outline-none focus:border-blue-500"
-        />
+        <div className="relative">
+          <textarea
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            onBlur={(e) => setCode(e.target.value.trim())}
+            placeholder="syncomat1...."
+            rows={5}
+            className="w-full font-mono text-[11px] p-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 break-all resize-none focus:outline-none focus:border-blue-500"
+          />
+          {!code && (
+            <button
+              type="button"
+              onClick={pasteFromClipboard}
+              className="absolute right-2 top-2 text-[11px] px-2 py-1 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 bg-white/80 dark:bg-neutral-900/80"
+            >
+              Einfügen
+            </button>
+          )}
+        </div>
 
         {preview && (
           <div className="text-xs space-y-1 px-3 py-2 rounded-lg bg-neutral-50 dark:bg-neutral-950/60 border border-neutral-200 dark:border-neutral-800">

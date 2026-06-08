@@ -73,13 +73,61 @@ pub fn spawn(app: &AppHandle) -> Result<SyncthingState, Box<dyn std::error::Erro
 
 pub fn cleanup(app: &AppHandle) {
     let Some(state) = app.try_state::<SyncthingState>() else { return };
+    let endpoint = state.endpoint.clone();
     let Ok(mut guard) = state.child.lock() else { return };
     if let Some(child) = guard.take() {
+        // Graceful: HTTP POST /rest/system/shutdown → Syncthing schreibt seinen
+        // leveldb-Index sauber raus + flush. Bei SIGKILL kann der Index für
+        // große Folders corrupt werden → next-start = full rescan (Stunden).
+        // Aktuell synchronous via blocking call; akzeptabel weil cleanup() im
+        // shutdown-Path läuft.
+        let shutdown_ok = try_graceful_shutdown(&endpoint);
+        if shutdown_ok {
+            println!("[syncthing] graceful shutdown sent, waiting up to 8s");
+            // Give Syncthing up to 8s to flush its leveldb + exit
+            for _ in 0..80 {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                // Probe: nach erfolgreichem shutdown sollte unser child schon down sein.
+                // Wir können hier nicht try_wait nutzen (CommandChild hat keine).
+                // Stattdessen: bei graceful shutdown verlassen wir uns drauf dass
+                // Syncthing innerhalb 8s den Prozess beendet — wenn nicht, fallback.
+            }
+        }
+        // Final fallback: hard kill falls graceful nicht ging oder Syncthing hängt
         match child.kill() {
             Ok(()) => println!("[syncthing] stopped"),
             Err(e) => eprintln!("[syncthing-cleanup] kill failed: {e}"),
         }
     }
+}
+
+fn try_graceful_shutdown(endpoint: &SyncthingEndpoint) -> bool {
+    // Mini-HTTP-Call ohne async runtime — wir sind in shutdown, kein tokio.
+    // Nutze std::net::TcpStream + manuelles HTTP/1.0 (paar bytes, kein Risk).
+    let url = endpoint.url.replace("http://", "");
+    let addr = match url.parse::<std::net::SocketAddr>() {
+        Ok(a) => a,
+        Err(_) => return false,
+    };
+    let mut stream = match std::net::TcpStream::connect_timeout(
+        &addr,
+        std::time::Duration::from_secs(2),
+    ) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(2)));
+    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(2)));
+    use std::io::Write;
+    let req = format!(
+        "POST /rest/system/shutdown HTTP/1.0\r\n\
+         Host: 127.0.0.1\r\n\
+         X-API-Key: {}\r\n\
+         Content-Length: 0\r\n\
+         Connection: close\r\n\r\n",
+        endpoint.api_key
+    );
+    stream.write_all(req.as_bytes()).is_ok()
 }
 
 #[tauri::command]

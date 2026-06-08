@@ -1,5 +1,6 @@
 mod conflicts;
 mod folder_settings;
+mod folder_stats;
 mod ignored_folders;
 mod invites;
 mod sidecar;
@@ -117,6 +118,8 @@ pub fn run() {
             ignored_folders::ignored_folders_list,
             ignored_folders::ignored_folders_add,
             ignored_folders::ignored_folders_remove,
+            folder_stats::workload_detect,
+            folder_stats::folder_estimate_size,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

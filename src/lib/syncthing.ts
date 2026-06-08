@@ -43,7 +43,20 @@ export type Folder = {
   devices: { deviceID: DeviceID }[];
   versioning?: FolderVersioning;
   ignorePerms?: boolean;
+  /** WICHTIG: nicht setzen — Syncthing auto-detected pro folder.path.
+   * Hardcoded auf true bricht silent Windows-Peer-Sync (NTFS = case-insensitive). */
   caseSensitiveFS?: boolean;
+  /** Tuning-Felder für Unreal-Scale (siehe tuneFolderForSize) */
+  rescanIntervalS?: number;
+  fsWatcherEnabled?: boolean;
+  fsWatcherDelayS?: number;
+  blockPullOrder?: "standard" | "random" | "alphabetic" | "smallestFirst" | "largestFirst" | "oldestFirst" | "newestFirst" | "inOrder";
+  copiers?: number;
+  hashers?: number;
+  weakHashThresholdPct?: number;
+  maxConflicts?: number;
+  scanProgressIntervalS?: number;
+  minDiskFree?: { value: number; unit: string };
 };
 
 export type FolderError = { path: string; error: string };
@@ -158,8 +171,21 @@ export const scanFolder = (ep: Endpoint, id: FolderID) =>
     method: "POST",
   });
 
-export const scanAllFolders = (ep: Endpoint, folders: Folder[]) =>
-  Promise.all(folders.map((f) => scanFolder(ep, f.id)));
+/**
+ * Scan-all: sequential statt parallel. Bei Unreal-Scale (5+ Folders à 100k+
+ * Files) löst Promise.all gleichzeitig 5 Full-Tree-Hash-Scans aus → SSD-Queue
+ * voll, Syncomat-UI hängt mehrere Minuten. Sequential ist langsamer aber
+ * verhindert die DoS-Spirale.
+ */
+export const scanAllFolders = async (ep: Endpoint, folders: Folder[]) => {
+  for (const f of folders) {
+    try {
+      await scanFolder(ep, f.id);
+    } catch (e) {
+      console.warn(`[scan] folder ${f.id} failed:`, e);
+    }
+  }
+};
 
 export const deletePendingDevice = (ep: Endpoint, id: DeviceID) =>
   api<void>(ep, `/rest/cluster/pending/devices?device=${encodeURIComponent(id)}`, {
@@ -235,19 +261,84 @@ export const setFolderIgnores = (
   });
 
 /**
+ * Adaptive Folder-Tuning für Unreal-Scale: setzt rescanIntervalS, fsWatcher,
+ * Copiers/Hashers basierend auf Folder-Größe + Workload-Detection.
+ *
+ * Werte basieren auf Syncthing-Doku + Audit-Synthese; siehe Code-Review.
+ */
+export function tuneFolderForSize(
+  folder: Folder,
+  bytes: number,
+  files: number,
+  workload: string,
+): Folder {
+  const gb = bytes / (1024 * 1024 * 1024);
+  const isUnreal = workload === "unreal";
+  let rescanIntervalS: number;
+  let fsWatcherDelayS: number;
+  let copiers: number | undefined;
+  let hashers: number | undefined;
+  let maxConflicts: number;
+  if (gb >= 50) {
+    rescanIntervalS = 7200;
+    fsWatcherDelayS = isUnreal ? 30 : 15;
+    copiers = 2;
+    hashers = 4;
+    maxConflicts = 10;
+  } else if (gb >= 10) {
+    rescanIntervalS = 3600;
+    fsWatcherDelayS = isUnreal ? 15 : 10;
+    copiers = 2;
+    hashers = 4;
+    maxConflicts = 10;
+  } else if (gb >= 1) {
+    rescanIntervalS = 300;
+    fsWatcherDelayS = 5;
+    maxConflicts = 25;
+  } else {
+    rescanIntervalS = 60;
+    fsWatcherDelayS = 2;
+    maxConflicts = 25;
+  }
+  return {
+    ...folder,
+    fsWatcherEnabled: true,
+    fsWatcherDelayS,
+    rescanIntervalS,
+    copiers,
+    hashers,
+    maxConflicts,
+    scanProgressIntervalS: 5,
+    weakHashThresholdPct: isUnreal || files > 50_000 ? 0 : 25,
+    blockPullOrder: isUnreal ? "inOrder" : "standard",
+    // caseSensitiveFS NICHT setzen — auto-detect lassen
+  };
+}
+
+/**
  * Heuristik: ist der Fehler ein Windows-Namens-Problem (illegal char, reserved name)?
  * Syncthing-Fehlertexte sind keyword-basiert; wir fangen die häufigsten.
+ *
+ * VORSICHT: der naive Regex /[:?*<>|"]/ matched JEDE Go-Style-Fehlermeldung der
+ * Form "open /Users/marlon/x: permission denied" — die enthält IMMER einen :.
+ * Daher tighter check: keywords ODER illegale chars im FILE-NAME-Teil
+ * (nach dem letzten / oder \) — System-Pfad-Doppelpunkte ignorieren.
  */
 export function isWindowsNameError(err: string): boolean {
   const s = err.toLowerCase();
-  return (
-    s.includes("illegal") ||
+  const keyword =
+    s.includes("illegal name") ||
+    s.includes("illegal char") ||
     s.includes("invalid character") ||
     s.includes("invalid filename") ||
     s.includes("reserved name") ||
-    s.includes("invalid path") ||
-    /[:?*<>|"]/.test(err)
-  );
+    s.includes("invalid path");
+  if (keyword) return true;
+  // Extrahiere den Filename-Teil und checke ob DER illegale Chars hat.
+  // Filename = nach dem letzten Slash, vor dem ersten ":" oder " " (Go-Errors).
+  const slash = Math.max(err.lastIndexOf("/"), err.lastIndexOf("\\"));
+  const tail = err.slice(slash + 1).split(/[:\s]/)[0] ?? "";
+  return /[?*<>|"]/.test(tail) || /:.*[\\\/]/.test(tail);
 }
 
 // ============================================================
@@ -648,15 +739,32 @@ export function useAggregateStatus(
 
     refetch();
 
+    // Trailing-edge debounce: maxRate Refetch alle 1000ms — sonst löst Syncthing
+    // bei Unreal-Scale-Sync (500k Files × ItemFinished/sec) eine HTTP-Request-
+    // Flut von Promise.all-Refetches gegen sich selbst aus. Plus: ItemFinished
+    // komplett ignorieren — wir verlassen uns auf FolderSummary (Syncthing
+    // emittiert es ca. alle 2-3s während Sync läuft).
+    let scheduledTimer: ReturnType<typeof setTimeout> | null = null;
+    const REFETCH_THROTTLE_MS = 1000;
+    const scheduleRefetch = (immediate = false) => {
+      if (scheduledTimer) clearTimeout(scheduledTimer);
+      scheduledTimer = setTimeout(
+        () => {
+          scheduledTimer = null;
+          void refetch();
+        },
+        immediate ? 0 : REFETCH_THROTTLE_MS,
+      );
+    };
+
     const handler: EventHandler = (e) => {
-      if (
-        e.type === "FolderSummary" ||
-        e.type === "FolderErrors" ||
-        e.type === "StateChanged" ||
-        e.type === "ConfigSaved" ||
-        e.type === "ItemFinished"
-      ) {
-        refetch();
+      // ConfigSaved + FolderErrors → sofort refetch (config-relevant)
+      // FolderSummary + StateChanged → debounced refetch
+      // ItemFinished → IGNORE (kann tausendfach pro Sekunde feuern)
+      if (e.type === "ConfigSaved" || e.type === "FolderErrors") {
+        scheduleRefetch(true);
+      } else if (e.type === "FolderSummary" || e.type === "StateChanged") {
+        scheduleRefetch(false);
       }
     };
     bus.add(handler);
@@ -664,6 +772,7 @@ export function useAggregateStatus(
     return () => {
       cancelled = true;
       bus.remove(handler);
+      if (scheduledTimer) clearTimeout(scheduledTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ep?.url, ep?.api_key, ready, ids]);

@@ -37,12 +37,59 @@ export const conflictsKeepBoth = (
 ) =>
   invoke<string>("conflicts_keep_both", { folderPath, conflictRel, peerFragment });
 
-// ── Hook: pro Folder die Liste der Konflikte mit Polling alle 60s ──
+// ── Modul-level Cache + Request-Coalescing ──
+//
+// Vor v0.1.13: jede LinkedFolderCard hatte ihren eigenen WalkDir-Poll alle 60s.
+// Bei 5 Folders × 100k Files = 500k stat-calls/min — Audit-Top-Finding.
+// Jetzt: ein einziger WalkDir pro folderPath, gecached 60s, geteilt zwischen
+// FolderCard-Hooks und ConflictResolverModal.
 
-export function useFolderConflicts(folderPath: string | null) {
+type CacheEntry = { items: ConflictItem[]; at: number };
+const conflictCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 60_000;
+const pendingFetches = new Map<string, Promise<ConflictItem[]>>();
+
+async function fetchConflictsCoalesced(folderPath: string): Promise<ConflictItem[]> {
+  const existing = conflictCache.get(folderPath);
+  if (existing && Date.now() - existing.at < CACHE_TTL_MS) {
+    return existing.items;
+  }
+  const inflight = pendingFetches.get(folderPath);
+  if (inflight) return inflight;
+  const promise = conflictsList(folderPath)
+    .then((items) => {
+      conflictCache.set(folderPath, { items, at: Date.now() });
+      pendingFetches.delete(folderPath);
+      return items;
+    })
+    .catch((e) => {
+      pendingFetches.delete(folderPath);
+      throw e;
+    });
+  pendingFetches.set(folderPath, promise);
+  return promise;
+}
+
+/** Manuell den Cache invalidieren — z.B. nach keep_local/take_remote */
+export function invalidateConflictCache(folderPath: string) {
+  conflictCache.delete(folderPath);
+}
+
+// ── Hook: pro Folder die Liste der Konflikte ──
+//
+// "active" mode: nur ConflictResolverModal setzt active=true. FolderCards
+// pollen im sparsam-Modus (5 Min statt 60s) — bei Unreal-Scale ist Conflict-
+// Detection nichts was öfter passieren muss als alle paar Minuten.
+
+export function useFolderConflicts(
+  folderPath: string | null,
+  options: { active?: boolean } = {},
+) {
   const [items, setItems] = useState<ConflictItem[] | null>(null);
   const [tick, setTick] = useState(0);
   const lastFetchRef = useRef(0);
+  const active = options.active ?? false;
+  const intervalMs = active ? 60_000 : 5 * 60_000;
 
   useEffect(() => {
     if (!folderPath) {
@@ -52,22 +99,25 @@ export function useFolderConflicts(folderPath: string | null) {
     let cancelled = false;
     const fetchOnce = () => {
       lastFetchRef.current = Date.now();
-      conflictsList(folderPath)
+      fetchConflictsCoalesced(folderPath)
         .then((data) => !cancelled && setItems(data))
         .catch(() => !cancelled && setItems([]));
     };
     fetchOnce();
-    const id = setInterval(fetchOnce, 60_000);
+    const id = setInterval(fetchOnce, intervalMs);
     return () => {
       cancelled = true;
       clearInterval(id);
     };
-  }, [folderPath, tick]);
+  }, [folderPath, tick, intervalMs]);
 
   return {
     items,
     count: items?.length ?? 0,
-    refresh: () => setTick((t) => t + 1),
+    refresh: () => {
+      if (folderPath) invalidateConflictCache(folderPath);
+      setTick((t) => t + 1);
+    },
   };
 }
 

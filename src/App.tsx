@@ -200,9 +200,9 @@ function App() {
         { deviceID: myID },
         ...offerers.map((deviceID) => ({ deviceID })),
       ],
-      // Briefing §4: Case-Erkennung anlassen damit zwei Files die sich nur in
-      // der Schreibweise unterscheiden nicht auf case-insensitive FS kollidieren.
-      caseSensitiveFS: true,
+      // caseSensitiveFS bewusst NICHT setzen — Syncthing auto-detected pro
+      // folder.path. Hardcoded:true bricht silent den Sync mit Windows-Peers
+      // (NTFS = case-insensitive), siehe Audit-Finding.
     };
     await putFolder(endpoint, folder);
   };

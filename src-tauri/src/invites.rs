@@ -43,6 +43,12 @@ struct StoreFile {
     invites: Vec<ActiveInvite>,
     /// Code-IDs that this device has redeemed locally (replay protection on redeemer side).
     consumed_codes: Vec<String>,
+    /// Map von consumed-code-ID auf consumed_at unix-time. Brauchen wir damit
+    /// wir nach Invite-MAX_EXPIRY (30 Tage) Codes purgen können — vorher
+    /// hatten wir nur die naked-Vec mit truncate auf 200, das war single-use-
+    /// Bypass-fähig bei vielen Pairings. Jetzt: kein truncate, dafür TTL.
+    #[serde(default)]
+    consumed_at: std::collections::HashMap<String, i64>,
 }
 
 impl Default for StoreFile {
@@ -52,6 +58,7 @@ impl Default for StoreFile {
             issuer_secret: generate_secret_base64url(),
             invites: Vec::new(),
             consumed_codes: Vec::new(),
+            consumed_at: std::collections::HashMap::new(),
         }
     }
 }
@@ -354,11 +361,9 @@ pub fn invite_consume_once(
             if store.consumed_codes.contains(&id) {
                 return Ok(false);
             }
-            store.consumed_codes.push(id);
-            if store.consumed_codes.len() > 200 {
-                let drop = store.consumed_codes.len() - 200;
-                store.consumed_codes.drain(0..drop);
-            }
+            store.consumed_codes.push(id.clone());
+            store.consumed_at.insert(id, now_unix());
+            // KEIN truncate mehr — purge_expired räumt anhand TTL auf
             Ok(true)
         })
         .map_err(|e| e.to_string())
@@ -374,6 +379,7 @@ pub fn invite_release_consumed(
     state
         .with_save(|store| {
             store.consumed_codes.retain(|x| x != &id);
+            store.consumed_at.remove(&id);
             Ok(())
         })
         .map_err(|e| e.to_string())
@@ -383,6 +389,11 @@ pub fn invite_release_consumed(
 pub fn invite_purge_expired(state: tauri::State<'_, InviteStore>) -> Result<u32, String> {
     let now = now_unix();
     let cutoff = now - 7 * 24 * 3600;
+    // Consumed-Codes-TTL: 90 Tage. Auch wenn die original invite_expiry typisch
+    // <= 30 Tage ist, give us a safety margin (Clock-Skew, manually-issued
+    // codes mit langer Expiry). Replay-Schutz bleibt voll erhalten solange
+    // ein Code in store.consumed_codes ist.
+    let consumed_cutoff = now - 90 * 24 * 3600;
     state
         .with_save(|store| {
             let before = store.invites.len();
@@ -390,6 +401,17 @@ pub fn invite_purge_expired(state: tauri::State<'_, InviteStore>) -> Result<u32,
                 InviteStatus::Pending => i.expires_at > now,
                 InviteStatus::Redeemed { at, .. } | InviteStatus::Revoked { at } => *at > cutoff,
             });
+            // Consumed-codes purgen — TTL-basiert statt naked truncate
+            let expired_ids: Vec<String> = store
+                .consumed_at
+                .iter()
+                .filter(|(_, at)| **at < consumed_cutoff)
+                .map(|(id, _)| id.clone())
+                .collect();
+            for id in &expired_ids {
+                store.consumed_at.remove(id);
+            }
+            store.consumed_codes.retain(|c| !expired_ids.contains(c));
             Ok((before - store.invites.len()) as u32)
         })
         .map_err(|e| e.to_string())

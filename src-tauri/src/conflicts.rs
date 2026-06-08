@@ -3,7 +3,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
 /// Syncthing nennt Conflict-Files nach diesem Schema:
 ///   <original>.sync-conflict-YYYYMMDD-HHMMSS-<DEVICE_FRAGMENT>.<ext>
@@ -11,6 +11,44 @@ use walkdir::WalkDir;
 /// Beispiel: `Notes.sync-conflict-20260608-090000-WINDEVID.md`
 /// Wir parsen Original-Name + Peer-Fragment + Timestamp wieder raus.
 const CONFLICT_MARKER: &str = ".sync-conflict-";
+
+/// Subtrees die wir NIE walken — sind dev-/build-artefakt-Verzeichnisse
+/// in denen niemals Konflikt-Files auftauchen sollten. Pruning hier rettet
+/// Unreal-Projekte mit DerivedDataCache (10-50GB) + Intermediate (100k+ Files)
+/// vor 60s-Polling-Crashes.
+const PRUNE_DIRS: &[&str] = &[
+    "DerivedDataCache",
+    "Intermediate",
+    "Saved",
+    "Binaries",
+    "Build",
+    ".git",
+    "node_modules",
+    ".stversions",
+    ".stfolder",
+    "target",
+    ".vs",
+    ".vscode",
+    ".idea",
+    "__pycache__",
+    ".next",
+    "dist",
+    "build",
+];
+
+/// Hard-Cap auf scanned entries pro list-call. Schützt UI-Thread auch wenn
+/// Pruning versagt (z.B. flacher Folder mit Millionen Files).
+const MAX_SCAN_ENTRIES: usize = 100_000;
+
+fn is_pruned(entry: &DirEntry) -> bool {
+    if entry.depth() == 0 {
+        return false; // root nie prunen
+    }
+    match entry.file_name().to_str() {
+        Some(name) => PRUNE_DIRS.iter().any(|p| name.eq_ignore_ascii_case(p)),
+        None => false,
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ConflictItem {
@@ -77,21 +115,40 @@ fn file_meta(path: &Path) -> (u64, i64) {
     (size, mtime)
 }
 
+/// Walks subtree on a blocking thread (so es UI-Tasks nicht blockt) und sammelt
+/// Conflict-Files. Prunt dev-Artefakt-Verzeichnisse (siehe PRUNE_DIRS), nutzt
+/// same_file_system um nicht in gemountete Volumes zu wandern, und stoppt
+/// hart bei MAX_SCAN_ENTRIES als Sicherheitsnetz.
 #[tauri::command]
-pub fn conflicts_list(folder_path: String) -> Result<Vec<ConflictItem>, String> {
-    let root = Path::new(&folder_path);
+pub async fn conflicts_list(folder_path: String) -> Result<Vec<ConflictItem>, String> {
+    tauri::async_runtime::spawn_blocking(move || conflicts_list_blocking(&folder_path))
+        .await
+        .map_err(|e| format!("join error: {e}"))?
+}
+
+fn conflicts_list_blocking(folder_path: &str) -> Result<Vec<ConflictItem>, String> {
+    let root = Path::new(folder_path);
     if !root.exists() || !root.is_dir() {
         return Err(format!("folder does not exist: {folder_path}"));
     }
 
     let mut items: Vec<ConflictItem> = Vec::new();
+    let mut scanned: usize = 0;
 
-    for entry in WalkDir::new(root)
+    let walker = WalkDir::new(root)
         .follow_links(false)
-        .max_depth(20)
+        .same_file_system(true)
+        .max_depth(30)
         .into_iter()
-        .filter_map(|e| e.ok())
-    {
+        .filter_entry(|e| !is_pruned(e));
+
+    for entry in walker.filter_map(|e| e.ok()) {
+        scanned += 1;
+        if scanned >= MAX_SCAN_ENTRIES {
+            // Sicherheits-Cap: Walk abbrechen damit UI nicht stehen bleibt.
+            // Bei Unreal-Scale sollte Pruning das verhindern, aber Belt+Suspenders.
+            break;
+        }
         if !entry.file_type().is_file() {
             continue;
         }
@@ -99,6 +156,7 @@ pub fn conflicts_list(folder_path: String) -> Result<Vec<ConflictItem>, String> 
             Some(s) => s,
             None => continue,
         };
+        // Cheap-check VOR allocs: contains-Test auf dem &str slice, keine PathBuf-Allocation.
         if !file_name.contains(CONFLICT_MARKER) {
             continue;
         }
@@ -151,6 +209,32 @@ fn resolve_path(folder_path: &str, rel: &str) -> Result<PathBuf, String> {
     Ok(target_canon)
 }
 
+/// Wie resolve_path, aber für Pfade die noch nicht existieren (z.B. rename-destination).
+/// Canonicalisiert das Parent-Dir + joined Filename, prüft starts_with(root).
+fn resolve_path_for_create(folder_path: &str, rel: &str) -> Result<PathBuf, String> {
+    let root = Path::new(folder_path).canonicalize().map_err(|e| e.to_string())?;
+    let target = root.join(rel);
+    let parent = target
+        .parent()
+        .ok_or_else(|| "no parent dir".to_string())?;
+    let parent_canon = parent.canonicalize().map_err(|e| e.to_string())?;
+    if !parent_canon.starts_with(&root) {
+        return Err("path traversal blocked".into());
+    }
+    let file_name = target
+        .file_name()
+        .ok_or_else(|| "missing filename".to_string())?;
+    // Reject obvious ../, absolute, or null bytes in the rel
+    let rel_str = rel.replace('\\', "/");
+    if rel_str.contains("/../") || rel_str.starts_with("../") || rel_str.contains('\0') {
+        return Err("path traversal blocked".into());
+    }
+    if Path::new(rel).is_absolute() {
+        return Err("absolute path not allowed".into());
+    }
+    Ok(parent_canon.join(file_name))
+}
+
 /// "Lokale Version behalten" → löscht NUR die Konflikt-Datei.
 /// Die Original-Datei bleibt unverändert, wird beim nächsten Sync mit dem Peer abgeglichen.
 #[tauri::command]
@@ -168,9 +252,18 @@ pub fn conflicts_take_remote(
     original_rel: String,
 ) -> Result<(), String> {
     let conflict_path = resolve_path(&folder_path, &conflict_rel)?;
-    let original_path = Path::new(&folder_path).join(&original_rel);
-    // fs::rename ersetzt das Ziel falls vorhanden (auf den meisten FS).
-    fs::rename(&conflict_path, &original_path).map_err(|e| format!("rename: {e}"))
+    // Destination wird durch rename neu erstellt — daher resolve_path_for_create
+    // statt resolve_path. Schliesst Path-Traversal-Hole via crafted original_rel.
+    let original_path = resolve_path_for_create(&folder_path, &original_rel)?;
+    // fs::rename ist cross-volume-unsafe (ERROR_NOT_SAME_DEVICE auf Windows mit
+    // Junction-Points / SMB). Fallback: copy + delete.
+    match fs::rename(&conflict_path, &original_path) {
+        Ok(()) => Ok(()),
+        Err(_) => {
+            fs::copy(&conflict_path, &original_path).map_err(|e| format!("copy: {e}"))?;
+            fs::remove_file(&conflict_path).map_err(|e| format!("delete-after-copy: {e}"))
+        }
+    }
 }
 
 /// "Beide behalten" → benennt die Konflikt-Datei um in einen menschen-lesbaren Namen.
@@ -217,6 +310,10 @@ pub fn conflicts_keep_both(
         }
     }
 
-    fs::rename(&conflict_path, &candidate).map_err(|e| format!("rename: {e}"))?;
+    // Auch hier cross-volume-fallback (siehe conflicts_take_remote).
+    if let Err(_) = fs::rename(&conflict_path, &candidate) {
+        fs::copy(&conflict_path, &candidate).map_err(|e| format!("copy: {e}"))?;
+        fs::remove_file(&conflict_path).map_err(|e| format!("delete-after-copy: {e}"))?;
+    }
     Ok(candidate.to_string_lossy().to_string())
 }
