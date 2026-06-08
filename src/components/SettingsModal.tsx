@@ -4,6 +4,7 @@ import {
   Bell,
   CheckCircle2,
   Copy,
+  Download,
   ExternalLink,
   FolderX,
   Info,
@@ -24,6 +25,7 @@ export function SettingsModal({
   version,
   updateState,
   onRecheckUpdates,
+  onInstallUpdate,
   notificationsEnabled,
   onSetNotificationsEnabled,
   onClose,
@@ -33,6 +35,7 @@ export function SettingsModal({
   version: string | null;
   updateState: UpdateState;
   onRecheckUpdates: () => void;
+  onInstallUpdate: () => void;
   notificationsEnabled: boolean;
   onSetNotificationsEnabled: (v: boolean) => void;
   onClose: () => void;
@@ -90,6 +93,7 @@ export function SettingsModal({
               updateState={updateState}
               version={version}
               onRecheck={onRecheckUpdates}
+              onInstall={onInstallUpdate}
             />
           )}
           {tab === "notifications" && (
@@ -223,12 +227,17 @@ function UpdatesTab({
   updateState,
   version,
   onRecheck,
+  onInstall,
 }: {
   updateState: UpdateState;
   version: string | null;
   onRecheck: () => void;
+  onInstall: () => void;
 }) {
   const checking = updateState.kind === "checking";
+  const available = updateState.kind === "available";
+  const downloading = updateState.kind === "downloading";
+  const ready = updateState.kind === "ready";
   const statusText = (() => {
     switch (updateState.kind) {
       case "checking":
@@ -240,9 +249,11 @@ function UpdatesTab({
       case "error":
         return updateState.message;
       case "downloading":
-        return "Lade…";
+        return updateState.total
+          ? `Lade… ${Math.round((updateState.downloaded / updateState.total) * 100)} %`
+          : "Lade…";
       case "ready":
-        return "Update bereit";
+        return "Update bereit — App startet neu…";
       default:
         return "Bereit zum Prüfen";
     }
@@ -250,28 +261,71 @@ function UpdatesTab({
   const tone =
     updateState.kind === "error"
       ? "text-rose-500 dark:text-rose-400"
-      : updateState.kind === "available"
+      : available
         ? "text-blue-600 dark:text-blue-400 font-medium"
         : "text-neutral-500 dark:text-neutral-400";
 
   return (
     <div className="space-y-3">
       <SectionHeading>Aktualisierung</SectionHeading>
-      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40">
-        <div className="text-xs min-w-0">
-          <div className="text-neutral-900 dark:text-neutral-100">
-            Installiert: <span className="font-mono">v{version ?? "?"}</span>
+      <div className="px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs min-w-0">
+            <div className="text-neutral-900 dark:text-neutral-100">
+              Installiert: <span className="font-mono">v{version ?? "?"}</span>
+            </div>
+            <div className={`mt-0.5 truncate ${tone}`}>{statusText}</div>
           </div>
-          <div className={`mt-0.5 truncate ${tone}`}>{statusText}</div>
+          {!available && !downloading && !ready && (
+            <button
+              onClick={onRecheck}
+              disabled={checking}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+            >
+              <RefreshCw className={`size-3.5 ${checking ? "animate-spin" : ""}`} />
+              Prüfen
+            </button>
+          )}
         </div>
-        <button
-          onClick={onRecheck}
-          disabled={checking}
-          className="text-xs font-medium px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 flex items-center gap-1.5 shrink-0 ml-3"
-        >
-          <RefreshCw className={`size-3.5 ${checking ? "animate-spin" : ""}`} />
-          Prüfen
-        </button>
+
+        {/* Download-Progress-Bar wenn downloading */}
+        {downloading && updateState.total && (
+          <div className="mt-2 h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
+            <div
+              className="h-full bg-blue-600 transition-all duration-150 ease-out"
+              style={{
+                width: `${Math.min(100, Math.round((updateState.downloaded / updateState.total) * 100))}%`,
+              }}
+            />
+          </div>
+        )}
+
+        {/* Install-Action wenn Update verfügbar */}
+        {available && (
+          <div className="flex gap-2 mt-2.5">
+            <button
+              onClick={onInstall}
+              className="flex-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            >
+              <Download className="size-3.5" />
+              v{updateState.update.version} installieren
+            </button>
+            <button
+              onClick={onRecheck}
+              className="text-xs px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300"
+              title="Erneut prüfen"
+            >
+              <RefreshCw className="size-3.5" />
+            </button>
+          </div>
+        )}
+
+        {downloading && (
+          <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+            <Loader2 className="size-3 animate-spin" /> App startet nach Download
+            automatisch neu
+          </div>
+        )}
       </div>
       <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
         Automatischer Check alle 6 Stunden. Updates werden mit

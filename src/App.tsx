@@ -513,6 +513,7 @@ function App() {
           version={version}
           updateState={updater.state}
           onRecheckUpdates={updater.recheck}
+          onInstallUpdate={updater.installAndRestart}
           notificationsEnabled={notifications.enabled}
           onSetNotificationsEnabled={notifications.setEnabled}
           onClose={() => setModal(null)}
