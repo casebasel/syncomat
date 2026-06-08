@@ -2,7 +2,7 @@
 
 Was als nächstes ansteht. Strikt sortiert: oben = bald, unten = vielleicht/später.
 
-## 🔴 Look & Feel — weg vom Web-App-Gefühl (Marlons Kernkritik)
+## 🟡 Look & Feel — weg vom Web-App-Gefühl (Marlons Kernkritik) — GRÖSSTENTEILS ERLEDIGT
 
 **Marlons Originaltext (2026-06-09):**
 
@@ -10,20 +10,20 @@ Was als nächstes ansteht. Strikt sortiert: oben = bald, unten = vielleicht/spä
 > door, häufig haben die funktionen nicht richtig platz, alles ist viel zu eng
 > man muss scrollen und so , das ist scheisse
 
-**Konkret anzugehen:**
-- Fühlt sich an wie eine Web-App, nicht wie eine native Mac/Windows-App
-- Funktionen haben oft nicht richtig Platz → alles zu eng
-- Zu viel Scrollen für Dinge die auf einen Screen passen sollten
-- Modals quetschen Inhalt in zu wenig Raum (Settings, Folder-Settings)
+**Erledigt im Native-Redesign (v0.6.0–v0.8.0):**
+- ✅ Welle 1 (v0.6.0): native Schriftstack + antialiasing + dezente Scrollbars,
+  +3% luftiger, user-select aus (App-Verhalten), Settings als Inline-Ansicht
+- ✅ Welle 2 (v0.7.0): Ordner-Anlegen, Code-Anzeigen/Einlösen, Folder-Settings
+  → Inline-Panels (PanelShell mit „Zurück"-Header)
+- ✅ Welle 3 (v0.8.0): Konflikt-Auflöser, Datei-Fehler, Geräte-Detail,
+  Ordner-Verknüpfen → inline. Modal.tsx gelöscht — KEINE Overlay-Modals mehr.
 
-**Richtung (noch zu shapen):**
-- Native-App-Look statt Card-im-Browser-Look
-- Mehr Raum pro Funktion, weniger Scroll-Zwang — Modals breiter/höher oder
-  ganz durch eingebettete Panels ersetzen statt Overlay-Dialoge
-- Größere Default-Fenstergröße + bessere Nutzung der Breite
-- Ggf. komplett raus aus dem „alles ist ein Modal"-Pattern → Inhalte direkt
-  im Inspector statt im Popup
-- `/impeccable` Redesign-Runde gezielt auf „native, luftig, kein Web-Feel"
+**Noch offen (optional, separat):**
+- Frameless native Toolbar: macOS `titleBarStyle: Overlay` (native Ampel-
+  Buttons + verschmolzene Titelleiste/Toolbar), Drag-Region, links-Padding
+  unter den Ampeln. OS-Window-Chrome-Arbeit — riskanter, braucht Test auf
+  beiden OS. Windows behält Standard-Titelleiste (kein Ampel-Äquivalent).
+- Feinschliff Spacing falls nach Nutzung noch Stellen zu eng wirken.
 
 ## Bekannte Bugs (zuerst fixen)
 
