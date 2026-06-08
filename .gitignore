@@ -28,3 +28,9 @@ src-tauri/binaries/syncthing-*
 
 # Rust build artifacts (also covered by src-tauri/.gitignore, listed here for clarity)
 src-tauri/target
+
+# Tauri Updater signing keys — private key MUST NOT be committed.
+# Public .pub is in tauri.conf.json (safe to commit), but the raw .pub file
+# is excluded for cleanliness.
+syncomat-updater.key
+syncomat-updater.key.pub

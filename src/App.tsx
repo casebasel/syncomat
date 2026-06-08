@@ -27,7 +27,9 @@ import { CodeShowModal } from "./components/CodeShowModal";
 import { FolderErrorsModal } from "./components/FolderErrorsModal";
 import { FolderSettingsModal } from "./components/FolderSettingsModal";
 import { TransferRatePill } from "./components/TransferRatePill";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { useFolderSettingsReplication } from "./lib/folderSettings";
+import { useUpdater } from "./lib/updater";
 import { DeviceRow } from "./components/DeviceRow";
 import { EmptyState } from "./components/EmptyState";
 import { FolderList } from "./components/FolderList";
@@ -59,6 +61,8 @@ function App() {
   const aggregate = useAggregateStatus(endpoint, ready, folders);
   const rate = useTransferRate(endpoint, ready);
   useFolderSettingsReplication(endpoint, ready, folders, myID);
+  const updater = useUpdater(true);
+  const [updateDismissed, setUpdateDismissed] = useState(false);
 
   const [modal, setModal] = useState<Modal>(null);
   const [scanning, setScanning] = useState(false);
@@ -188,6 +192,14 @@ function App() {
               visible={true}
             />
           </div>
+        )}
+
+        {!updateDismissed && (
+          <UpdateBanner
+            state={updater.state}
+            onInstall={updater.installAndRestart}
+            onDismiss={() => setUpdateDismissed(true)}
+          />
         )}
 
         {isFirstRun && !forceMain ? (
