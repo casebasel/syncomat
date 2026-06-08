@@ -476,6 +476,10 @@ function App() {
           endpoint={endpoint}
           folder={modal.folder}
           myDeviceId={myID}
+          peers={peers.map((p) => ({
+            deviceID: p.deviceID,
+            name: p.name || p.deviceID.slice(0, 7),
+          }))}
           onClose={() => setModal(null)}
           onRemoved={() => ignored.refresh()}
         />
@@ -504,6 +508,10 @@ function App() {
           endpoint={endpoint}
           myDeviceId={myID}
           ready={ready}
+          peers={peers.map((p) => ({
+            deviceID: p.deviceID,
+            name: p.name || p.deviceID.slice(0, 7),
+          }))}
           onClose={() => setModal(null)}
         />
       )}

@@ -23,12 +23,16 @@ export function CreateFolderModal({
   endpoint,
   myDeviceId,
   ready,
+  peers,
   onClose,
   onCreated,
 }: {
   endpoint: Endpoint | null;
   myDeviceId: string | null;
   ready: boolean;
+  /** Alle bekannten Peers (Geräte ausser self). Wird in folder.devices
+   * aufgenommen damit neue Folders Auto-Share-on-Pair-konform sind. */
+  peers: { deviceID: string; name: string }[];
   onClose: () => void;
   onCreated?: (folder: Folder) => void;
 }) {
@@ -91,6 +95,11 @@ export function CreateFolderModal({
     setBusy(true);
     setError(null);
     try {
+      // Auto-Share-on-Create: alle bekannten Peers werden automatisch in
+      // folder.devices aufgenommen. Ohne das müsste der User nach jedem
+      // Folder-Anlegen manuell Sharing eintragen — und das macht keiner.
+      // Marlons Concept-Default 'Resilio-Style': alle meine Geräte sehen
+      // sich gegenseitig + alles wird automatisch geteilt.
       let folder: Folder = {
         // Syncthing erwartet eine String-ID; UUID ist kollisionsfrei.
         id: crypto.randomUUID(),
@@ -98,7 +107,10 @@ export function CreateFolderModal({
         path,
         type: "sendreceive",
         paused: false,
-        devices: [{ deviceID: myDeviceId }],
+        devices: [
+          { deviceID: myDeviceId },
+          ...peers.map((p) => ({ deviceID: p.deviceID })),
+        ],
         // caseSensitiveFS NICHT setzen — Syncthing auto-detected pro path.
         // Hardcoded:true bricht Windows-Peer-Sync silent (NTFS = case-insensitive).
       };
@@ -187,7 +199,9 @@ export function CreateFolderModal({
           </button>
           {path && !estimate && !estimating && (
             <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-1">
-              Existierende Dateien werden mitgesynct sobald ein Peer dazukommt.
+              {peers.length === 0
+                ? "Existierende Dateien werden mitgesynct sobald ein Peer dazukommt."
+                : `Wird automatisch mit ${peers.length} Gerät${peers.length === 1 ? "" : "en"} geteilt (${peers.map((p) => p.name || p.deviceID.slice(0, 7)).join(", ")}).`}
             </p>
           )}
         </div>
