@@ -215,7 +215,7 @@ export function CodeShowModal({
             </div>
           </div>
           <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            Wenn ja: alle deine Ordner werden mit dem Gerät geteilt (Resilio-Stil).
+            Alle deine Ordner werden mit dem Gerät geteilt.
           </p>
           {error && (
             <p className="text-xs text-rose-500 dark:text-rose-400 break-words">{error}</p>
@@ -244,7 +244,7 @@ export function CodeShowModal({
               disabled={busy}
               className="text-xs font-medium px-3 py-1.5 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
-              Nein, ignorieren
+              Ablehnen
             </button>
             <button
               onClick={acceptIncoming}
@@ -252,7 +252,7 @@ export function CodeShowModal({
               className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5"
             >
               {busy && <Loader2 className="size-3.5 animate-spin" />}
-              Ja, annehmen
+              Annehmen
             </button>
           </div>
         </div>
@@ -312,7 +312,7 @@ export function CodeShowModal({
             </div>
           </div>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 pt-2">
-            Lass dieses Fenster offen — sobald das andere Gerät den Code einlöst, melde ich mich.
+            Lass dieses Fenster offen — sobald das andere Gerät den Code einlöst, erscheint hier der nächste Schritt.
           </p>
         </div>
       </Modal>

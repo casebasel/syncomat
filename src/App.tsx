@@ -23,6 +23,7 @@ import {
 import { invitePurgeExpired } from "./lib/invitesStore";
 import { useIgnoredFolders } from "./lib/ignored";
 import { useFolderTags } from "./lib/tags";
+import { usePauseDates } from "./lib/pauseDates";
 import {
   useNotificationTriggers,
   useNotificationsEnabled,
@@ -90,6 +91,7 @@ function App() {
   );
   const ignored = useIgnoredFolders();
   const tags = useFolderTags(folders);
+  const pauseDates = usePauseDates(folders);
   const tagsByFolderID = tags.byID;
   // Alle existierenden Tags für Autocomplete im TagEditor
   const allTagSuggestions = useMemo(() => {
@@ -338,13 +340,13 @@ function App() {
             onClick={() => setDeletionSuggestion(null)}
             className="text-xs px-2 py-1 rounded-md text-rose-900 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 shrink-0"
           >
-            Behalten
+            Nicht entfernen
           </button>
           <button
             onClick={acceptClusterDelete}
             className="text-xs font-medium px-2.5 py-1 rounded-md bg-rose-600 text-white hover:bg-rose-700 shrink-0"
           >
-            Hier auch entfernen
+            Hier entfernen
           </button>
         </div>
       )}
@@ -403,6 +405,7 @@ function App() {
               onAddFolder={() => setModal({ kind: "create-folder" })}
               onShowCode={() => setModal({ kind: "code-show" })}
               onRedeemCode={() => setModal({ kind: "code-redeem" })}
+              pauseDates={pauseDates}
             />
 
             {selectedFolder ? (
@@ -410,9 +413,11 @@ function App() {
                 folder={selectedFolder}
                 endpoint={endpoint}
                 ready={ready}
+                devices={devices}
                 connections={connectionsByID}
                 myID={myID}
                 tags={tagsByFolderID[selectedFolder.id] ?? []}
+                pausedSince={pauseDates[selectedFolder.id]}
                 onPauseToggle={onPauseToggle}
                 onShowSettings={(f) => setModal({ kind: "folder-settings", folder: f })}
                 onShowConflicts={(f) => setModal({ kind: "folder-conflicts", folder: f })}
@@ -569,10 +574,10 @@ function FirstRunWelcome({
           className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2"
           style={{ textWrap: "balance" } as React.CSSProperties}
         >
-          Syncomat ist bereit.
+          Sync-Dienst läuft.
         </h1>
         <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6 leading-relaxed">
-          Drei Wege zu starten — wähle den, der passt.
+          Drei Wege zu starten:
         </p>
 
         <div className="space-y-2">
@@ -606,13 +611,13 @@ function FirstRunWelcome({
               Code einlösen
             </div>
             <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-              Hat dir jemand einen Einladungs-Code geschickt?
+              Einladungs-Code von jemand anderem
             </div>
           </button>
         </div>
 
         <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-500">
-          <span>Tipp: Tray-Icon bleibt aktiv wenn du das Fenster schliesst.</span>
+          <span>Fenster schließen lässt den Sync im Tray weiterlaufen.</span>
           <button onClick={onOpenSettings} className="hover:text-neutral-900 dark:hover:text-neutral-100">
             Einstellungen →
           </button>

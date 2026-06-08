@@ -208,7 +208,7 @@ export function LinkFolderModal({
                 className="size-3.5 accent-blue-600"
               />
               <span className="text-[11px] text-neutral-600 dark:text-neutral-400">
-                Preset anwenden (.stignore + Folder-Tuning)
+                Preset anwenden (.stignore + Ordner-Tuning)
               </span>
             </label>
             <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-1">

@@ -202,7 +202,7 @@ function ConflictRow({
           ) : (
             <Copy className="size-3" />
           )}
-          Beide
+          Beide behalten
         </button>
       </div>
     </div>

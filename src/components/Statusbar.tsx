@@ -58,11 +58,11 @@ export function Statusbar({
   localFiles?: number;
   localBytes?: number;
 }) {
-  let left = "Aktuell · alles synchron";
+  let left = "Alle Ordner synchron";
   if (aggregateState === "syncing")
-    left = `Synchronisiere · ${fmtBytes(needBytes)} offen`;
+    left = `Synct · ${fmtBytes(needBytes)} offen`;
   if (aggregateState === "error")
-    left = `${errorCount} Datei-Fehler · siehe Ordner-Karte`;
+    left = `${errorCount} Datei-Fehler · Details im Inspector`;
 
   const leftCls =
     aggregateState === "error"

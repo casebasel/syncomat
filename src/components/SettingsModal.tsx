@@ -98,7 +98,7 @@ export function SettingsModal({
               </div>
             </div>
           ) : (
-            <p className="text-xs text-neutral-500">Lädt…</p>
+            <p className="text-xs text-neutral-500">Lade…</p>
           )}
         </section>
 
@@ -230,7 +230,7 @@ export function SettingsModal({
             onClick={onClose}
             className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
           >
-            Fertig
+            Schließen
           </button>
         </div>
       </div>

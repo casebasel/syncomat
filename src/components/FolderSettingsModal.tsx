@@ -329,7 +329,7 @@ export function FolderSettingsModal({
                   </div>
                 </div>
                 <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                  Tuning passt Syncthing-Folder-Einstellungen an die gemessene
+                  Tuning passt Syncthing-Ordner-Einstellungen an die gemessene
                   Größe an. Bei Unreal: optional auch das .stignore-Preset
                   (Empfehlung — spart pro Maschine 10-50 GB).
                 </p>
@@ -357,7 +357,7 @@ export function FolderSettingsModal({
             )}
             {tuneState.kind === "done" && (
               <p className="text-emerald-600 dark:text-emerald-400">
-                ✓ Folder optimiert. Syncthing wird die neuen Settings beim
+                ✓ Ordner optimiert. Syncthing wird die neuen Settings beim
                 nächsten Scan-Zyklus übernehmen.
               </p>
             )}
@@ -461,7 +461,7 @@ export function FolderSettingsModal({
                 disabled={busy}
                 className="text-xs font-medium px-3 py-1.5 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
               >
-                Doch nicht
+                Abbrechen
               </button>
               <button
                 onClick={remove}

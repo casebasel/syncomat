@@ -8,11 +8,12 @@ import {
   Settings,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { SyncStatusBadge, type SyncState } from "./SyncStatusBadge";
+import { SyncStatusBadge, computeStatusLabel, type SyncState } from "./SyncStatusBadge";
 import { TagChip } from "./TagChip";
 import { ActivityFeed } from "./ActivityFeed";
 import type {
   Connection,
+  Device,
   DeviceID,
   Endpoint,
   Folder,
@@ -25,9 +26,11 @@ export function FolderInspector({
   folder,
   endpoint,
   ready,
+  devices,
   connections,
   myID,
   tags,
+  pausedSince,
   onPauseToggle,
   onShowSettings,
   onShowConflicts,
@@ -36,9 +39,11 @@ export function FolderInspector({
   folder: Folder;
   endpoint: Endpoint | null;
   ready: boolean;
+  devices: Device[];
   connections: Record<DeviceID, Connection>;
   myID: DeviceID | null;
   tags: string[];
+  pausedSince?: number;
   onPauseToggle: (f: Folder) => void;
   onShowSettings: (f: Folder) => void;
   onShowConflicts: (f: Folder) => void;
@@ -52,6 +57,21 @@ export function FolderInspector({
   const [copied, setCopied] = useState(false);
 
   const errorCount = (status?.errors ?? 0) + (status?.pullErrors ?? 0);
+  // Erstes offline-peer für "Wartet auf X" Label
+  const offlinePeerName = (() => {
+    const first = others.find((id) => !connections[id]?.connected);
+    if (!first) return undefined;
+    const d = devices.find((x) => x.deviceID === first);
+    return d?.name || first.slice(0, 7);
+  })();
+  const statusLabel = computeStatusLabel(state, {
+    peerName: offlinePeerName,
+    needBytes: status?.needBytes,
+    globalBytes: status?.globalBytes,
+    conflictCount,
+    errorCount,
+    pausedSince,
+  });
 
   return (
     <section className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-neutral-900">
@@ -73,7 +93,7 @@ export function FolderInspector({
             ))}
           </div>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <SyncStatusBadge state={state} variant="pill" size="sm" />
+            <SyncStatusBadge state={state} label={statusLabel} variant="pill" size="sm" />
             <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
               {fmtMeta(folder, status, others.length, peerOnline)}
             </span>
@@ -111,7 +131,7 @@ export function FolderInspector({
                 {conflictCount} Sync-Konflikt{conflictCount === 1 ? "" : "e"}
               </div>
               <div className="text-amber-700/80 dark:text-amber-300/80 mt-0.5">
-                Klick zum Auflösen
+                Auflösen →
               </div>
             </div>
             <span className="text-xs font-medium px-3 py-1.5 rounded-md bg-amber-600 text-white">

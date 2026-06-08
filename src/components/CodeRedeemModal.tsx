@@ -151,7 +151,7 @@ export function CodeRedeemModal({
               }}
               className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
             >
-              Erneut versuchen
+              Wiederholen
             </button>
           </div>
         </div>

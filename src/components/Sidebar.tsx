@@ -6,7 +6,7 @@ import {
   Plus,
   RefreshCw,
 } from "lucide-react";
-import { SyncStatusBadge, type SyncState } from "./SyncStatusBadge";
+import { SyncStatusBadge, computeStatusLabel, type SyncState } from "./SyncStatusBadge";
 import type {
   Connection,
   Device,
@@ -57,6 +57,7 @@ export function Sidebar({
   onAddFolder,
   onShowCode,
   onRedeemCode,
+  pauseDates,
 }: {
   folders: Folder[];
   pending: PendingFolder[];
@@ -74,6 +75,8 @@ export function Sidebar({
   onAddFolder: () => void;
   onShowCode: () => void;
   onRedeemCode: () => void;
+  /** Lokale Pause-Dates pro folderId → unixMs für "Pausiert seit X" labels */
+  pauseDates: Record<string, number>;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
 
@@ -178,10 +181,12 @@ export function Sidebar({
               folder={f}
               endpoint={endpoint}
               ready={ready}
+              devices={devices}
               connections={connections}
               myID={myID}
               selected={selectedFolderId === f.id}
               onSelect={onSelectFolder}
+              pausedSince={pauseDates[f.id]}
             />
           ))}
         </Group>
@@ -201,10 +206,12 @@ export function Sidebar({
               folder={f}
               endpoint={endpoint}
               ready={ready}
+              devices={devices}
               connections={connections}
               myID={myID}
               selected={selectedFolderId === f.id}
               onSelect={onSelectFolder}
+              pausedSince={pauseDates[f.id]}
             />
           ))}
         </Group>
@@ -235,7 +242,7 @@ export function Sidebar({
               {myID.slice(0, 7)}
             </span>
             <span className="text-[10px] text-neutral-500 dark:text-neutral-500">
-              dies
+              hier
             </span>
           </div>
         )}
@@ -328,36 +335,56 @@ function FolderItem({
   folder,
   endpoint,
   ready,
+  devices,
   connections,
   myID,
   selected,
   onSelect,
+  pausedSince,
 }: {
   folder: Folder;
   endpoint: Endpoint | null;
   ready: boolean;
+  devices: Device[];
   connections: Record<DeviceID, Connection>;
   myID: DeviceID | null;
   selected: boolean;
   onSelect: (f: Folder) => void;
+  pausedSince?: number;
 }) {
   const { data: status } = useFolderStatus(endpoint, ready, folder.id);
   const { count: conflictCount } = useFolderConflicts(folder.path);
   const others = folder.devices.map((d) => d.deviceID).filter((id) => id !== myID);
   const peerOnline = others.some((id) => connections[id]?.connected);
   const state = deriveSyncState(folder, status, peerOnline, others.length, conflictCount);
+  // Erstes offline-peer für "Wartet auf X" Label
+  const offlinePeerName = (() => {
+    const first = others.find((id) => !connections[id]?.connected);
+    if (!first) return undefined;
+    const d = devices.find((x) => x.deviceID === first);
+    return d?.name || first.slice(0, 7);
+  })();
+  const tooltip = computeStatusLabel(state, {
+    peerName: offlinePeerName,
+    needBytes: status?.needBytes,
+    globalBytes: status?.globalBytes,
+    conflictCount,
+    errorCount: (status?.errors ?? 0) + (status?.pullErrors ?? 0),
+    pausedSince,
+  });
 
   return (
     <button
       onClick={() => onSelect(folder)}
       aria-current={selected ? "true" : undefined}
+      title={tooltip}
       className={`w-full text-left px-2 py-1.5 rounded-md flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
         selected
           ? "bg-blue-100/70 dark:bg-blue-950/60 ring-1 ring-inset ring-blue-200 dark:ring-blue-500/30"
           : "hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60"
       }`}
     >
-      <SyncStatusBadge state={state} size="md" />
+      <SyncStatusBadge state={state} label={tooltip} size="md" />
       <span
         className={`text-xs truncate flex-1 ${selected ? "font-semibold text-blue-900 dark:text-blue-100" : folder.paused ? "text-neutral-500" : "font-medium text-neutral-900 dark:text-neutral-100"}`}
       >
