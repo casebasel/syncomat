@@ -11,6 +11,19 @@ use tauri::{
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // single-instance MUSS als erstes Plugin registriert werden — bei
+        // Doppel-Start triggert sein Handler ohne dass die anderen Plugins
+        // schon laufen (verhindert doppelten Syncthing-Sidecar-Spawn +
+        // Lockfile-Konflikt im syncthing-home/).
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            // 2. Instanz wurde gestartet — Fenster der existierenden Instanz
+            // hochbringen + fokussieren, dann beendet sich die 2. Instanz selbst.
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
