@@ -18,6 +18,10 @@ export type FolderDefaults = {
   ignore_hidden: boolean;
   trashcan: boolean;
   trashcan_cleanout_days: number;
+  /** Cluster-Wide Deletion-Request. Wenn ein Peer das auf true setzt,
+   * sehen andere Syncomat-Instanzen einen "auch hier entfernen?" Banner. */
+  deletion_requested?: boolean;
+  deletion_requested_by?: string | null;
 };
 
 export type FolderDefaultsFile = {
@@ -31,6 +35,8 @@ export const DEFAULT_FOLDER_DEFAULTS: FolderDefaults = {
   ignore_hidden: false,
   trashcan: false,
   trashcan_cleanout_days: 0,
+  deletion_requested: false,
+  deletion_requested_by: null,
 };
 
 // ── Tauri-Command-Wrapper ──────────────────────────────────────
@@ -107,14 +113,22 @@ export async function applyFolderDefaults(
  * Wenn die File neuer ist als das was wir zuletzt applied haben UND nicht von
  * uns selbst kommt → applizier auf lokale Syncthing-Config.
  */
+export type DeletionSuggestion = {
+  folder: Folder;
+  by: string;
+  at: number;
+};
+
 export function useFolderSettingsReplication(
   ep: Endpoint | null,
   ready: boolean,
   folders: Folder[],
   myDeviceId: string | null,
   intervalMs = 30_000,
+  onDeletionRequest?: (suggestion: DeletionSuggestion) => void,
 ): void {
   const appliedRef = useRef<Map<FolderID, number>>(new Map());
+  const deletionNotifiedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!ep || !ready || !myDeviceId) return;
@@ -131,6 +145,26 @@ export function useFolderSettingsReplication(
             appliedRef.current.set(f.id, file.updated_at);
             continue;
           }
+
+          // Cluster-Wide Deletion-Request? → einmalig pro Folder+Timestamp den
+          // Banner-Callback feuern. User entscheidet pro Gerät selbst.
+          if (file.settings.deletion_requested) {
+            const key = `${f.id}|${file.updated_at}`;
+            if (!deletionNotifiedRef.current.has(key)) {
+              deletionNotifiedRef.current.add(key);
+              onDeletionRequest?.({
+                folder: f,
+                by: file.settings.deletion_requested_by ?? file.updated_by,
+                at: file.updated_at,
+              });
+            }
+            // Bei deletion-requested NICHT applyFolderDefaults aufrufen —
+            // sonst werden ignore_patterns/versioning auf den about-to-delete
+            // Folder geschrieben.
+            appliedRef.current.set(f.id, file.updated_at);
+            continue;
+          }
+
           const lastApplied = appliedRef.current.get(f.id) ?? 0;
           if (file.updated_at <= lastApplied) continue;
           // Neuer als zuletzt gesehen → applizieren.

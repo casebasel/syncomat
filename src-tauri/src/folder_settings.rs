@@ -18,6 +18,14 @@ pub struct FolderDefaults {
     pub trashcan: bool,
     /// Wie viele Tage Papierkorb-Items behalten werden (0 = forever)
     pub trashcan_cleanout_days: u32,
+    /// Cluster-Wide Deletion-Request: wenn true, alle Syncomat-Instanzen
+    /// die diese Defaults sehen, zeigen dem User eine Confirm-Bestätigung
+    /// "auch hier aus Syncomat entfernen?". Files bleiben überall lokal.
+    #[serde(default)]
+    pub deletion_requested: bool,
+    /// Welches Gerät die Cluster-Deletion getriggert hat (für UI)
+    #[serde(default)]
+    pub deletion_requested_by: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

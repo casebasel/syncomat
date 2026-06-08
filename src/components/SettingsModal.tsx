@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { CheckCircle2, Copy, ExternalLink, Loader2, RefreshCw } from "lucide-react";
+import { CheckCircle2, Copy, ExternalLink, Loader2, RefreshCw, RotateCcw, FolderX } from "lucide-react";
 import { Modal } from "./Modal";
 import type { Endpoint, SystemStatus } from "../lib/syncthing";
 import type { UpdateState } from "../lib/updater";
+import {
+  ignoredFoldersRemove,
+  useIgnoredFolders,
+} from "../lib/ignored";
 
 export function SettingsModal({
   endpoint,
@@ -21,6 +25,16 @@ export function SettingsModal({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const ignored = useIgnoredFolders();
+
+  const reactivate = async (folderId: string) => {
+    try {
+      await ignoredFoldersRemove(folderId);
+      ignored.refresh();
+    } catch (e) {
+      console.warn("ignored-remove failed", e);
+    }
+  };
 
   const copy = async (val: string, key: string) => {
     try {
@@ -134,6 +148,52 @@ export function SettingsModal({
             />
           </div>
         </section>
+
+        {/* Ignorierte Ordner */}
+        {ignored.data.length > 0 && (
+          <section>
+            <h3 className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
+              Ignorierte Ordner
+            </h3>
+            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mb-2">
+              Diese Ordner werden nicht als „Verfügbar" gezeigt, auch wenn ein
+              Peer sie anbietet. Reaktiviere einen wenn du ihn doch wieder syncen
+              willst.
+            </p>
+            <div className="space-y-1.5">
+              {ignored.data.map((entry) => (
+                <div
+                  key={entry.folder_id}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40"
+                >
+                  <FolderX className="size-3.5 text-neutral-400 dark:text-neutral-500 shrink-0" />
+                  <div className="min-w-0 flex-1 text-xs">
+                    <div className="text-neutral-900 dark:text-neutral-100 truncate">
+                      {entry.last_seen_label || entry.folder_id}
+                    </div>
+                    <div className="text-[10px] text-neutral-500 dark:text-neutral-500">
+                      Ignoriert{" "}
+                      {new Date(entry.ignored_at * 1000).toLocaleString("de-DE", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => reactivate(entry.folder_id)}
+                    title="Reaktivieren — Ordner taucht wieder als Verfügbar auf"
+                    className="text-xs px-2 py-1 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1"
+                  >
+                    <RotateCcw className="size-3" />
+                    Reaktivieren
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <div className="flex justify-end pt-2">
           <button

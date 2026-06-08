@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { EyeOff, Loader2, Trash2 } from "lucide-react";
+import { AlertTriangle, EyeOff, Loader2, Trash2, XCircle } from "lucide-react";
 import { Modal } from "./Modal";
 import {
   applyFolderDefaults,
@@ -8,24 +8,29 @@ import {
   DEFAULT_FOLDER_DEFAULTS,
   type FolderDefaults,
 } from "../lib/folderSettings";
-import type { Endpoint, Folder } from "../lib/syncthing";
+import { deleteFolder, type Endpoint, type Folder } from "../lib/syncthing";
+import { ignoredFoldersAdd } from "../lib/ignored";
 
 export function FolderSettingsModal({
   endpoint,
   folder,
   myDeviceId,
   onClose,
+  onRemoved,
 }: {
   endpoint: Endpoint;
   folder: Folder;
   myDeviceId: string;
   onClose: () => void;
+  onRemoved?: () => void;
 }) {
   const [defaults, setDefaults] = useState<FolderDefaults>(DEFAULT_FOLDER_DEFAULTS);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ updatedAt: number; updatedBy: string } | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [clusterWide, setClusterWide] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,6 +66,42 @@ export function FolderSettingsModal({
     } catch (e) {
       setError(String(e));
     } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      // Optional: cluster-wide delete signal — schreibt deletion_requested in
+      // die .syncomat/folder-defaults.json. Andere Geräte sehen das beim
+      // nächsten Replication-Check und bekommen einen Confirm-Banner.
+      // WICHTIG: vor dem lokalen Delete-Folder, weil danach der Pfad nicht
+      // mehr in der Syncthing-Config ist (file wird trotzdem auf Disk sein).
+      if (clusterWide) {
+        try {
+          await folderSettingsWrite(folder.path, myDeviceId, {
+            ...defaults,
+            deletion_requested: true,
+            deletion_requested_by: myDeviceId,
+          });
+          // Kurz warten damit Syncthing den geänderten File registriert
+          // und an Peers propagiert. 1s ist genug für File-System-Watcher.
+          await new Promise((r) => setTimeout(r, 1000));
+        } catch (e) {
+          console.warn("[folder-settings] cluster-delete-signal failed", e);
+          // Trotzdem mit lokalem Delete fortfahren — User-Intent ist klar.
+        }
+      }
+      // Lokal aus Syncthing entfernen — Files bleiben auf Disk.
+      await deleteFolder(endpoint, folder.id);
+      // Folder-ID merken damit er nicht direkt als Pending wieder erscheint.
+      await ignoredFoldersAdd(folder.id, folder.label || folder.id);
+      onRemoved?.();
+      onClose();
+    } catch (e) {
+      setError(String(e));
       setBusy(false);
     }
   };
@@ -157,6 +198,94 @@ export function FolderSettingsModal({
             Speichern
           </button>
         </div>
+
+        {/* Danger Zone */}
+        {!confirmRemove ? (
+          <details className="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-800">
+            <summary className="cursor-pointer text-xs text-rose-600 dark:text-rose-400 select-none hover:underline">
+              Ordner-Verknüpfung entfernen
+            </summary>
+            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-2 leading-relaxed">
+              Stoppt das Syncen auf diesem Gerät. Die Datei-Inhalte unter{" "}
+              <code className="font-mono text-[10px]">{folder.path}</code> bleiben
+              auf der Platte — nichts wird gelöscht.
+            </p>
+            <button
+              onClick={() => setConfirmRemove(true)}
+              className="mt-3 text-xs font-medium px-3 py-1.5 rounded-lg border border-rose-300 dark:border-rose-500/40 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-1.5"
+            >
+              <XCircle className="size-3.5" />
+              Verknüpfung entfernen…
+            </button>
+          </details>
+        ) : (
+          <div className="mt-3 pt-3 border-t border-rose-300 dark:border-rose-500/40 space-y-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="size-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
+              <div className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                <p className="font-medium text-rose-700 dark:text-rose-300 mb-1">
+                  Ordner-Verknüpfung wirklich entfernen?
+                </p>
+                <ul className="space-y-1 text-[11px] text-neutral-600 dark:text-neutral-400">
+                  <li>
+                    ✓ Datei-Inhalte unter{" "}
+                    <code className="font-mono text-[10px]">{folder.path}</code>{" "}
+                    bleiben auf der Platte.
+                  </li>
+                  <li>
+                    ✓ Andere Geräte machen weiter wie bisher.
+                  </li>
+                  <li>
+                    ✓ Dieser Ordner taucht nicht mehr als „Verfügbar" auf —
+                    Re-Enable über Einstellungen → Ignorierte Ordner.
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <label className="flex items-start gap-2 cursor-pointer select-none px-3 py-2 rounded-lg bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30">
+              <input
+                type="checkbox"
+                checked={clusterWide}
+                onChange={(e) => setClusterWide(e.target.checked)}
+                className="mt-0.5 accent-rose-600"
+              />
+              <div className="text-[11px] text-neutral-700 dark:text-neutral-300">
+                <span className="font-medium text-rose-700 dark:text-rose-400">
+                  Auch auf allen anderen Geräten vorschlagen
+                </span>
+                <p className="text-neutral-500 dark:text-neutral-400 mt-0.5">
+                  Markiert den Ordner Cluster-weit. Andere Syncomat-Instanzen
+                  sehen einen Banner „auch hier entfernen?" — die User entscheiden
+                  pro Gerät selbst.
+                </p>
+              </div>
+            </label>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setConfirmRemove(false);
+                  setClusterWide(false);
+                }}
+                disabled={busy}
+                className="text-xs font-medium px-3 py-1.5 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                Doch nicht
+              </button>
+              <button
+                onClick={remove}
+                disabled={busy}
+                className="text-xs font-medium px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {busy ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="size-3.5" />
+                )}
+                {clusterWide ? "Überall entfernen" : "Hier entfernen"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </Modal>
   );

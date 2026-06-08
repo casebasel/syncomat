@@ -202,6 +202,11 @@ export const patchDevice = (
     headers: { "Content-Type": "application/json" },
   });
 
+export const deleteFolder = (ep: Endpoint, folderID: FolderID) =>
+  api<void>(ep, `/rest/config/folders/${encodeURIComponent(folderID)}`, {
+    method: "DELETE",
+  });
+
 export const deleteDevice = (ep: Endpoint, deviceID: DeviceID) =>
   api<void>(ep, `/rest/config/devices/${encodeURIComponent(deviceID)}`, {
     method: "DELETE",

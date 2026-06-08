@@ -22,6 +22,7 @@ import {
 } from "./lib/syncthing";
 
 import { invitePurgeExpired } from "./lib/invitesStore";
+import { useIgnoredFolders } from "./lib/ignored";
 import { ActiveInvitesPanel } from "./components/ActiveInvitesPanel";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { CodeShowModal } from "./components/CodeShowModal";
@@ -32,8 +33,13 @@ import { FolderSettingsModal } from "./components/FolderSettingsModal";
 import { SettingsModal } from "./components/SettingsModal";
 import { TransferRatePill } from "./components/TransferRatePill";
 import { UpdateBanner } from "./components/UpdateBanner";
-import { useFolderSettingsReplication } from "./lib/folderSettings";
+import {
+  useFolderSettingsReplication,
+  type DeletionSuggestion,
+} from "./lib/folderSettings";
 import { useUpdater } from "./lib/updater";
+import { deleteFolder } from "./lib/syncthing";
+import { ignoredFoldersAdd } from "./lib/ignored";
 import { DeviceRow } from "./components/DeviceRow";
 import { EmptyState } from "./components/EmptyState";
 import { FolderList } from "./components/FolderList";
@@ -67,7 +73,30 @@ function App() {
 
   const aggregate = useAggregateStatus(endpoint, ready, folders);
   const rate = useTransferRate(endpoint, ready);
-  useFolderSettingsReplication(endpoint, ready, folders, myID);
+  const [deletionSuggestion, setDeletionSuggestion] =
+    useState<DeletionSuggestion | null>(null);
+  useFolderSettingsReplication(
+    endpoint,
+    ready,
+    folders,
+    myID,
+    30_000,
+    (s) => setDeletionSuggestion(s),
+  );
+  const ignored = useIgnoredFolders();
+
+  const acceptClusterDelete = async () => {
+    if (!deletionSuggestion || !endpoint) return;
+    const f = deletionSuggestion.folder;
+    try {
+      await deleteFolder(endpoint, f.id);
+      await ignoredFoldersAdd(f.id, f.label || f.id);
+      ignored.refresh();
+    } catch (e) {
+      console.warn("cluster-delete-accept failed", e);
+    }
+    setDeletionSuggestion(null);
+  };
   const updater = useUpdater(true);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
@@ -214,6 +243,37 @@ function App() {
           />
         )}
 
+        {deletionSuggestion && (
+          <div className="mt-4 flex items-start gap-3 px-3 py-2.5 rounded-xl border border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-950/30">
+            <div className="size-7 rounded-md bg-rose-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+                <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1 text-xs">
+              <div className="font-medium text-rose-900 dark:text-rose-200">
+                Ordner „{deletionSuggestion.folder.label || deletionSuggestion.folder.id}" — auch hier entfernen?
+              </div>
+              <p className="text-rose-700/80 dark:text-rose-300/80 mt-0.5">
+                {deletionSuggestion.by.slice(0, 7)} hat diesen Ordner Cluster-weit zum Entfernen markiert.
+                Datei-Inhalte bleiben auf der Platte.
+              </p>
+            </div>
+            <button
+              onClick={() => setDeletionSuggestion(null)}
+              className="text-xs px-2 py-1 rounded-md text-rose-900 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 shrink-0"
+            >
+              Behalten
+            </button>
+            <button
+              onClick={acceptClusterDelete}
+              className="text-xs font-medium px-2.5 py-1 rounded-md bg-rose-600 text-white hover:bg-rose-700 shrink-0"
+            >
+              Hier auch entfernen
+            </button>
+          </div>
+        )}
+
         {isFirstRun ? (
           <EmptyState
             onCreateFolder={() => setModal({ kind: "create-folder" })}
@@ -271,7 +331,9 @@ function App() {
               </p>
               <FolderList
                 linked={folders}
-                pending={pendingFolders.data ?? []}
+                pending={(pendingFolders.data ?? []).filter(
+                  (pf) => !ignored.isIgnored(pf.folderID),
+                )}
                 endpoint={endpoint}
                 ready={ready}
                 devices={devices}
@@ -358,6 +420,7 @@ function App() {
           folder={modal.folder}
           myDeviceId={myID}
           onClose={() => setModal(null)}
+          onRemoved={() => ignored.refresh()}
         />
       )}
       {modal?.kind === "folder-conflicts" && (

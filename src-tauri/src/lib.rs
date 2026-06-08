@@ -1,5 +1,6 @@
 mod conflicts;
 mod folder_settings;
+mod ignored_folders;
 mod invites;
 mod sidecar;
 
@@ -42,6 +43,9 @@ pub fn run() {
 
             let invite_store = invites::setup(&handle)?;
             app.manage(invite_store);
+
+            let ignored_store = ignored_folders::setup(&handle)?;
+            app.manage(ignored_store);
 
             // Tray-Menü: Öffnen · Bei-Login-starten (Toggle) · ── · Quit
             let open = MenuItem::with_id(app, "open", "Öffnen", true, None::<&str>)?;
@@ -109,6 +113,9 @@ pub fn run() {
             conflicts::conflicts_keep_local,
             conflicts::conflicts_take_remote,
             conflicts::conflicts_keep_both,
+            ignored_folders::ignored_folders_list,
+            ignored_folders::ignored_folders_add,
+            ignored_folders::ignored_folders_remove,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
