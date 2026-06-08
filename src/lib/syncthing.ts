@@ -370,7 +370,7 @@ export async function* subscribeEvents(
 // Shared event bus — one subscriber per endpoint, fan-out to listeners.
 // ============================================================
 
-type EventHandler = (e: SyncEvent) => void;
+export type EventHandler = (e: SyncEvent) => void;
 
 class EventBus {
   private endpoint: Endpoint | null = null;
@@ -437,7 +437,7 @@ class EventBus {
   }
 }
 
-const bus = new EventBus();
+export const bus = new EventBus();
 
 // ============================================================
 // React hooks

@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="de" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <title>A · Tower-Inspector — Syncomat Redesign</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { darkMode: "media" };
+    </script>
+    <style>
+      html, body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: #f3f3f5; }
+      @media (prefers-color-scheme: dark) { html, body { background: #0a0a0a; } }
+      .dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; }
+    </style>
+  </head>
+  <body class="text-neutral-800 dark:text-neutral-200 min-h-screen">
+    <header class="max-w-5xl mx-auto px-6 pt-5 pb-3 flex items-center justify-between">
+      <a href="index.html" class="text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">← zurück zur Übersicht</a>
+      <div class="text-xs text-neutral-500">A · Tower-Inspector · 840×640</div>
+    </header>
+
+    <div class="max-w-5xl mx-auto px-6 pb-10">
+      <!-- App-Window-Simulation -->
+      <div class="rounded-2xl border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl overflow-hidden" style="height:640px; max-width:840px; margin:0 auto;">
+        <!-- Title-Bar -->
+        <div class="h-9 border-b border-neutral-200 dark:border-neutral-800 flex items-center px-4 gap-2 bg-neutral-50 dark:bg-neutral-900">
+          <div class="flex gap-1.5">
+            <div class="size-3 rounded-full bg-red-400"></div>
+            <div class="size-3 rounded-full bg-amber-400"></div>
+            <div class="size-3 rounded-full bg-emerald-400"></div>
+          </div>
+          <div class="flex-1 text-center text-xs font-medium text-neutral-500">Syncomat</div>
+          <div class="w-12"></div>
+        </div>
+
+        <!-- Header-Strip -->
+        <div class="h-12 border-b border-neutral-200 dark:border-neutral-800 flex items-center px-4 gap-3">
+          <div class="size-7 rounded-md bg-blue-600 flex items-center justify-center text-white">
+            <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+          </div>
+          <div>
+            <div class="text-sm font-semibold">Verbunden · 1 von 2 Geräten</div>
+            <div class="text-[11px] text-neutral-500 dark:text-neutral-400">x7950 · ↑1.2 MB/s ↓0</div>
+          </div>
+          <div class="ml-auto flex items-center gap-1.5">
+            <button class="text-xs font-medium px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800">Jetzt syncen</button>
+            <button class="p-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800">
+              <svg viewBox="0 0 24 24" class="size-3.5" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Main: Sidebar + Inspector -->
+        <div class="flex" style="height:calc(640px - 36px - 48px - 28px);">
+          <!-- SIDEBAR -->
+          <aside class="w-60 border-r border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 overflow-y-auto">
+            <!-- Folder-Section -->
+            <div class="px-3 pt-3 pb-1 flex items-center justify-between">
+              <span class="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Ordner</span>
+              <button class="text-neutral-400 hover:text-blue-600">
+                <svg viewBox="0 0 24 24" class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+            </div>
+            <div class="px-1.5 pb-2 space-y-0.5">
+              <!-- selected -->
+              <button class="w-full text-left px-2 py-1.5 rounded-md bg-blue-50 dark:bg-blue-950/50 ring-1 ring-inset ring-blue-200 dark:ring-blue-500/30">
+                <div class="flex items-center gap-1.5">
+                  <span class="dot bg-emerald-500"></span>
+                  <span class="text-xs font-semibold truncate flex-1 text-blue-900 dark:text-blue-100">orderA</span>
+                  <span class="text-[10px] px-1 rounded bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 font-semibold">1</span>
+                </div>
+                <div class="text-[10px] text-blue-600/70 dark:text-blue-300/70 mt-0.5 ml-3.5 truncate">12.4 GB · #unreal #studio</div>
+              </button>
+              <button class="w-full text-left px-2 py-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800/60">
+                <div class="flex items-center gap-1.5">
+                  <span class="dot bg-emerald-500"></span>
+                  <span class="text-xs font-medium truncate flex-1">Footage Mai</span>
+                </div>
+                <div class="text-[10px] text-neutral-500 mt-0.5 ml-3.5 truncate">89.1 GB · #footage</div>
+              </button>
+              <button class="w-full text-left px-2 py-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800/60">
+                <div class="flex items-center gap-1.5">
+                  <span class="dot bg-neutral-400"></span>
+                  <span class="text-xs font-medium truncate flex-1 text-neutral-500">Backup-Alt</span>
+                </div>
+                <div class="text-[10px] text-neutral-500 mt-0.5 ml-3.5 truncate">2.1 GB · pausiert · #archive</div>
+              </button>
+            </div>
+
+            <!-- Tags-Section -->
+            <div class="px-3 pt-3 pb-1 flex items-center justify-between border-t border-neutral-200 dark:border-neutral-800">
+              <span class="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Tags</span>
+            </div>
+            <div class="px-1.5 pb-2 space-y-0.5">
+              <button class="w-full flex items-center justify-between px-2 py-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800/60">
+                <span class="text-[11px]">#unreal</span><span class="text-[10px] text-neutral-400">2</span>
+              </button>
+              <button class="w-full flex items-center justify-between px-2 py-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800/60">
+                <span class="text-[11px]">#studio</span><span class="text-[10px] text-neutral-400">2</span>
+              </button>
+              <button class="w-full flex items-center justify-between px-2 py-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800/60">
+                <span class="text-[11px]">#footage</span><span class="text-[10px] text-neutral-400">1</span>
+              </button>
+              <button class="w-full flex items-center justify-between px-2 py-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800/60">
+                <span class="text-[11px]">#archive</span><span class="text-[10px] text-neutral-400">1</span>
+              </button>
+            </div>
+
+            <!-- Geräte-Section -->
+            <div class="px-3 pt-3 pb-1 flex items-center justify-between border-t border-neutral-200 dark:border-neutral-800">
+              <span class="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Geräte</span>
+              <button class="text-neutral-400 hover:text-blue-600">
+                <svg viewBox="0 0 24 24" class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+            </div>
+            <div class="px-1.5 pb-3 space-y-0.5">
+              <div class="w-full flex items-center gap-1.5 px-2 py-1 rounded-md">
+                <span class="dot bg-emerald-500"></span>
+                <span class="text-[11px] font-medium flex-1">x7950</span>
+                <span class="text-[10px] text-neutral-500">dieser Mac</span>
+              </div>
+              <div class="w-full flex items-center gap-1.5 px-2 py-1 rounded-md">
+                <span class="dot bg-neutral-400"></span>
+                <span class="text-[11px] text-neutral-500 flex-1">studio</span>
+                <span class="text-[10px] text-neutral-500">offline</span>
+              </div>
+            </div>
+          </aside>
+
+          <!-- INSPECTOR -->
+          <section class="flex-1 overflow-y-auto bg-white dark:bg-neutral-900">
+            <!-- Inspector-Header -->
+            <div class="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800 flex items-start gap-3">
+              <div class="size-10 rounded-lg bg-neutral-200/70 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 dark:text-neutral-400 shrink-0">
+                <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <h1 class="text-base font-bold">orderA</h1>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-medium">#unreal</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-medium">#studio</span>
+                </div>
+                <div class="flex items-center gap-1.5 mt-1">
+                  <span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-semibold">
+                    <span class="dot bg-emerald-500"></span> Synchron
+                  </span>
+                  <span class="text-[11px] text-neutral-500">12.4 GB · 247'042 Dateien · vor 12 s</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-1">
+                <button class="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500" title="Pausieren">
+                  <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                </button>
+                <button class="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500" title="Einstellungen">
+                  <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Inspector-Body -->
+            <div class="px-5 py-4 space-y-5">
+              <!-- Konflikt-Banner (priority) -->
+              <div class="rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 flex items-center gap-3">
+                <svg viewBox="0 0 24 24" class="size-5 text-amber-600 dark:text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12" y2="16"/></svg>
+                <div class="flex-1 text-xs">
+                  <div class="font-semibold text-amber-900 dark:text-amber-200">1 Sync-Konflikt</div>
+                  <div class="text-amber-700/80 dark:text-amber-300/80">Saved/log.txt · von studio · 14:15</div>
+                </div>
+                <button class="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700">Auflösen</button>
+              </div>
+
+              <!-- Geräte -->
+              <div>
+                <div class="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold mb-1.5">Geteilt mit</div>
+                <div class="rounded-lg border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-800">
+                  <div class="px-3 py-2.5 flex items-center gap-2.5">
+                    <span class="dot bg-neutral-400"></span>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-xs font-medium">studio</div>
+                      <div class="text-[11px] text-neutral-500">offline · seit 14:32</div>
+                    </div>
+                    <div class="text-[11px] text-neutral-500 font-mono">x7950</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Aktivität -->
+              <div>
+                <div class="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold mb-1.5">Aktivität</div>
+                <div class="rounded-lg border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-800 text-xs">
+                  <div class="px-3 py-2 flex items-center gap-3">
+                    <span class="text-[10px] text-neutral-400 w-10 font-mono">14:21</span>
+                    <svg viewBox="0 0 24 24" class="size-3.5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span class="font-mono text-[11px] truncate flex-1">ProjectA.uproject</span>
+                    <span class="text-[10px] text-neutral-400">2.4 KB</span>
+                  </div>
+                  <div class="px-3 py-2 flex items-center gap-3">
+                    <span class="text-[10px] text-neutral-400 w-10 font-mono">14:18</span>
+                    <svg viewBox="0 0 24 24" class="size-3.5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span class="font-mono text-[11px] truncate flex-1">Content/Maps/Lobby.umap</span>
+                    <span class="text-[10px] text-neutral-400">18.2 MB</span>
+                  </div>
+                  <div class="px-3 py-2 flex items-center gap-3 bg-amber-50/50 dark:bg-amber-950/15">
+                    <span class="text-[10px] text-neutral-400 w-10 font-mono">14:15</span>
+                    <svg viewBox="0 0 24 24" class="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/></svg>
+                    <span class="font-mono text-[11px] truncate flex-1">Saved/log.txt</span>
+                    <span class="text-[10px] text-amber-700 dark:text-amber-300 font-semibold">Konflikt</span>
+                  </div>
+                  <div class="px-3 py-2 flex items-center gap-3">
+                    <span class="text-[10px] text-neutral-400 w-10 font-mono">14:11</span>
+                    <svg viewBox="0 0 24 24" class="size-3.5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span class="font-mono text-[11px] truncate flex-1">ProjectB.uproject</span>
+                    <span class="text-[10px] text-neutral-400">2.1 KB</span>
+                  </div>
+                  <div class="px-3 py-2 flex items-center gap-3">
+                    <span class="text-[10px] text-neutral-400 w-10 font-mono">13:45</span>
+                    <svg viewBox="0 0 24 24" class="size-3.5 text-blue-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+                    <span class="font-mono text-[11px] truncate flex-1">Content/Maps/Editor.umap</span>
+                    <span class="text-[10px] text-neutral-400">31.4 MB</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Meta-Row -->
+              <div class="flex items-center justify-between text-[11px] text-neutral-500 pt-2 border-t border-neutral-200 dark:border-neutral-800">
+                <div class="font-mono truncate">/Users/marlon/UE-Projects/orderA</div>
+                <div>Index ~340 MB · 10 Unreal-Projekte</div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Statusbar -->
+        <div class="h-7 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between px-4 text-[11px] text-neutral-500 bg-neutral-50/60 dark:bg-neutral-950/40">
+          <span>Aktuell · alles synchron</span>
+          <span>Index ~430 MB · v0.1.21 · vor 4 s</span>
+        </div>
+      </div>
+
+      <p class="text-xs text-neutral-500 text-center mt-4">
+        Klick auf einen anderen Folder in der Sidebar = Inspector wechselt. Geräte + Tags ständig sichtbar.
+      </p>
+    </div>
+  </body>
+</html>

@@ -15,7 +15,6 @@ import {
   usePendingFolders,
   useStatus,
   useSyncthingReady,
-  useTransferRate,
   type Folder,
   type PendingDevice,
   type PendingFolder,
@@ -28,7 +27,6 @@ import {
   useNotificationTriggers,
   useNotificationsEnabled,
 } from "./lib/notifications";
-import { ActiveInvitesPanel } from "./components/ActiveInvitesPanel";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { CodeShowModal } from "./components/CodeShowModal";
 import { CreateFolderModal } from "./components/CreateFolderModal";
@@ -36,7 +34,6 @@ import { ConflictResolverModal } from "./components/ConflictResolverModal";
 import { FolderErrorsModal } from "./components/FolderErrorsModal";
 import { FolderSettingsModal } from "./components/FolderSettingsModal";
 import { SettingsModal } from "./components/SettingsModal";
-import { TransferRatePill } from "./components/TransferRatePill";
 import { UpdateBanner } from "./components/UpdateBanner";
 import {
   useFolderSettingsReplication,
@@ -49,13 +46,12 @@ import {
   tuneFolderForSize,
 } from "./lib/syncthing";
 import { ignoredFoldersAdd } from "./lib/ignored";
-import { DeviceRow } from "./components/DeviceRow";
-import { EmptyState } from "./components/EmptyState";
-import { FolderList } from "./components/FolderList";
-import { Header } from "./components/Header";
 import { LinkFolderModal, type LinkConfirmOptions } from "./components/LinkFolderModal";
 import { pickStignoreForWorkload } from "./lib/unreal";
+import { Sidebar } from "./components/Sidebar";
+import { FolderInspector } from "./components/FolderInspector";
 import { Statusbar } from "./components/Statusbar";
+import { Settings as SettingsIcon } from "lucide-react";
 
 type Modal =
   | null
@@ -82,7 +78,6 @@ function App() {
   const myID = status.data?.myID ?? null;
 
   const aggregate = useAggregateStatus(endpoint, ready, folders);
-  const rate = useTransferRate(endpoint, ready);
   const [deletionSuggestion, setDeletionSuggestion] =
     useState<DeletionSuggestion | null>(null);
   useFolderSettingsReplication(
@@ -188,12 +183,6 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [devices.map((d) => d.deviceID).join(","), myID],
   );
-  const peersConnected = useMemo(
-    () =>
-      peers.filter((d) => connectionsByID[d.deviceID]?.connected).length,
-    [peers, connectionsByID],
-  );
-
   const notifications = useNotificationsEnabled();
   useNotificationTriggers({
     enabled: notifications.enabled,
@@ -204,14 +193,6 @@ function App() {
     updateState: updater.state,
   });
 
-  const headerTone = !ready
-    ? "wait"
-    : peers.length === 0
-      ? "off"
-      : peersConnected > 0
-        ? "ok"
-        : "wait";
-
   const isFirstRun =
     ready &&
     config.data !== null &&
@@ -219,6 +200,24 @@ function App() {
     folders.length === 0 &&
     (pendingFolders.data?.length ?? 0) === 0 &&
     (pendingDevices.data?.length ?? 0) === 0;
+
+  // Selected folder für Inspector. Default: erster Folder wenn nichts gewählt.
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  useEffect(() => {
+    if (folders.length === 0) {
+      if (selectedFolderId !== null) setSelectedFolderId(null);
+      return;
+    }
+    if (!selectedFolderId || !folders.some((f) => f.id === selectedFolderId)) {
+      setSelectedFolderId(folders[0]!.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folders.map((f) => f.id).join(",")]);
+
+  const selectedFolder = folders.find((f) => f.id === selectedFolderId) ?? null;
+  const visiblePending = (pendingFolders.data ?? []).filter(
+    (pf) => !ignored.isIgnored(pf.folderID),
+  );
 
   // Beim App-Start expired Codes purgen (sonst wächst die invites.json unbounded).
   useEffect(() => {
@@ -240,11 +239,6 @@ function App() {
   const onPauseToggle = async (f: Folder) => {
     if (!endpoint) return;
     await putFolder(endpoint, { ...f, paused: !f.paused });
-  };
-
-  const onRename = async (f: Folder, newLabel: string) => {
-    if (!endpoint) return;
-    await putFolder(endpoint, { ...f, label: newLabel });
   };
 
   const onLink = (pf: PendingFolder) => setModal({ kind: "link", pending: pf });
@@ -314,178 +308,144 @@ function App() {
   };
 
   return (
-    <main className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased flex items-start justify-center pt-8 px-5 pb-8">
-      <div className="w-full max-w-md rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/80 shadow-xl shadow-black/5 dark:shadow-black/40 p-5">
-        <Header
-          tone={headerTone}
-          connected={peersConnected}
-          total={peers.length}
-          onScan={onScan}
-          scanning={scanning}
-          canScan={folders.length > 0}
-          onOpenSettings={() => setModal({ kind: "settings" })}
+    <main className="h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased flex flex-col overflow-hidden">
+      {!updateDismissed && (
+        <UpdateBanner
+          state={updater.state}
+          onInstall={updater.installAndRestart}
+          onDismiss={() => setUpdateDismissed(true)}
         />
+      )}
 
-        {ready && peersConnected > 0 && (
-          <div className="mt-3 flex justify-end">
-            <TransferRatePill
-              inBps={rate.inBps}
-              outBps={rate.outBps}
-              historyIn={rate.historyIn}
-              historyOut={rate.historyOut}
-              visible={true}
-            />
+      {deletionSuggestion && (
+        <div className="flex items-start gap-3 px-4 py-2.5 border-b border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-950/30 shrink-0">
+          <div className="size-7 rounded-md bg-rose-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
+              <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+            </svg>
           </div>
-        )}
-
-        {!updateDismissed && (
-          <UpdateBanner
-            state={updater.state}
-            onInstall={updater.installAndRestart}
-            onDismiss={() => setUpdateDismissed(true)}
-          />
-        )}
-
-        {deletionSuggestion && (
-          <div className="mt-4 flex items-start gap-3 px-3 py-2.5 rounded-xl border border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-950/30">
-            <div className="size-7 rounded-md bg-rose-600 text-white flex items-center justify-center shrink-0 mt-0.5">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
-                <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-              </svg>
+          <div className="min-w-0 flex-1 text-xs">
+            <div className="font-medium text-rose-900 dark:text-rose-200">
+              Ordner „{deletionSuggestion.folder.label || deletionSuggestion.folder.id}" — auch hier entfernen?
             </div>
-            <div className="min-w-0 flex-1 text-xs">
-              <div className="font-medium text-rose-900 dark:text-rose-200">
-                Ordner „{deletionSuggestion.folder.label || deletionSuggestion.folder.id}" — auch hier entfernen?
+            <p className="text-rose-700/80 dark:text-rose-300/80 mt-0.5">
+              {deletionSuggestion.by.slice(0, 7)} hat diesen Ordner Cluster-weit zum Entfernen markiert.
+              Datei-Inhalte bleiben auf der Platte.
+            </p>
+          </div>
+          <button
+            onClick={() => setDeletionSuggestion(null)}
+            className="text-xs px-2 py-1 rounded-md text-rose-900 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 shrink-0"
+          >
+            Behalten
+          </button>
+          <button
+            onClick={acceptClusterDelete}
+            className="text-xs font-medium px-2.5 py-1 rounded-md bg-rose-600 text-white hover:bg-rose-700 shrink-0"
+          >
+            Hier auch entfernen
+          </button>
+        </div>
+      )}
+
+      {(pendingDevices.data?.length ?? 0) > 0 && modal?.kind !== "code-show" && (
+        <div className="border-b border-blue-300 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-950/30 shrink-0">
+          {pendingDevices.data!.map((pd) => (
+            <div key={pd.deviceID} className="flex items-center gap-2 px-4 py-2.5">
+              <div className="min-w-0 flex-1 text-xs">
+                <div className="font-medium text-blue-900 dark:text-blue-200 truncate">
+                  {pd.name || pd.deviceID.slice(0, 7)} möchte sich verbinden
+                </div>
+                <p className="text-blue-700/80 dark:text-blue-300/80 truncate">{pd.address}</p>
               </div>
-              <p className="text-rose-700/80 dark:text-rose-300/80 mt-0.5">
-                {deletionSuggestion.by.slice(0, 7)} hat diesen Ordner Cluster-weit zum Entfernen markiert.
-                Datei-Inhalte bleiben auf der Platte.
-              </p>
+              <button
+                onClick={() => onIgnoreDevice(pd)}
+                className="text-xs px-2.5 py-1 rounded-md text-blue-900 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+              >
+                Ablehnen
+              </button>
+              <button
+                onClick={() => onAcceptDevice(pd)}
+                className="text-xs font-medium px-2.5 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Akzeptieren
+              </button>
             </div>
-            <button
-              onClick={() => setDeletionSuggestion(null)}
-              className="text-xs px-2 py-1 rounded-md text-rose-900 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 shrink-0"
-            >
-              Behalten
-            </button>
-            <button
-              onClick={acceptClusterDelete}
-              className="text-xs font-medium px-2.5 py-1 rounded-md bg-rose-600 text-white hover:bg-rose-700 shrink-0"
-            >
-              Hier auch entfernen
-            </button>
-          </div>
-        )}
+          ))}
+        </div>
+      )}
 
+      <div className="flex-1 flex overflow-hidden">
         {isFirstRun ? (
-          <EmptyState
+          <FirstRunWelcome
             onCreateFolder={() => setModal({ kind: "create-folder" })}
-            onRedeemCode={() => setModal({ kind: "code-redeem" })}
             onShowCode={() => setModal({ kind: "code-show" })}
+            onRedeemCode={() => setModal({ kind: "code-redeem" })}
+            onOpenSettings={() => setModal({ kind: "settings" })}
           />
         ) : (
           <>
-            {(pendingDevices.data?.length ?? 0) > 0 && modal?.kind !== "code-show" && (
-              <section className="mt-5 space-y-2">
-                {pendingDevices.data!.map((pd) => (
-                  <div
-                    key={pd.deviceID}
-                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-blue-400/40 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-950/30"
-                  >
-                    <div className="min-w-0 flex-1 text-xs">
-                      <div className="font-medium text-blue-900 dark:text-blue-200 truncate">
-                        {pd.name || pd.deviceID.slice(0, 7)} möchte sich verbinden
-                      </div>
-                      <p className="text-blue-700/80 dark:text-blue-300/80 truncate">
-                        {pd.address}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => onIgnoreDevice(pd)}
-                      className="text-xs px-2.5 py-1 rounded-md text-blue-900 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/40"
-                    >
-                      Ablehnen
-                    </button>
-                    <button
-                      onClick={() => onAcceptDevice(pd)}
-                      className="text-xs font-medium px-2.5 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
-                    >
-                      Akzeptieren
-                    </button>
-                  </div>
-                ))}
-              </section>
-            )}
+            <Sidebar
+              folders={folders}
+              pending={visiblePending}
+              tagsByFolderID={tagsByFolderID}
+              devices={devices}
+              connections={connectionsByID}
+              myID={myID}
+              endpoint={endpoint}
+              ready={ready}
+              selectedFolderId={selectedFolderId}
+              onSelectFolder={(f) => setSelectedFolderId(f.id)}
+              onSelectPending={onLink}
+              onScan={onScan}
+              scanning={scanning}
+              onAddFolder={() => setModal({ kind: "create-folder" })}
+              onShowCode={() => setModal({ kind: "code-show" })}
+              onRedeemCode={() => setModal({ kind: "code-redeem" })}
+            />
 
-            <section className="mt-6">
-              <p className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
-                Geräte
-              </p>
-              <DeviceRow
-                devices={devices}
-                connections={connectionsByID}
-                myID={myID}
-              />
-            </section>
-
-            <section className="mt-5">
-              <p className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
-                Ordner
-              </p>
-              <FolderList
-                linked={folders}
-                pending={(pendingFolders.data ?? []).filter(
-                  (pf) => !ignored.isIgnored(pf.folderID),
-                )}
+            {selectedFolder ? (
+              <FolderInspector
+                folder={selectedFolder}
                 endpoint={endpoint}
                 ready={ready}
-                devices={devices}
                 connections={connectionsByID}
                 myID={myID}
-                onLink={onLink}
+                tags={tagsByFolderID[selectedFolder.id] ?? []}
                 onPauseToggle={onPauseToggle}
-                onRename={onRename}
-                onShowErrors={(f) => setModal({ kind: "folder-errors", folder: f })}
                 onShowSettings={(f) => setModal({ kind: "folder-settings", folder: f })}
                 onShowConflicts={(f) => setModal({ kind: "folder-conflicts", folder: f })}
-                tagsByFolderID={tagsByFolderID}
+                onShowErrors={(f) => setModal({ kind: "folder-errors", folder: f })}
               />
-            </section>
-
-            <section className="mt-5 flex gap-2">
-              <button
-                onClick={() => setModal({ kind: "create-folder" })}
-                className="flex-1 text-xs font-medium px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-              >
-                + Ordner
-              </button>
-              <button
-                onClick={() => setModal({ kind: "code-redeem" })}
-                className="flex-1 text-xs font-medium px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800"
-              >
-                Code einlösen
-              </button>
-              <button
-                onClick={() => setModal({ kind: "code-show" })}
-                className="flex-1 text-xs font-medium px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800"
-              >
-                Code anzeigen
-              </button>
-            </section>
-
-            <ActiveInvitesPanel />
+            ) : (
+              <NoSelectionView
+                onCreateFolder={() => setModal({ kind: "create-folder" })}
+                onShowCode={() => setModal({ kind: "code-show" })}
+              />
+            )}
           </>
         )}
+      </div>
 
-        <Statusbar
-          aggregateState={aggregate.state}
-          needBytes={aggregate.needBytes}
-          errorCount={aggregate.errorCount}
-          lastSyncAt={aggregate.lastUpdate}
-          localFiles={aggregate.localFiles}
-          localBytes={aggregate.localBytes}
-          version={version}
-        />
+      <div className="border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 shrink-0 flex items-stretch">
+        <div className="flex-1 px-4">
+          <Statusbar
+            aggregateState={aggregate.state}
+            needBytes={aggregate.needBytes}
+            errorCount={aggregate.errorCount}
+            lastSyncAt={aggregate.lastUpdate}
+            localFiles={aggregate.localFiles}
+            localBytes={aggregate.localBytes}
+            version={version}
+          />
+        </div>
+        <button
+          onClick={() => setModal({ kind: "settings" })}
+          title="Einstellungen"
+          className="px-3 flex items-center text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 border-l border-neutral-200 dark:border-neutral-800 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+        >
+          <SettingsIcon className="size-3.5" />
+        </button>
       </div>
 
       {modal?.kind === "link" && (
@@ -568,3 +528,127 @@ function App() {
 }
 
 export default App;
+
+// ─────────────────────────────────────────────────────────────────────
+// Welcome- und Empty-States (inline weil klein + nur hier verwendet)
+// ─────────────────────────────────────────────────────────────────────
+
+function FirstRunWelcome({
+  onCreateFolder,
+  onShowCode,
+  onRedeemCode,
+  onOpenSettings,
+}: {
+  onCreateFolder: () => void;
+  onShowCode: () => void;
+  onRedeemCode: () => void;
+  onOpenSettings: () => void;
+}) {
+  return (
+    <div className="flex-1 flex items-center justify-center bg-white dark:bg-neutral-900 px-8 py-12">
+      <div className="max-w-md w-full">
+        <div className="size-10 rounded-md bg-blue-600 flex items-center justify-center text-white mb-4">
+          <svg
+            viewBox="0 0 24 24"
+            className="size-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+            <path d="M16 16h5v5" />
+          </svg>
+        </div>
+        <h1
+          className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2"
+          style={{ textWrap: "balance" } as React.CSSProperties}
+        >
+          Syncomat ist bereit.
+        </h1>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6 leading-relaxed">
+          Drei Wege zu starten — wähle den, der passt.
+        </p>
+
+        <div className="space-y-2">
+          <button
+            onClick={onCreateFolder}
+            className="w-full text-left px-4 py-3 rounded-xl border border-blue-300 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          >
+            <div className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+              Ersten Ordner anlegen
+            </div>
+            <div className="text-xs text-blue-700/80 dark:text-blue-300/80 mt-0.5">
+              Lokalen Pfad wählen, Geräte kommen später dazu.
+            </div>
+          </button>
+          <button
+            onClick={onShowCode}
+            className="w-full text-left px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          >
+            <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+              Gerät einladen
+            </div>
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+              Erzeugt einen Code für deinen zweiten Rechner.
+            </div>
+          </button>
+          <button
+            onClick={onRedeemCode}
+            className="w-full text-left px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          >
+            <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+              Code einlösen
+            </div>
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+              Hat dir jemand einen Einladungs-Code geschickt?
+            </div>
+          </button>
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-500">
+          <span>Tipp: Tray-Icon bleibt aktiv wenn du das Fenster schliesst.</span>
+          <button onClick={onOpenSettings} className="hover:text-neutral-900 dark:hover:text-neutral-100">
+            Einstellungen →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NoSelectionView({
+  onCreateFolder,
+  onShowCode,
+}: {
+  onCreateFolder: () => void;
+  onShowCode: () => void;
+}) {
+  return (
+    <div className="flex-1 flex items-center justify-center bg-white dark:bg-neutral-900 px-8">
+      <div className="max-w-sm text-center">
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+          Kein Ordner ausgewählt. Wähle links einen aus oder lege einen neuen
+          an.
+        </p>
+        <div className="flex justify-center gap-2">
+          <button
+            onClick={onCreateFolder}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          >
+            + Ordner
+          </button>
+          <button
+            onClick={onShowCode}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          >
+            Gerät einladen
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

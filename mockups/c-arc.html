@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="de" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <title>C · Arc-Sidebar — Syncomat Redesign</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { darkMode: "media" };
+    </script>
+    <style>
+      html, body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: #f3f3f5; }
+      @media (prefers-color-scheme: dark) { html, body { background: #0a0a0a; } }
+      .dot { display: inline-block; width: 8px; height: 8px; border-radius: 999px; }
+    </style>
+  </head>
+  <body class="text-neutral-800 dark:text-neutral-200 min-h-screen">
+    <header class="max-w-5xl mx-auto px-6 pt-5 pb-3 flex items-center justify-between">
+      <a href="index.html" class="text-xs text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">← zurück zur Übersicht</a>
+      <div class="text-xs text-neutral-500">C · Arc-Sidebar (Tag-zentriert) · 900×640</div>
+    </header>
+
+    <div class="max-w-5xl mx-auto px-6 pb-10">
+      <div class="rounded-2xl border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xl overflow-hidden" style="height:640px; max-width:900px; margin:0 auto;">
+        <!-- Title-Bar -->
+        <div class="h-9 border-b border-neutral-200 dark:border-neutral-800 flex items-center px-4 gap-2 bg-neutral-50 dark:bg-neutral-900">
+          <div class="flex gap-1.5">
+            <div class="size-3 rounded-full bg-red-400"></div>
+            <div class="size-3 rounded-full bg-amber-400"></div>
+            <div class="size-3 rounded-full bg-emerald-400"></div>
+          </div>
+          <div class="flex-1 text-center text-xs font-medium text-neutral-500">Syncomat</div>
+          <div class="w-12"></div>
+        </div>
+
+        <!-- Main: Sidebar + Content -->
+        <div class="flex" style="height:calc(640px - 36px - 28px);">
+          <!-- SIDEBAR -->
+          <aside class="w-56 border-r border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 overflow-y-auto">
+            <!-- Brand + Sync-Button -->
+            <div class="px-3 py-3 border-b border-neutral-200 dark:border-neutral-800">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="size-7 rounded-md bg-blue-600 flex items-center justify-center text-white">
+                  <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                </div>
+                <div class="text-sm font-bold">Syncomat</div>
+              </div>
+              <button class="w-full text-xs font-medium px-2.5 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center justify-center gap-1.5">
+                <svg viewBox="0 0 24 24" class="size-3.5" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                Jetzt syncen
+              </button>
+            </div>
+
+            <!-- Tag-Group: #unreal (selected folder in it) -->
+            <div class="px-1.5 py-2">
+              <div class="px-2 py-1 flex items-center gap-1.5">
+                <svg viewBox="0 0 24 24" class="size-3 text-neutral-400" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                <span class="text-[10px] font-bold text-neutral-500 dark:text-neutral-400 tracking-wide">#unreal</span>
+                <span class="text-[10px] text-neutral-400 ml-auto">2</span>
+              </div>
+              <div class="space-y-0.5 ml-1.5">
+                <button class="w-full text-left px-2 py-1.5 rounded-md bg-blue-100/70 dark:bg-blue-950/60 ring-1 ring-inset ring-blue-200 dark:ring-blue-500/30">
+                  <div class="flex items-center gap-1.5">
+                    <span class="dot bg-emerald-500"></span>
+                    <span class="text-xs font-semibold truncate flex-1 text-blue-900 dark:text-blue-100">orderA</span>
+                    <span class="text-[10px] px-1 rounded bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 font-semibold">1</span>
+                  </div>
+                </button>
+                <button class="w-full text-left px-2 py-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800/60">
+                  <div class="flex items-center gap-1.5">
+                    <span class="dot bg-emerald-500"></span>
+                    <span class="text-xs truncate flex-1">orderB</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div class="px-1.5 py-2 border-t border-neutral-200 dark:border-neutral-800">
+              <div class="px-2 py-1 flex items-center gap-1.5">
+                <svg viewBox="0 0 24 24" class="size-3 text-neutral-400" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                <span class="text-[10px] font-bold text-neutral-500 dark:text-neutral-400 tracking-wide">#footage</span>
+                <span class="text-[10px] text-neutral-400 ml-auto">1</span>
+              </div>
+              <div class="space-y-0.5 ml-1.5">
+                <button class="w-full text-left px-2 py-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800/60">
+                  <div class="flex items-center gap-1.5">
+                    <span class="dot bg-emerald-500"></span>
+                    <span class="text-xs truncate flex-1">Footage Mai</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div class="px-1.5 py-2 border-t border-neutral-200 dark:border-neutral-800">
+              <div class="px-2 py-1 flex items-center gap-1.5">
+                <svg viewBox="0 0 24 24" class="size-3 text-neutral-400" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                <span class="text-[10px] font-bold text-neutral-500 dark:text-neutral-400 tracking-wide">#archive</span>
+                <span class="text-[10px] text-neutral-400 ml-auto">1</span>
+              </div>
+              <div class="space-y-0.5 ml-1.5">
+                <button class="w-full text-left px-2 py-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800/60">
+                  <div class="flex items-center gap-1.5">
+                    <span class="dot bg-neutral-400"></span>
+                    <span class="text-xs truncate flex-1 text-neutral-500">Backup-Alt</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Add folder -->
+            <div class="px-1.5 py-2 border-t border-neutral-200 dark:border-neutral-800">
+              <button class="w-full text-left px-2 py-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                <svg viewBox="0 0 24 24" class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span class="text-xs font-medium">Ordner</span>
+              </button>
+            </div>
+
+            <!-- Devices -->
+            <div class="px-3 pt-3 pb-1 border-t border-neutral-200 dark:border-neutral-800">
+              <span class="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Geräte</span>
+            </div>
+            <div class="px-1.5 pb-2 space-y-0.5">
+              <div class="flex items-center gap-1.5 px-2 py-1 rounded-md">
+                <span class="dot bg-emerald-500"></span>
+                <span class="text-[11px] font-medium flex-1">x7950</span>
+                <span class="text-[10px] text-neutral-500">dies</span>
+              </div>
+              <div class="flex items-center gap-1.5 px-2 py-1 rounded-md">
+                <span class="dot bg-neutral-400"></span>
+                <span class="text-[11px] text-neutral-500 flex-1">studio</span>
+                <span class="text-[10px] text-neutral-500">offline</span>
+              </div>
+            </div>
+          </aside>
+
+          <!-- CONTENT -->
+          <main class="flex-1 overflow-y-auto bg-white dark:bg-neutral-900">
+            <!-- Content-Header -->
+            <div class="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 flex items-start gap-3">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <h1 class="text-lg font-bold">orderA</h1>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-medium">#unreal</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-medium">#studio</span>
+                </div>
+                <div class="flex items-center gap-1.5 mt-1">
+                  <span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-semibold">
+                    <span class="dot bg-emerald-500"></span> Synchron
+                  </span>
+                  <span class="text-[11px] text-neutral-500">12.4 GB · 247'042 Dateien · 10 Unreal-Projekte · vor 12 s</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-1">
+                <button class="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500" title="Pausieren">
+                  <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                </button>
+                <button class="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500" title="Einstellungen">
+                  <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Content-Body -->
+            <div class="px-6 py-5 space-y-5">
+              <!-- Activity-Feed als Hauptmotiv (Tower-Style) -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <div class="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold">Aktivität</div>
+                  <div class="text-[10px] text-neutral-500">heute · gestern</div>
+                </div>
+                <div class="rounded-lg border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-800 text-xs">
+                  <div class="px-3 py-2 flex items-center gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
+                    <span class="text-[10px] text-neutral-400 w-10 font-mono">14:21</span>
+                    <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono w-3.5 shrink-0">↓</span>
+                    <span class="text-[10px] text-neutral-500 font-mono w-12 shrink-0">studio</span>
+                    <span class="font-mono text-[11px] truncate flex-1">ProjectA/ProjectA.uproject</span>
+                    <span class="text-[10px] text-neutral-400 tabular-nums">2.4 KB</span>
+                  </div>
+                  <div class="px-3 py-2 flex items-center gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
+                    <span class="text-[10px] text-neutral-400 w-10 font-mono">14:18</span>
+                    <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono w-3.5 shrink-0">↓</span>
+                    <span class="text-[10px] text-neutral-500 font-mono w-12 shrink-0">studio</span>
+                    <span class="font-mono text-[11px] truncate flex-1">ProjectA/Content/Maps/Lobby.umap</span>
+                    <span class="text-[10px] text-neutral-400 tabular-nums">18.2 MB</span>
+                  </div>
+                  <div class="px-3 py-2 flex items-center gap-3 bg-amber-50/50 dark:bg-amber-950/15">
+                    <span class="text-[10px] text-neutral-400 w-10 font-mono">14:15</span>
+                    <span class="text-[10px] text-amber-600 dark:text-amber-400 font-mono w-3.5 shrink-0">⊘</span>
+                    <span class="text-[10px] text-neutral-500 font-mono w-12 shrink-0">studio</span>
+                    <span class="font-mono text-[11px] truncate flex-1">ProjectA/Saved/log.txt</span>
+                    <button class="text-[10px] text-amber-700 dark:text-amber-300 font-semibold hover:underline">Konflikt auflösen →</button>
+                  </div>
+                  <div class="px-3 py-2 flex items-center gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
+                    <span class="text-[10px] text-neutral-400 w-10 font-mono">14:11</span>
+                    <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono w-3.5 shrink-0">↓</span>
+                    <span class="text-[10px] text-neutral-500 font-mono w-12 shrink-0">studio</span>
+                    <span class="font-mono text-[11px] truncate flex-1">ProjectB/ProjectB.uproject</span>
+                    <span class="text-[10px] text-neutral-400 tabular-nums">2.1 KB</span>
+                  </div>
+                  <div class="px-3 py-2 flex items-center gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
+                    <span class="text-[10px] text-neutral-400 w-10 font-mono">13:45</span>
+                    <span class="text-[10px] text-blue-600 dark:text-blue-400 font-mono w-3.5 shrink-0">↑</span>
+                    <span class="text-[10px] text-neutral-500 font-mono w-12 shrink-0">→ studio</span>
+                    <span class="font-mono text-[11px] truncate flex-1">ProjectA/Content/Maps/Editor.umap</span>
+                    <span class="text-[10px] text-neutral-400 tabular-nums">31.4 MB</span>
+                  </div>
+                  <div class="px-3 py-2 flex items-center gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
+                    <span class="text-[10px] text-neutral-400 w-10 font-mono">13:22</span>
+                    <span class="text-[10px] text-blue-600 dark:text-blue-400 font-mono w-3.5 shrink-0">↑</span>
+                    <span class="text-[10px] text-neutral-500 font-mono w-12 shrink-0">→ studio</span>
+                    <span class="font-mono text-[11px] truncate flex-1">ProjectC/ProjectC.uproject</span>
+                    <span class="text-[10px] text-neutral-400 tabular-nums">2.0 KB</span>
+                  </div>
+                  <div class="px-3 py-2 flex items-center gap-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/40 text-neutral-500">
+                    <span class="text-[10px] text-neutral-400 w-10 font-mono">gestern</span>
+                    <span class="text-[10px] font-mono w-3.5 shrink-0">↓</span>
+                    <span class="text-[10px] font-mono w-12 shrink-0">studio</span>
+                    <span class="font-mono text-[11px] truncate flex-1">ProjectD/Content/Audio/intro.wav</span>
+                    <span class="text-[10px] tabular-nums">4.8 MB</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Konflikte als kompakte Box (sekundär weil schon in Activity) -->
+              <div class="rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 flex items-center gap-3">
+                <svg viewBox="0 0 24 24" class="size-4 text-amber-600 dark:text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/></svg>
+                <div class="flex-1 text-xs">
+                  <span class="font-semibold text-amber-900 dark:text-amber-200">1 Sync-Konflikt</span>
+                  <span class="text-amber-700/80 dark:text-amber-300/80"> · Saved/log.txt</span>
+                </div>
+                <button class="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700">Auflösen</button>
+              </div>
+
+              <!-- Footer-Meta -->
+              <div class="flex items-center justify-between text-[11px] text-neutral-500 pt-2 border-t border-neutral-200 dark:border-neutral-800">
+                <div class="font-mono truncate">/Users/marlon/UE-Projects/orderA</div>
+                <div class="flex items-center gap-3">
+                  <a class="hover:text-neutral-900 dark:hover:text-neutral-100 cursor-pointer">Im Finder zeigen</a>
+                  <a class="hover:text-neutral-900 dark:hover:text-neutral-100 cursor-pointer">Syncthing Web-UI</a>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+
+        <!-- Statusbar -->
+        <div class="h-7 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between px-4 text-[11px] text-neutral-500 bg-neutral-50/60 dark:bg-neutral-950/40">
+          <span>Aktuell · alles synchron · ↑1.2 MB/s ↓0</span>
+          <span>Index ~430 MB · v0.1.21 · vor 4 s</span>
+        </div>
+      </div>
+
+      <p class="text-xs text-neutral-500 text-center mt-4">
+        Sidebar gruppiert Folders nach Tag. Activity-Feed ist das Haupt-Element (Tower-Commit-Style).
+      </p>
+    </div>
+  </body>
+</html>
