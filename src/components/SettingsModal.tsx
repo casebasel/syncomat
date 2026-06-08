@@ -2,6 +2,7 @@ import { useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Bell,
+  Bug,
   CheckCircle2,
   Copy,
   Download,
@@ -12,12 +13,14 @@ import {
   RefreshCw,
   RotateCcw,
 } from "lucide-react";
+import type { Folder } from "../lib/syncthing";
+import { folderSettingsRead, type FolderDefaultsFile } from "../lib/folderSettings";
 import { Modal } from "./Modal";
 import type { Endpoint, SystemStatus } from "../lib/syncthing";
 import type { UpdateState } from "../lib/updater";
 import { ignoredFoldersRemove, useIgnoredFolders } from "../lib/ignored";
 
-type Tab = "general" | "updates" | "notifications" | "ignored" | "power-user";
+type Tab = "general" | "updates" | "notifications" | "ignored" | "power-user" | "diagnose";
 
 export function SettingsModal({
   endpoint,
@@ -28,6 +31,7 @@ export function SettingsModal({
   onInstallUpdate,
   notificationsEnabled,
   onSetNotificationsEnabled,
+  folders,
   onClose,
 }: {
   endpoint: Endpoint | null;
@@ -38,6 +42,7 @@ export function SettingsModal({
   onInstallUpdate: () => void;
   notificationsEnabled: boolean;
   onSetNotificationsEnabled: (v: boolean) => void;
+  folders: Folder[];
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("general");
@@ -83,6 +88,12 @@ export function SettingsModal({
             active={tab === "power-user"}
             onClick={() => setTab("power-user")}
           />
+          <TabButton
+            label="Diagnose"
+            icon={<Bug className="size-3.5" />}
+            active={tab === "diagnose"}
+            onClick={() => setTab("diagnose")}
+          />
         </nav>
 
         {/* Tab Content */}
@@ -112,6 +123,7 @@ export function SettingsModal({
             />
           )}
           {tab === "power-user" && <PowerUserTab endpoint={endpoint} />}
+          {tab === "diagnose" && <DiagnoseTab folders={folders} />}
         </div>
       </div>
     </Modal>
@@ -491,6 +503,113 @@ function LinkRow({
       </div>
       <ExternalLink className="size-3.5 text-neutral-400 dark:text-neutral-500 shrink-0" />
     </button>
+  );
+}
+
+function DiagnoseTab({ folders }: { folders: Folder[] }) {
+  const [results, setResults] = useState<
+    Record<string, { ok: boolean; file: FolderDefaultsFile | null; error?: string }>
+  >({});
+  const [running, setRunning] = useState(false);
+
+  const runDiagnose = async () => {
+    setRunning(true);
+    const next: typeof results = {};
+    for (const f of folders) {
+      try {
+        const file = await folderSettingsRead(f.path);
+        next[f.id] = { ok: true, file };
+      } catch (e) {
+        next[f.id] = { ok: false, file: null, error: String(e) };
+      }
+    }
+    setResults(next);
+    setRunning(false);
+  };
+
+  return (
+    <div className="space-y-3">
+      <SectionHeading>Diagnose — Ordner-Defaults</SectionHeading>
+      <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
+        Liest <code className="font-mono text-[10px]">.syncomat/folder-defaults.json</code>{" "}
+        für jeden Ordner direkt von Disk und zeigt was drin steht. Hilft bei
+        Sync-Problemen — Screenshot davon hilft beim Debuggen.
+      </p>
+      <button
+        onClick={runDiagnose}
+        disabled={running}
+        className="text-xs font-medium px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 flex items-center gap-1.5"
+      >
+        {running ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : (
+          <RefreshCw className="size-3.5" />
+        )}
+        Defaults von Disk lesen ({folders.length} Ordner)
+      </button>
+
+      <div className="space-y-2">
+        {folders.map((f) => {
+          const r = results[f.id];
+          return (
+            <details
+              key={f.id}
+              className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 px-3 py-2"
+            >
+              <summary className="cursor-pointer text-xs font-medium text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                <span className="truncate flex-1">
+                  {f.label || f.id}
+                </span>
+                {r && (
+                  <span
+                    className={
+                      r.ok && r.file && r.file.settings.tags && r.file.settings.tags.length > 0
+                        ? "text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-semibold"
+                        : r.ok && r.file
+                          ? "text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 font-semibold"
+                          : "text-[10px] px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 font-semibold"
+                    }
+                  >
+                    {r.ok && r.file && r.file.settings.tags?.length
+                      ? `${r.file.settings.tags.length} Tag${r.file.settings.tags.length === 1 ? "" : "s"}`
+                      : r.ok && r.file
+                        ? "keine Tags"
+                        : r.ok
+                          ? "kein File"
+                          : "Fehler"}
+                  </span>
+                )}
+              </summary>
+              <div className="text-[11px] text-neutral-600 dark:text-neutral-300 mt-2 space-y-1">
+                <div className="font-mono text-[10px] text-neutral-500 dark:text-neutral-500 break-all">
+                  {f.path}
+                </div>
+                {r ? (
+                  r.ok && r.file ? (
+                    <pre className="font-mono text-[10px] bg-neutral-100 dark:bg-neutral-900 px-2 py-1.5 rounded overflow-x-auto whitespace-pre-wrap">
+                      {JSON.stringify(r.file, null, 2)}
+                    </pre>
+                  ) : r.ok ? (
+                    <div className="text-neutral-500">
+                      Kein <code className="font-mono">.syncomat/folder-defaults.json</code>{" "}
+                      vorhanden.
+                    </div>
+                  ) : (
+                    <div className="text-rose-600 dark:text-rose-400 break-all">
+                      {r.error}
+                    </div>
+                  )
+                ) : (
+                  <div className="text-neutral-500">
+                    Klick „Defaults von Disk lesen" oben.
+                  </div>
+                )}
+              </div>
+            </details>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
