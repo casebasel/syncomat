@@ -57,23 +57,20 @@ import { GlobalActivityView } from "./components/GlobalActivityView";
 import { Statusbar } from "./components/Statusbar";
 import { Settings as SettingsIcon } from "lucide-react";
 
-// Kleine, kurzlebige Overlays die als Dialog Sinn machen (Wave 3 ggf. auch inline).
-type Modal =
-  | null
-  | { kind: "link"; pending: PendingFolder }
-  | { kind: "folder-errors"; folder: Folder }
-  | { kind: "folder-conflicts"; folder: Folder }
-  | { kind: "device-detail"; deviceID: string };
-
 // Inline-Panels die den Hauptbereich (Inspector/Activity) überlagern statt als
-// Modal aufzupoppen — Native-Redesign Welle 2.
+// Modal aufzupoppen — Native-Redesign. Ab Welle 3 gibt es KEINE Overlay-Modals
+// mehr; alles ist Panel oder Banner.
 type Panel =
   | null
   | { kind: "settings" }
   | { kind: "create-folder" }
   | { kind: "code-show" }
   | { kind: "code-redeem" }
-  | { kind: "folder-settings"; folder: Folder };
+  | { kind: "folder-settings"; folder: Folder }
+  | { kind: "folder-conflicts"; folder: Folder }
+  | { kind: "folder-errors"; folder: Folder }
+  | { kind: "device-detail"; deviceID: string }
+  | { kind: "link"; pending: PendingFolder };
 
 function App() {
   // WebView2-Default-Shortcuts (Find/Print/Reload) blockieren — sonst
@@ -132,7 +129,6 @@ function App() {
   const updater = useUpdater(true);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
-  const [modal, setModal] = useState<Modal>(null);
   const [scanning, setScanning] = useState(false);
   const [version, setVersion] = useState<string | null>(null);
 
@@ -265,7 +261,7 @@ function App() {
     await putFolder(endpoint, { ...f, paused: !f.paused });
   };
 
-  const onLink = (pf: PendingFolder) => setModal({ kind: "link", pending: pf });
+  const onLink = (pf: PendingFolder) => setPanel({ kind: "link", pending: pf });
 
   const onLinkConfirm = async (
     pending: PendingFolder,
@@ -430,7 +426,7 @@ function App() {
               onShowCode={() => setPanel({ kind: "code-show" })}
               onRedeemCode={() => setPanel({ kind: "code-redeem" })}
               onSelectDevice={(d) =>
-                setModal({ kind: "device-detail", deviceID: d.deviceID })
+                setPanel({ kind: "device-detail", deviceID: d.deviceID })
               }
               pauseDates={pauseDates}
             />
@@ -486,6 +482,48 @@ function App() {
                 }}
                 onSaved={() => tags.refresh()}
               />
+            ) : panel?.kind === "folder-conflicts" ? (
+              <ConflictResolverModal
+                folderPath={panel.folder.path}
+                folderLabel={panel.folder.label || panel.folder.id}
+                onClose={() => setPanel(null)}
+              />
+            ) : panel?.kind === "folder-errors" && endpoint ? (
+              <FolderErrorsModal
+                endpoint={endpoint}
+                folderId={panel.folder.id}
+                folderLabel={panel.folder.label || panel.folder.id}
+                onClose={() => setPanel(null)}
+              />
+            ) : panel?.kind === "link" ? (
+              <LinkFolderModal
+                pending={panel.pending}
+                onConfirm={(label, path, options) =>
+                  onLinkConfirm(panel.pending, label, path, options)
+                }
+                onClose={() => setPanel(null)}
+              />
+            ) : panel?.kind === "device-detail" && endpoint ? (
+              (() => {
+                const device = devices.find((d) => d.deviceID === panel.deviceID);
+                if (!device) return <NoSelectionView onCreateFolder={() => setPanel({ kind: "create-folder" })} onShowCode={() => setPanel({ kind: "code-show" })} />;
+                return (
+                  <DeviceDetailModal
+                    device={device}
+                    endpoint={endpoint}
+                    connection={connectionsByID[device.deviceID]}
+                    folders={folders}
+                    onClose={() => setPanel(null)}
+                    onRemoved={() => {
+                      // Reconciliation entfernt das Gerät beim nächsten config-Tick.
+                    }}
+                    onSelectFolder={(f) => {
+                      setSelectedFolderId(f.id);
+                      setPanel(null);
+                    }}
+                  />
+                );
+              })()
             ) : showGlobalActivity ? (
               <GlobalActivityView
                 folders={folders}
@@ -503,8 +541,8 @@ function App() {
                 pausedSince={pauseDates[selectedFolder.id]}
                 onPauseToggle={onPauseToggle}
                 onShowSettings={(f) => setPanel({ kind: "folder-settings", folder: f })}
-                onShowConflicts={(f) => setModal({ kind: "folder-conflicts", folder: f })}
-                onShowErrors={(f) => setModal({ kind: "folder-errors", folder: f })}
+                onShowConflicts={(f) => setPanel({ kind: "folder-conflicts", folder: f })}
+                onShowErrors={(f) => setPanel({ kind: "folder-errors", folder: f })}
               />
             ) : (
               <NoSelectionView
@@ -544,48 +582,6 @@ function App() {
         </button>
       </div>
 
-      {modal?.kind === "link" && (
-        <LinkFolderModal
-          pending={modal.pending}
-          onConfirm={(label, path, options) =>
-            onLinkConfirm(modal.pending, label, path, options)
-          }
-          onClose={() => setModal(null)}
-        />
-      )}
-      {modal?.kind === "folder-errors" && endpoint && (
-        <FolderErrorsModal
-          endpoint={endpoint}
-          folderId={modal.folder.id}
-          folderLabel={modal.folder.label || modal.folder.id}
-          onClose={() => setModal(null)}
-        />
-      )}
-      {modal?.kind === "folder-conflicts" && (
-        <ConflictResolverModal
-          folderPath={modal.folder.path}
-          folderLabel={modal.folder.label || modal.folder.id}
-          onClose={() => setModal(null)}
-        />
-      )}
-      {modal?.kind === "device-detail" && endpoint && (() => {
-        const device = devices.find((d) => d.deviceID === modal.deviceID);
-        if (!device) return null;
-        return (
-          <DeviceDetailModal
-            device={device}
-            endpoint={endpoint}
-            connection={connectionsByID[device.deviceID]}
-            folders={folders}
-            onClose={() => setModal(null)}
-            onRemoved={() => {
-              // Reconciliation entfernt das Gerät automatisch aus folder.devices
-              // beim nächsten Tick (config-watcher), nothing to do here.
-            }}
-            onSelectFolder={(f) => setSelectedFolderId(f.id)}
-          />
-        );
-      })()}
     </main>
   );
 }

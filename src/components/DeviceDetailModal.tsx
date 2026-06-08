@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Check, Copy, ExternalLink, Pencil, Trash2, X } from "lucide-react";
-import { Modal } from "./Modal";
+import { PanelShell } from "./PanelShell";
 import { SyncStatusBadge } from "./SyncStatusBadge";
 import {
   deleteDevice,
@@ -92,9 +92,9 @@ export function DeviceDetailModal({
   };
 
   return (
-    <Modal
+    <PanelShell
       title={device.name || device.deviceID.slice(0, 7)}
-      onClose={onClose}
+      onBack={onClose}
       dismissible={!busy && !confirmRemove}
     >
       <div className="space-y-4">
@@ -288,7 +288,7 @@ export function DeviceDetailModal({
           </div>
         )}
       </div>
-    </Modal>
+    </PanelShell>
   );
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, FileWarning, Loader2 } from "lucide-react";
-import { Modal } from "./Modal";
+import { PanelShell } from "./PanelShell";
 import {
   getFolderErrors,
   isWindowsNameError,
@@ -48,7 +48,7 @@ export function FolderErrorsModal({
   const otherErrors = (state.data ?? []).filter((e) => !isWindowsNameError(e.error));
 
   return (
-    <Modal title={`Fehler in „${folderLabel}"`} onClose={onClose}>
+    <PanelShell title={`Fehler in „${folderLabel}"`} onBack={onClose} width="wide">
       {state.loading ? (
         <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
           <Loader2 className="size-4 animate-spin" />
@@ -82,7 +82,7 @@ export function FolderErrorsModal({
           )}
         </div>
       )}
-    </Modal>
+    </PanelShell>
   );
 }
 

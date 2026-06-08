@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AlertOctagon, Check, Copy, Loader2, Trash2 } from "lucide-react";
-import { Modal } from "./Modal";
+import { PanelShell } from "./PanelShell";
 import {
   conflictsKeepBoth,
   conflictsKeepLocal,
@@ -38,10 +38,11 @@ export function ConflictResolverModal({
   };
 
   return (
-    <Modal
+    <PanelShell
       title={`Konflikte in „${folderLabel}"`}
-      onClose={onClose}
+      onBack={onClose}
       dismissible={busyKey === null}
+      width="wide"
     >
       {items === null ? (
         <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
@@ -106,7 +107,7 @@ export function ConflictResolverModal({
           )}
         </div>
       )}
-    </Modal>
+    </PanelShell>
   );
 }
 

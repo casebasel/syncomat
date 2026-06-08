@@ -2,7 +2,7 @@ import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { AlertTriangle, FolderOpen, Loader2 } from "lucide-react";
 import type { PendingFolder } from "../lib/syncthing";
-import { Modal } from "./Modal";
+import { PanelShell } from "./PanelShell";
 import {
   estimateIndexRamMB,
   fmtSize,
@@ -96,7 +96,7 @@ export function LinkFolderModal({
   };
 
   return (
-    <Modal title="Ordner verknüpfen" onClose={onClose} dismissible={!busy}>
+    <PanelShell title="Ordner verknüpfen" onBack={onClose} dismissible={!busy}>
       <div className="space-y-4">
         <div>
           <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
@@ -240,6 +240,6 @@ export function LinkFolderModal({
           </button>
         </div>
       </div>
-    </Modal>
+    </PanelShell>
   );
 }
