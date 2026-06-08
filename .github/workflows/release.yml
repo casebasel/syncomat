@@ -6,6 +6,10 @@ on:
       - 'v*'
   workflow_dispatch: {}
 
+# Tauri-Action braucht write-Access um Release anzulegen + Assets zu uploaden.
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
