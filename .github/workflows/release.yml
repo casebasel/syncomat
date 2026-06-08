@@ -50,8 +50,42 @@ jobs:
       - name: Fetch Syncthing sidecar binaries
         # Läuft auf macOS nativ; auf Windows via Git-Bash (bash + curl + unzip
         # sind alle in $PATH dank git installation auf windows-latest).
+        # NB: binaries sind committed im repo, das script ist no-op wenn da.
         shell: bash
         run: bash scripts/fetch-syncthing.sh
+
+      # GitHub Release CDN ist sporadisch flapping (504) — verhindert dass
+      # tauri-bundler NSIS zur Build-Zeit selbst herunterlädt. Wir holen es
+      # mit unserem eigenen Retry-Loop vor und legen es in den Pfad wo tauri-bundler
+      # nach existing cache schaut.
+      - name: Cache Tauri NSIS bundler resources
+        if: matrix.platform == 'windows-latest'
+        uses: actions/cache@v4
+        with:
+          path: ~/AppData/Local/tauri
+          key: tauri-nsis-3.11-v1
+
+      - name: Pre-fetch NSIS bundler (Windows-only, workaround for CDN-Flapping)
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        run: |
+          NSIS_DIR="$LOCALAPPDATA/tauri/NSIS"
+          mkdir -p "$NSIS_DIR"
+          if [ -d "$NSIS_DIR/nsis-3.11" ]; then
+            echo "✓ NSIS cached"; exit 0
+          fi
+          URL="https://github.com/tauri-apps/binary-releases/releases/download/nsis-3.11/nsis-3.11.zip"
+          for i in 1 2 3 4 5 6 7 8; do
+            echo "attempt $i: $URL"
+            if curl -fL --connect-timeout 30 --max-time 300 -o "$NSIS_DIR/nsis-3.11.zip" "$URL"; then
+              echo "✓ downloaded, extracting…"
+              (cd "$NSIS_DIR" && unzip -oq nsis-3.11.zip)
+              break
+            fi
+            echo "  failed, sleeping $((i*30))s before retry"
+            sleep $((i * 30))
+          done
+          ls "$NSIS_DIR/" || (echo "✗ NSIS dir empty after 8 attempts (~20min)"; exit 1)
 
       - name: Build + Release with Tauri
         uses: tauri-apps/tauri-action@v0
