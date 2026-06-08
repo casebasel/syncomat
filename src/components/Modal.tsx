@@ -6,12 +6,18 @@ export function Modal({
   children,
   onClose,
   dismissible = true,
+  size = "default",
+  noPadding = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   /** If false: Esc + Backdrop-Click + Close-Button werden ignoriert (während laufendem Flow). */
   dismissible?: boolean;
+  /** "default" = max-w-sm (kompakte Flows), "wide" = max-w-2xl (Settings, mehrspaltige Layouts) */
+  size?: "default" | "wide";
+  /** Body ohne padding rendern — bei eigenen Layout-Containern */
+  noPadding?: boolean;
 }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -77,10 +83,10 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-sm rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-2xl"
+        className={`w-full ${size === "wide" ? "max-w-2xl" : "max-w-sm"} max-h-[85vh] flex flex-col rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-2xl overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between px-5 py-3 border-b border-neutral-200 dark:border-neutral-800">
+        <header className="flex items-center justify-between px-5 py-3 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
           <h2
             id={titleId}
             className="text-sm font-semibold text-neutral-900 dark:text-neutral-100"
@@ -97,7 +103,7 @@ export function Modal({
             </button>
           )}
         </header>
-        <div className="px-5 py-4">{children}</div>
+        <div className={`${noPadding ? "" : "px-5 py-4"} overflow-y-auto flex-1`}>{children}</div>
       </div>
     </div>
   );

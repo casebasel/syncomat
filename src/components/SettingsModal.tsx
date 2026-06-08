@@ -1,13 +1,22 @@
 import { useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { Bell, CheckCircle2, Copy, ExternalLink, Loader2, RefreshCw, RotateCcw, FolderX } from "lucide-react";
+import {
+  Bell,
+  CheckCircle2,
+  Copy,
+  ExternalLink,
+  FolderX,
+  Info,
+  Loader2,
+  RefreshCw,
+  RotateCcw,
+} from "lucide-react";
 import { Modal } from "./Modal";
 import type { Endpoint, SystemStatus } from "../lib/syncthing";
 import type { UpdateState } from "../lib/updater";
-import {
-  ignoredFoldersRemove,
-  useIgnoredFolders,
-} from "../lib/ignored";
+import { ignoredFoldersRemove, useIgnoredFolders } from "../lib/ignored";
+
+type Tab = "general" | "updates" | "notifications" | "ignored" | "power-user";
 
 export function SettingsModal({
   endpoint,
@@ -28,29 +37,199 @@ export function SettingsModal({
   onSetNotificationsEnabled: (v: boolean) => void;
   onClose: () => void;
 }) {
-  const [copied, setCopied] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("general");
   const ignored = useIgnoredFolders();
 
-  const reactivate = async (folderId: string) => {
-    try {
-      await ignoredFoldersRemove(folderId);
-      ignored.refresh();
-    } catch (e) {
-      console.warn("ignored-remove failed", e);
-    }
-  };
+  return (
+    <Modal title="Einstellungen" size="wide" noPadding onClose={onClose}>
+      <div className="flex h-full">
+        {/* Sidebar Tabs */}
+        <nav
+          className="w-44 shrink-0 border-r border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 py-3"
+          aria-label="Einstellungs-Sektionen"
+        >
+          <TabButton
+            label="Allgemein"
+            icon={<Info className="size-3.5" />}
+            active={tab === "general"}
+            onClick={() => setTab("general")}
+          />
+          <TabButton
+            label="Aktualisierung"
+            icon={<RefreshCw className="size-3.5" />}
+            active={tab === "updates"}
+            onClick={() => setTab("updates")}
+            badge={updateState.kind === "available" ? "neu" : undefined}
+          />
+          <TabButton
+            label="Benachrichtigungen"
+            icon={<Bell className="size-3.5" />}
+            active={tab === "notifications"}
+            onClick={() => setTab("notifications")}
+          />
+          <TabButton
+            label="Ignorierte Ordner"
+            icon={<FolderX className="size-3.5" />}
+            active={tab === "ignored"}
+            onClick={() => setTab("ignored")}
+            badge={ignored.data.length > 0 ? String(ignored.data.length) : undefined}
+          />
+          <TabButton
+            label="Power-User"
+            icon={<ExternalLink className="size-3.5" />}
+            active={tab === "power-user"}
+            onClick={() => setTab("power-user")}
+          />
+        </nav>
 
-  const copy = async (val: string, key: string) => {
+        {/* Tab Content */}
+        <div className="flex-1 px-5 py-4 overflow-y-auto">
+          {tab === "general" && <GeneralTab status={status} version={version} />}
+          {tab === "updates" && (
+            <UpdatesTab
+              updateState={updateState}
+              version={version}
+              onRecheck={onRecheckUpdates}
+            />
+          )}
+          {tab === "notifications" && (
+            <NotificationsTab
+              enabled={notificationsEnabled}
+              onSet={onSetNotificationsEnabled}
+            />
+          )}
+          {tab === "ignored" && (
+            <IgnoredTab
+              entries={ignored.data}
+              onReactivate={async (id) => {
+                await ignoredFoldersRemove(id).catch(() => {});
+                ignored.refresh();
+              }}
+            />
+          )}
+          {tab === "power-user" && <PowerUserTab endpoint={endpoint} />}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function TabButton({
+  label,
+  icon,
+  active,
+  onClick,
+  badge,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+  badge?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-current={active ? "true" : undefined}
+      className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${
+        active
+          ? "bg-blue-100/70 dark:bg-blue-950/60 text-blue-900 dark:text-blue-100 font-semibold border-l-2 border-blue-600"
+          : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 border-l-2 border-transparent"
+      }`}
+    >
+      <span className={active ? "text-blue-600 dark:text-blue-300" : "text-neutral-400"}>
+        {icon}
+      </span>
+      <span className="flex-1 truncate">{label}</span>
+      {badge && (
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600 text-white font-semibold tabular-nums">
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-2">
+      {children}
+    </h3>
+  );
+}
+
+function GeneralTab({
+  status,
+  version,
+}: {
+  status: SystemStatus | null;
+  version: string | null;
+}) {
+  const [copied, setCopied] = useState(false);
+  const copy = async (val: string) => {
     try {
       await navigator.clipboard.writeText(val);
-      setCopied(key);
-      setTimeout(() => setCopied(null), 2000);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (e) {
       console.warn("clipboard write failed", e);
     }
   };
 
-  const updateLabel = (() => {
+  return (
+    <div className="space-y-4">
+      <section>
+        <SectionHeading>Dieses Gerät</SectionHeading>
+        {status ? (
+          <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 px-3 py-2.5">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] text-neutral-500 dark:text-neutral-500">
+                  Geräte-ID
+                </div>
+                <div className="font-mono text-[11px] text-neutral-700 dark:text-neutral-200 break-all">
+                  {status.myID}
+                </div>
+              </div>
+              <button
+                onClick={() => copy(status.myID)}
+                className="shrink-0 mt-0.5 p-1.5 rounded-md text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800"
+                title="Kopieren"
+              >
+                {copied ? (
+                  <CheckCircle2 className="size-3.5 text-emerald-500" />
+                ) : (
+                  <Copy className="size-3.5" />
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-neutral-500">Lade…</p>
+        )}
+      </section>
+
+      <section>
+        <SectionHeading>Version</SectionHeading>
+        <div className="text-xs text-neutral-700 dark:text-neutral-300">
+          Syncomat <span className="font-mono">v{version ?? "?"}</span>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function UpdatesTab({
+  updateState,
+  version,
+  onRecheck,
+}: {
+  updateState: UpdateState;
+  version: string | null;
+  onRecheck: () => void;
+}) {
+  const checking = updateState.kind === "checking";
+  const statusText = (() => {
     switch (updateState.kind) {
       case "checking":
         return "Suche…";
@@ -59,182 +238,175 @@ export function SettingsModal({
       case "up-to-date":
         return "Aktuell";
       case "error":
-        return "Fehler";
+        return updateState.message;
+      case "downloading":
+        return "Lade…";
+      case "ready":
+        return "Update bereit";
       default:
-        return "Jetzt suchen";
+        return "Bereit zum Prüfen";
     }
   })();
+  const tone =
+    updateState.kind === "error"
+      ? "text-rose-500 dark:text-rose-400"
+      : updateState.kind === "available"
+        ? "text-blue-600 dark:text-blue-400 font-medium"
+        : "text-neutral-500 dark:text-neutral-400";
 
   return (
-    <Modal title="Einstellungen" onClose={onClose}>
-      <div className="space-y-5">
-        {/* Eigene Device-ID */}
-        <section>
-          <h3 className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
-            Dieses Gerät
-          </h3>
-          {status ? (
-            <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 px-3 py-2.5">
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="text-[10px] text-neutral-500 dark:text-neutral-500">
-                    Geräte-ID
-                  </div>
-                  <div className="font-mono text-[11px] text-neutral-700 dark:text-neutral-200 break-all">
-                    {status.myID}
-                  </div>
-                </div>
-                <button
-                  onClick={() => copy(status.myID, "device-id")}
-                  className="shrink-0 mt-0.5 p-1.5 rounded-md text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800"
-                  title="Kopieren"
-                >
-                  {copied === "device-id" ? (
-                    <CheckCircle2 className="size-3.5 text-emerald-500" />
-                  ) : (
-                    <Copy className="size-3.5" />
-                  )}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-xs text-neutral-500">Lade…</p>
-          )}
-        </section>
+    <div className="space-y-3">
+      <SectionHeading>Aktualisierung</SectionHeading>
+      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40">
+        <div className="text-xs min-w-0">
+          <div className="text-neutral-900 dark:text-neutral-100">
+            Installiert: <span className="font-mono">v{version ?? "?"}</span>
+          </div>
+          <div className={`mt-0.5 truncate ${tone}`}>{statusText}</div>
+        </div>
+        <button
+          onClick={onRecheck}
+          disabled={checking}
+          className="text-xs font-medium px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 flex items-center gap-1.5 shrink-0 ml-3"
+        >
+          <RefreshCw className={`size-3.5 ${checking ? "animate-spin" : ""}`} />
+          Prüfen
+        </button>
+      </div>
+      <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
+        Automatischer Check alle 6 Stunden. Updates werden mit
+        Minisign-Signatur verifiziert bevor sie installiert werden.
+      </p>
+    </div>
+  );
+}
 
-        {/* Updates */}
-        <section>
-          <h3 className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
-            Aktualisierung
-          </h3>
-          <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40">
-            <div className="text-xs">
-              <div className="text-neutral-900 dark:text-neutral-100">
-                Installiert: <span className="font-mono">v{version ?? "?"}</span>
+function NotificationsTab({
+  enabled,
+  onSet,
+}: {
+  enabled: boolean;
+  onSet: (v: boolean) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <SectionHeading>Benachrichtigungen</SectionHeading>
+      <label className="flex items-start gap-3 cursor-pointer select-none px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40">
+        <div className="size-9 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 dark:text-neutral-400 shrink-0">
+          <Bell className="size-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+            System-Benachrichtigungen
+          </div>
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+            Peer verbindet sich · neuer Ordner verfügbar · Update bereit
+          </p>
+        </div>
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => onSet(e.target.checked)}
+          className="mt-0.5 size-4 accent-blue-600"
+        />
+      </label>
+      <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
+        Beim ersten Mal fragt das System nach Erlaubnis. Lehnst du ab, kann
+        die App keine Benachrichtigungen schicken — Toggle bleibt aus.
+      </p>
+    </div>
+  );
+}
+
+function IgnoredTab({
+  entries,
+  onReactivate,
+}: {
+  entries: { folder_id: string; ignored_at: number; last_seen_label: string | null }[];
+  onReactivate: (folderId: string) => void;
+}) {
+  if (entries.length === 0) {
+    return (
+      <div className="space-y-3">
+        <SectionHeading>Ignorierte Ordner</SectionHeading>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          Keine ignorierten Ordner.
+        </p>
+        <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
+          Wenn du einen Ordner entfernst, erscheint er nicht mehr als
+          „Verfügbar" und kann hier reaktiviert werden.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      <SectionHeading>Ignorierte Ordner ({entries.length})</SectionHeading>
+      <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
+        Werden nicht als „Verfügbar" gezeigt, auch wenn ein Peer sie anbietet.
+      </p>
+      <div className="space-y-1.5">
+        {entries.map((entry) => (
+          <div
+            key={entry.folder_id}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40"
+          >
+            <FolderX className="size-3.5 text-neutral-400 dark:text-neutral-500 shrink-0" />
+            <div className="min-w-0 flex-1 text-xs">
+              <div className="text-neutral-900 dark:text-neutral-100 truncate">
+                {entry.last_seen_label || entry.folder_id}
               </div>
-              <div className="text-neutral-500 dark:text-neutral-500 mt-0.5">
-                {updateLabel}
+              <div className="text-[10px] text-neutral-500 dark:text-neutral-500">
+                Ignoriert{" "}
+                {new Date(entry.ignored_at * 1000).toLocaleString("de-DE", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </div>
             </div>
             <button
-              onClick={onRecheckUpdates}
-              disabled={updateState.kind === "checking"}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 flex items-center gap-1.5"
+              onClick={() => onReactivate(entry.folder_id)}
+              title="Reaktivieren — Ordner taucht wieder als Verfügbar auf"
+              className="text-xs px-2 py-1 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1"
             >
-              <RefreshCw
-                className={`size-3.5 ${updateState.kind === "checking" ? "animate-spin" : ""}`}
-              />
-              Prüfen
+              <RotateCcw className="size-3" />
+              Reaktivieren
             </button>
           </div>
-        </section>
-
-        {/* Benachrichtigungen */}
-        <section>
-          <h3 className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
-            Benachrichtigungen
-          </h3>
-          <label className="flex items-start gap-3 cursor-pointer select-none px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40">
-            <div className="size-9 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 dark:text-neutral-400 shrink-0">
-              <Bell className="size-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                System-Benachrichtigungen
-              </div>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                Peer verbindet sich · neuer Ordner verfügbar · Update bereit
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              checked={notificationsEnabled}
-              onChange={(e) => onSetNotificationsEnabled(e.target.checked)}
-              className="mt-0.5 size-4 accent-blue-600"
-            />
-          </label>
-        </section>
-
-        {/* Power-User */}
-        <section>
-          <h3 className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
-            Power-User
-          </h3>
-          <div className="space-y-2">
-            <LinkRow
-              title="Syncthing Web-UI öffnen"
-              sub="Komplette Syncthing-Verwaltung im Browser"
-              onClick={() => {
-                if (endpoint) openUrl(endpoint.url).catch(() => {});
-              }}
-              disabled={!endpoint}
-            />
-            <LinkRow
-              title="GitHub-Repository"
-              sub="Source-Code + Releases + Issues"
-              onClick={() =>
-                openUrl("https://github.com/casebasel/syncomat").catch(() => {})
-              }
-            />
-          </div>
-        </section>
-
-        {/* Ignorierte Ordner */}
-        {ignored.data.length > 0 && (
-          <section>
-            <h3 className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
-              Ignorierte Ordner
-            </h3>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mb-2">
-              Diese Ordner werden nicht als „Verfügbar" gezeigt, auch wenn ein
-              Peer sie anbietet. Reaktiviere einen wenn du ihn doch wieder syncen
-              willst.
-            </p>
-            <div className="space-y-1.5">
-              {ignored.data.map((entry) => (
-                <div
-                  key={entry.folder_id}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40"
-                >
-                  <FolderX className="size-3.5 text-neutral-400 dark:text-neutral-500 shrink-0" />
-                  <div className="min-w-0 flex-1 text-xs">
-                    <div className="text-neutral-900 dark:text-neutral-100 truncate">
-                      {entry.last_seen_label || entry.folder_id}
-                    </div>
-                    <div className="text-[10px] text-neutral-500 dark:text-neutral-500">
-                      Ignoriert{" "}
-                      {new Date(entry.ignored_at * 1000).toLocaleString("de-DE", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => reactivate(entry.folder_id)}
-                    title="Reaktivieren — Ordner taucht wieder als Verfügbar auf"
-                    className="text-xs px-2 py-1 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1"
-                  >
-                    <RotateCcw className="size-3" />
-                    Reaktivieren
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <div className="flex justify-end pt-2">
-          <button
-            onClick={onClose}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-          >
-            Schließen
-          </button>
-        </div>
+        ))}
       </div>
-    </Modal>
+    </div>
+  );
+}
+
+function PowerUserTab({ endpoint }: { endpoint: Endpoint | null }) {
+  return (
+    <div className="space-y-3">
+      <SectionHeading>Power-User</SectionHeading>
+      <div className="space-y-2">
+        <LinkRow
+          title="Syncthing Web-UI öffnen"
+          sub="Komplette Syncthing-Verwaltung im Browser"
+          onClick={() => {
+            if (endpoint) openUrl(endpoint.url).catch(() => {});
+          }}
+          disabled={!endpoint}
+        />
+        <LinkRow
+          title="GitHub-Repository"
+          sub="Source-Code + Releases + Issues"
+          onClick={() =>
+            openUrl("https://github.com/casebasel/syncomat").catch(() => {})
+          }
+        />
+      </div>
+      <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
+        Die Web-UI zeigt alle Syncthing-Internals (Block-Hash-Algorithmen,
+        IPv6-Listener, ratelimits etc.). Nur reingehen wenn du weißt was du tust.
+      </p>
+    </div>
   );
 }
 
@@ -253,7 +425,7 @@ function LinkRow({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left disabled:opacity-50 disabled:cursor-not-allowed"
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
     >
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
