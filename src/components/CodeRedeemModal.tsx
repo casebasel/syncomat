@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
-import { Check, ChevronRight, Loader2 } from "lucide-react";
+import { Check, ChevronRight, Loader2, Zap } from "lucide-react";
 import { Modal } from "./Modal";
 import { executeRedemption, isSuccess, type RedeemPhase } from "../lib/redeemFlow";
 import type { Endpoint, SystemStatus } from "../lib/syncthing";
+import { retrieveInvite, QUICK_PAIR_ENABLED } from "../lib/rendezvous";
 
 type Phase = "input" | "running" | "done" | "error";
 
@@ -25,7 +26,29 @@ export function CodeRedeemModal({
   const [error, setError] = useState<{ message: string; detail?: string } | null>(null);
   const [doneInfo, setDoneInfo] = useState<{ deviceName: string } | null>(null);
   const [clipboardHint, setClipboardHint] = useState(false);
+  const [quickInput, setQuickInput] = useState("");
+  const [quickFetching, setQuickFetching] = useState(false);
+  const [quickError, setQuickError] = useState<string | null>(null);
   const submittingRef = useRef(false);
+
+  const fetchQuickCode = async () => {
+    const clean = quickInput.trim();
+    if (!/^\d{4}$/.test(clean)) {
+      setQuickError("4 Ziffern eingeben");
+      return;
+    }
+    setQuickFetching(true);
+    setQuickError(null);
+    try {
+      const invite = await retrieveInvite(clean);
+      setCode(invite); // füllt das Code-Feld → existierender Preview + Einlösen-Flow greift
+      setQuickInput("");
+    } catch (e) {
+      setQuickError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setQuickFetching(false);
+    }
+  };
 
   // Audit-Finding: Clipboard NICHT silent auto-lesen — das wäre ein Privacy-
   // Bug (App schluckt potentiell Passwörter aus der Zwischenablage). Stattdessen
@@ -187,6 +210,51 @@ export function CodeRedeemModal({
   return (
     <Modal title="Einladungscode einlösen" onClose={onClose}>
       <div className="space-y-3">
+        {/* Quick-Pair: 4-Ziffern-Code holt den vollen Invite vom Rendezvous */}
+        {QUICK_PAIR_ENABLED && !code && (
+          <div className="rounded-lg border border-blue-300 dark:border-blue-500/40 bg-blue-50/60 dark:bg-blue-950/20 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Zap className="size-3.5 text-blue-600 dark:text-blue-400" />
+              <span className="text-xs font-medium text-blue-900 dark:text-blue-200">
+                Schnell-Code
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                inputMode="numeric"
+                pattern="\d*"
+                maxLength={4}
+                value={quickInput}
+                onChange={(e) => {
+                  setQuickInput(e.target.value.replace(/\D/g, "").slice(0, 4));
+                  setQuickError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && quickInput.length === 4) fetchQuickCode();
+                }}
+                placeholder="4 Ziffern"
+                className="flex-1 px-3 py-2 text-lg font-mono tabular-nums tracking-widest text-center rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
+              />
+              <button
+                onClick={fetchQuickCode}
+                disabled={quickInput.length !== 4 || quickFetching}
+                className="text-xs font-medium px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {quickFetching && <Loader2 className="size-3.5 animate-spin" />}
+                Holen
+              </button>
+            </div>
+            {quickError && (
+              <p className="text-[11px] text-rose-500 dark:text-rose-400 mt-1.5">
+                {quickError}
+              </p>
+            )}
+            <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-1.5">
+              Oder den vollständigen Code unten einfügen.
+            </p>
+          </div>
+        )}
+
         {clipboardHint && (
           <p className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 rounded-md">
             Code aus Zwischenablage übernommen

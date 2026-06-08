@@ -1,0 +1,17 @@
+name = "syncomat-pair"
+main = "src/index.js"
+compatibility_date = "2026-06-01"
+
+# KV-Namespace für die Code → Invite Mappings.
+# Vor dem ersten Deploy anlegen:
+#   wrangler kv namespace create PAIRING
+# Die ausgegebene id hier eintragen:
+[[kv_namespaces]]
+binding = "PAIRING"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Optional: eigene Route auf ca-se.ch statt workers.dev-Subdomain.
+# Braucht die ca-se.ch Zone in Cloudflare (hast du via Tunnel).
+# [[routes]]
+# pattern = "syncomat-pair.ca-se.ch/*"
+# zone_name = "ca-se.ch"

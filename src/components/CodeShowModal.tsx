@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Check, Loader2, QrCode } from "lucide-react";
+import { Copy, Check, Loader2, QrCode, Zap } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Modal } from "./Modal";
 import { encodeInvite, isPrivateAddressHint } from "../lib/invite";
+import { publishInvite, QUICK_PAIR_ENABLED } from "../lib/rendezvous";
 import {
   inviteCreate,
   inviteGetIssuerSecret,
@@ -23,9 +24,18 @@ type GeneratedCode = {
   raw: string;
   codeId: string;
   expiresAt: number;
+  /** Bei Quick-Pair: der 4-stellige Code vom Rendezvous (sonst undefined) */
+  quickCode?: string;
 };
 
-const EXPIRY_OPTIONS: { label: string; seconds: number }[] = [
+// seconds = 600 markiert den Quick-Pair-Modus (10 Min + 4-Ziffern-Code via
+// Rendezvous). Nur sichtbar wenn QUICK_PAIR_ENABLED (Worker konfiguriert).
+const QUICK_PAIR_SECONDS = 600;
+
+const EXPIRY_OPTIONS: { label: string; seconds: number; quick?: boolean }[] = [
+  ...(QUICK_PAIR_ENABLED
+    ? [{ label: "10 Minuten · Schnell-Pair (4 Ziffern)", seconds: QUICK_PAIR_SECONDS, quick: true }]
+    : []),
   { label: "1 Stunde", seconds: 3600 },
   { label: "4 Stunden", seconds: 4 * 3600 },
   { label: "1 Tag", seconds: 24 * 3600 },
@@ -127,7 +137,14 @@ export function CodeShowModal({
       // Snapshot der aktuellen Pending-Devices ZIEHEN — alles was hier schon drin ist
       // zählt nicht als "neu" für unseren Auto-Accept-Prompt.
       seenDeviceIdsRef.current = new Set((pending.data ?? []).map((d) => d.deviceID));
-      setGenerated({ raw: code, codeId, expiresAt });
+
+      // Quick-Pair: Invite zum Rendezvous laden, 4-Code zeigen statt langem Code.
+      let quickCode: string | undefined;
+      if (expSeconds === QUICK_PAIR_SECONDS && QUICK_PAIR_ENABLED) {
+        const result = await publishInvite(code);
+        quickCode = result.code;
+      }
+      setGenerated({ raw: code, codeId, expiresAt, quickCode });
     } catch (e) {
       setError(String(e));
     } finally {
@@ -260,6 +277,57 @@ export function CodeShowModal({
     );
   }
 
+  // ── Quick-Pair-Ansicht: 4 grosse Ziffern + Countdown ──
+  if (generated && generated.quickCode) {
+    return (
+      <Modal title="Schnell-Pair" onClose={onClose}>
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-700 dark:text-neutral-300">
+            Tippe diesen Code auf dem anderen Gerät bei „Code einlösen" ein.
+          </p>
+          <div className="flex flex-col items-center gap-2 py-2">
+            <div className="flex gap-2">
+              {generated.quickCode.split("").map((digit, i) => (
+                <span
+                  key={i}
+                  className="w-14 h-16 flex items-center justify-center rounded-xl border-2 border-blue-300 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-950/30 text-3xl font-bold tabular-nums text-blue-700 dark:text-blue-300"
+                >
+                  {digit}
+                </span>
+              ))}
+            </div>
+            <QuickPairCountdown expiresAt={generated.expiresAt} />
+          </div>
+          <div className="flex items-center justify-center">
+            <button
+              onClick={() => {
+                navigator.clipboard
+                  .writeText(generated.quickCode!)
+                  .then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  })
+                  .catch(() => {});
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs"
+            >
+              {copied ? (
+                <Check className="size-3.5 text-emerald-500" />
+              ) : (
+                <Copy className="size-3.5" />
+              )}
+              {copied ? "Kopiert" : "Code kopieren"}
+            </button>
+          </div>
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 text-center leading-relaxed">
+            Gilt nur 10 Minuten und kann einmal eingelöst werden. Sobald das
+            andere Gerät ihn eingibt, erscheint hier die Bestätigung.
+          </p>
+        </div>
+      </Modal>
+    );
+  }
+
   if (generated) {
     return (
       <Modal title="Einladungscode" onClose={onClose}>
@@ -350,6 +418,13 @@ export function CodeShowModal({
               </option>
             ))}
           </select>
+          {expSeconds === QUICK_PAIR_SECONDS && QUICK_PAIR_ENABLED && (
+            <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1.5 flex items-start gap-1">
+              <Zap className="size-3 shrink-0 mt-0.5" />
+              Statt des langen Codes bekommst du 4 Ziffern zum Abtippen — gültig
+              10 Minuten, einmal einlösbar.
+            </p>
+          )}
         </div>
 
         <div>
@@ -443,4 +518,31 @@ function fmtExpiry(unix: number): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/** Live-Countdown bis Quick-Pair-Code abläuft (mm:ss). */
+function QuickPairCountdown({ expiresAt }: { expiresAt: number }) {
+  const [remaining, setRemaining] = useState(() =>
+    Math.max(0, expiresAt - Math.floor(Date.now() / 1000)),
+  );
+  useEffect(() => {
+    const id = setInterval(() => {
+      setRemaining(Math.max(0, expiresAt - Math.floor(Date.now() / 1000)));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [expiresAt]);
+
+  const mm = Math.floor(remaining / 60);
+  const ss = remaining % 60;
+  const expired = remaining <= 0;
+
+  return (
+    <span
+      className={`text-xs tabular-nums ${expired ? "text-rose-500 dark:text-rose-400 font-medium" : "text-neutral-500 dark:text-neutral-400"}`}
+    >
+      {expired
+        ? "abgelaufen — neuen Code erstellen"
+        : `läuft ab in ${mm}:${String(ss).padStart(2, "0")}`}
+    </span>
+  );
 }
