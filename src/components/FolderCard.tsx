@@ -11,6 +11,7 @@ import {
   type PendingFolder,
 } from "../lib/syncthing";
 import { useFolderConflicts } from "../lib/conflicts";
+import { TagChip } from "./TagChip";
 
 function shortDevice(id: DeviceID, devices: Device[]): string {
   const d = devices.find((x) => x.deviceID === id);
@@ -46,6 +47,8 @@ export function LinkedFolderCard({
   onShowErrors,
   onShowSettings,
   onShowConflicts,
+  tags = [],
+  onTagClick,
 }: {
   folder: Folder;
   endpoint: Endpoint | null;
@@ -58,6 +61,8 @@ export function LinkedFolderCard({
   onShowErrors: (f: Folder) => void;
   onShowSettings: (f: Folder) => void;
   onShowConflicts: (f: Folder) => void;
+  tags?: string[];
+  onTagClick?: (tag: string) => void;
 }) {
   const { data: status } = useFolderStatus(endpoint, ready, folder.id);
   const { count: conflictCount } = useFolderConflicts(folder.path);
@@ -136,6 +141,18 @@ export function LinkedFolderCard({
         >
           {meta}
         </p>
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {tags.map((t) => (
+              <TagChip
+                key={t}
+                tag={t}
+                size="sm"
+                onClick={onTagClick ? () => onTagClick(t) : undefined}
+              />
+            ))}
+          </div>
+        )}
       </div>
       {status && (status.errors > 0 || status.pullErrors > 0) && (
         <button

@@ -22,6 +22,9 @@ export type FolderDefaults = {
    * sehen andere Syncomat-Instanzen einen "auch hier entfernen?" Banner. */
   deletion_requested?: boolean;
   deletion_requested_by?: string | null;
+  /** User-definierte Tags zum Gruppieren / Filtern. Werden zwischen
+   * Geräten geshared via folder-defaults.json. */
+  tags?: string[];
 };
 
 export type FolderDefaultsFile = {
@@ -37,6 +40,7 @@ export const DEFAULT_FOLDER_DEFAULTS: FolderDefaults = {
   trashcan_cleanout_days: 0,
   deletion_requested: false,
   deletion_requested_by: null,
+  tags: [],
 };
 
 // ── Tauri-Command-Wrapper ──────────────────────────────────────

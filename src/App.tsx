@@ -23,6 +23,7 @@ import {
 
 import { invitePurgeExpired } from "./lib/invitesStore";
 import { useIgnoredFolders } from "./lib/ignored";
+import { useFolderTags } from "./lib/tags";
 import {
   useNotificationTriggers,
   useNotificationsEnabled,
@@ -93,6 +94,15 @@ function App() {
     (s) => setDeletionSuggestion(s),
   );
   const ignored = useIgnoredFolders();
+  const tagsByFolderID = useFolderTags(folders);
+  // Alle existierenden Tags für Autocomplete im TagEditor
+  const allTagSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    for (const tags of Object.values(tagsByFolderID)) {
+      for (const t of tags) set.add(t);
+    }
+    return Array.from(set).sort();
+  }, [tagsByFolderID]);
 
   const acceptClusterDelete = async () => {
     if (!deletionSuggestion || !endpoint) return;
@@ -438,6 +448,7 @@ function App() {
                 onShowErrors={(f) => setModal({ kind: "folder-errors", folder: f })}
                 onShowSettings={(f) => setModal({ kind: "folder-settings", folder: f })}
                 onShowConflicts={(f) => setModal({ kind: "folder-conflicts", folder: f })}
+                tagsByFolderID={tagsByFolderID}
               />
             </section>
 
@@ -516,6 +527,7 @@ function App() {
           endpoint={endpoint}
           folder={modal.folder}
           myDeviceId={myID}
+          tagSuggestions={allTagSuggestions}
           onClose={() => setModal(null)}
           onRemoved={() => ignored.refresh()}
         />

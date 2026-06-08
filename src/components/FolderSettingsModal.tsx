@@ -26,17 +26,21 @@ import {
   workloadLabel,
   type FolderEstimate,
 } from "../lib/unreal";
+import { TagEditor } from "./TagEditor";
 
 export function FolderSettingsModal({
   endpoint,
   folder,
   myDeviceId,
+  tagSuggestions,
   onClose,
   onRemoved,
 }: {
   endpoint: Endpoint;
   folder: Folder;
   myDeviceId: string;
+  /** Tags die bei anderen Folders verwendet werden — für Autocomplete im Editor */
+  tagSuggestions: string[];
   onClose: () => void;
   onRemoved?: () => void;
 }) {
@@ -193,6 +197,23 @@ export function FolderSettingsModal({
           Diese Einstellungen werden über alle Geräte synchronisiert (via versteckter
           Datei <code className="font-mono text-[10px]">.syncomat/folder-defaults.json</code> im Ordner).
         </p>
+
+        {/* Tags — kommen ueber dieselbe folder-defaults.json Replikation,
+            damit Gruppierung auf allen Geraeten konsistent ist. */}
+        <section>
+          <h3 className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1.5">
+            Tags
+          </h3>
+          <TagEditor
+            tags={defaults.tags ?? []}
+            onChange={(tags) => setDefaults({ ...defaults, tags })}
+            suggestions={tagSuggestions}
+          />
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-1.5">
+            Tags gruppieren Folder in der Liste — die Gruppierung syncht
+            sich automatisch zu allen verbundenen Geräten.
+          </p>
+        </section>
 
         <ToggleRow
           icon={<EyeOff className="size-4" />}
