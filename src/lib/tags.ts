@@ -3,13 +3,28 @@ import { folderSettingsRead } from "./folderSettings";
 import type { Folder } from "./syncthing";
 
 /**
+ * Globaler Event-Bus: useFolderSettingsReplication ruft notifyTagsChanged()
+ * nach jedem folder-defaults.json-Read, damit useFolderTags SOFORT refreshed
+ * wenn ein Tag vom Peer gesynct wurde — statt erst beim nächsten 15s-Poll-Tick.
+ *
+ * Das ist der Fix für Marlon's Bug: Tag wurde auf Mac gesetzt, .syncomat/
+ * folder-defaults.json war auf Windows gesynct (Activity-Feed zeigte das),
+ * aber Sidebar-Gruppe blieb minutenlang auf "Ohne Tag".
+ */
+const tagSubscribers = new Set<() => void>();
+export function notifyTagsChanged() {
+  for (const fn of tagSubscribers) fn();
+}
+
+/**
  * Tags pro Folder werden in .syncomat/folder-defaults.json gespeichert.
  * Dieser Hook lädt sie für eine Liste von Folders und gibt eine Map
- * folderID → tags[] zurück. Re-polled alle 60s damit Tags vom Peer
- * eingebracht werden ohne UI-Refresh.
+ * folderID → tags[] zurück.
  *
- * Plus: refresh() für sofortiges re-fetch nach lokalem Save (sonst muesste
- * der User bis zu 60s warten bis der neue Tag in der Sidebar landet).
+ * Refresh-Trigger:
+ *   1. setInterval alle 15s (war 60s — zu langsam für Sync-Propagation)
+ *   2. refresh() für sofortiges re-fetch nach lokalem Save
+ *   3. tagSubscribers (global Event) wenn Replication ein peer-update sieht
  */
 export function useFolderTags(folders: Folder[]): {
   byID: Record<string, string[]>;
@@ -37,10 +52,14 @@ export function useFolderTags(folders: Folder[]): {
       if (!cancelled) setByID(next);
     };
     void fetchAll();
-    const id = setInterval(fetchAll, 60_000);
+    const id = setInterval(fetchAll, 15_000);
+    // Subscribe auf global Tag-Updates (von Replication-Hook nach Peer-Sync)
+    const onExternalUpdate = () => void fetchAll();
+    tagSubscribers.add(onExternalUpdate);
     return () => {
       cancelled = true;
       clearInterval(id);
+      tagSubscribers.delete(onExternalUpdate);
     };
   }, [pathKey, tick]);
 

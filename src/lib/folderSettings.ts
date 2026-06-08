@@ -9,6 +9,7 @@ import {
   type Folder,
   type FolderID,
 } from "./syncthing";
+import { notifyTagsChanged } from "./tags";
 
 /** Pattern die WIR setzen wenn ignore_hidden=true. Wird beim toggle-off
  * gezielt rausgefiltert; user-erstellte Patterns bleiben unberührt. */
@@ -188,11 +189,18 @@ export function useFolderSettingsReplication(
     let cancelled = false;
 
     const checkAll = async () => {
+      let sawTagUpdate = false;
       for (const f of folders) {
         if (cancelled) return;
         try {
           const file = await folderSettingsRead(f.path);
           if (!file) continue;
+          // Tag-Detection: jeder file-Read mit Tags ist ein Signal an useFolderTags
+          // dass die UI refreshed werden sollte (auch wenn updated_by=self, weil
+          // wir den Tag dann eben gerade geschrieben haben).
+          if (file.settings.tags && file.settings.tags.length > 0) {
+            sawTagUpdate = true;
+          }
           // Wenn WIR sie geschrieben haben → nur als "seen" markieren, nicht applizieren.
           if (file.updated_by === myDeviceId) {
             appliedRef.current.set(f.id, file.updated_at);
@@ -248,6 +256,9 @@ export function useFolderSettingsReplication(
           console.warn(`[folder-settings] check ${f.id} failed:`, e);
         }
       }
+      // Nach dem Loop: wenn wir irgendwo Tags gesehen haben (peer-update oder
+      // self), useFolderTags benachrichtigen — der pollt sonst nur alle 15s.
+      if (sawTagUpdate) notifyTagsChanged();
     };
 
     void checkAll();
