@@ -21,6 +21,7 @@ export function FolderList({
   onRename,
   onShowErrors,
   onShowSettings,
+  onShowConflicts,
 }: {
   linked: Folder[];
   pending: PendingFolder[];
@@ -34,6 +35,7 @@ export function FolderList({
   onRename: (f: Folder, newLabel: string) => void;
   onShowErrors: (f: Folder) => void;
   onShowSettings: (f: Folder) => void;
+  onShowConflicts: (f: Folder) => void;
 }) {
   const all = linked.length + pending.length;
 
@@ -60,6 +62,7 @@ export function FolderList({
           onRename={onRename}
           onShowErrors={onShowErrors}
           onShowSettings={onShowSettings}
+          onShowConflicts={onShowConflicts}
         />
       ))}
       {pending.map((pf) => (

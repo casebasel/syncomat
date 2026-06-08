@@ -1,4 +1,4 @@
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Settings } from "lucide-react";
 import { StatusDot, statusLabel, type StatusTone } from "./StatusLight";
 
 function SyncMark() {
@@ -29,6 +29,7 @@ export function Header({
   onScan,
   scanning,
   canScan,
+  onOpenSettings,
 }: {
   tone: StatusTone;
   connected: number;
@@ -36,6 +37,7 @@ export function Header({
   onScan: () => void;
   scanning: boolean;
   canScan: boolean;
+  onOpenSettings: () => void;
 }) {
   return (
     <header className="flex items-start justify-between gap-3">
@@ -51,15 +53,24 @@ export function Header({
           </p>
         </div>
       </div>
-      <button
-        onClick={onScan}
-        disabled={!canScan || scanning}
-        title={canScan ? "Scan auf allen Ordnern auslösen" : "Keine Ordner"}
-        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
-      >
-        <RefreshCw className={`size-3.5 ${scanning ? "animate-spin" : ""}`} />
-        Jetzt syncen
-      </button>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <button
+          onClick={onScan}
+          disabled={!canScan || scanning}
+          title={canScan ? "Scan auf allen Ordnern auslösen" : "Keine Ordner"}
+          className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <RefreshCw className={`size-3.5 ${scanning ? "animate-spin" : ""}`} />
+          Jetzt syncen
+        </button>
+        <button
+          onClick={onOpenSettings}
+          title="Einstellungen"
+          className="p-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+        >
+          <Settings className="size-3.5" />
+        </button>
+      </div>
     </header>
   );
 }

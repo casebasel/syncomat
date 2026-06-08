@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, Check, Folder as FolderIcon, Pause, Pencil, Play, Settings } from "lucide-react";
+import { AlertOctagon, AlertTriangle, Check, Folder as FolderIcon, Pause, Pencil, Play, Settings } from "lucide-react";
 import {
   useFolderStatus,
   type Connection,
@@ -10,6 +10,7 @@ import {
   type FolderStatus,
   type PendingFolder,
 } from "../lib/syncthing";
+import { useFolderConflicts } from "../lib/conflicts";
 
 function shortDevice(id: DeviceID, devices: Device[]): string {
   const d = devices.find((x) => x.deviceID === id);
@@ -44,6 +45,7 @@ export function LinkedFolderCard({
   onRename,
   onShowErrors,
   onShowSettings,
+  onShowConflicts,
 }: {
   folder: Folder;
   endpoint: Endpoint | null;
@@ -55,8 +57,10 @@ export function LinkedFolderCard({
   onRename: (f: Folder, newLabel: string) => void;
   onShowErrors: (f: Folder) => void;
   onShowSettings: (f: Folder) => void;
+  onShowConflicts: (f: Folder) => void;
 }) {
   const { data: status } = useFolderStatus(endpoint, ready, folder.id);
+  const { count: conflictCount } = useFolderConflicts(folder.path);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(folder.label || folder.id);
   const tone = folder.paused ? "off" : syncStateTone(status);
@@ -143,6 +147,16 @@ export function LinkedFolderCard({
           <span className="text-[11px] font-semibold">
             {status.errors + status.pullErrors}
           </span>
+        </button>
+      )}
+      {conflictCount > 0 && (
+        <button
+          onClick={() => onShowConflicts(folder)}
+          title={`${conflictCount} Sync-Konflikt${conflictCount === 1 ? "" : "e"} — aufloesen`}
+          className="flex items-center gap-1 px-1.5 py-1 rounded-md text-amber-600 dark:text-amber-400 hover:bg-amber-100/60 dark:hover:bg-amber-950/40 shrink-0"
+        >
+          <AlertOctagon className="size-3.5" />
+          <span className="text-[11px] font-semibold">{conflictCount}</span>
         </button>
       )}
       <button

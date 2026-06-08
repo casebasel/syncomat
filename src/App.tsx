@@ -26,8 +26,10 @@ import { ActiveInvitesPanel } from "./components/ActiveInvitesPanel";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { CodeShowModal } from "./components/CodeShowModal";
 import { CreateFolderModal } from "./components/CreateFolderModal";
+import { ConflictResolverModal } from "./components/ConflictResolverModal";
 import { FolderErrorsModal } from "./components/FolderErrorsModal";
 import { FolderSettingsModal } from "./components/FolderSettingsModal";
+import { SettingsModal } from "./components/SettingsModal";
 import { TransferRatePill } from "./components/TransferRatePill";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { useFolderSettingsReplication } from "./lib/folderSettings";
@@ -46,7 +48,9 @@ type Modal =
   | { kind: "create-folder" }
   | { kind: "link"; pending: PendingFolder }
   | { kind: "folder-errors"; folder: Folder }
-  | { kind: "folder-settings"; folder: Folder };
+  | { kind: "folder-settings"; folder: Folder }
+  | { kind: "folder-conflicts"; folder: Folder }
+  | { kind: "settings" };
 
 function App() {
   const endpoint = useEndpoint();
@@ -187,6 +191,7 @@ function App() {
           onScan={onScan}
           scanning={scanning}
           canScan={folders.length > 0}
+          onOpenSettings={() => setModal({ kind: "settings" })}
         />
 
         {ready && peersConnected > 0 && (
@@ -277,6 +282,7 @@ function App() {
                 onRename={onRename}
                 onShowErrors={(f) => setModal({ kind: "folder-errors", folder: f })}
                 onShowSettings={(f) => setModal({ kind: "folder-settings", folder: f })}
+                onShowConflicts={(f) => setModal({ kind: "folder-conflicts", folder: f })}
               />
             </section>
 
@@ -351,6 +357,23 @@ function App() {
           endpoint={endpoint}
           folder={modal.folder}
           myDeviceId={myID}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.kind === "folder-conflicts" && (
+        <ConflictResolverModal
+          folderPath={modal.folder.path}
+          folderLabel={modal.folder.label || modal.folder.id}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.kind === "settings" && (
+        <SettingsModal
+          endpoint={endpoint}
+          status={status.data}
+          version={version}
+          updateState={updater.state}
+          onRecheckUpdates={updater.recheck}
           onClose={() => setModal(null)}
         />
       )}

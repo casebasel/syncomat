@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- macOS Big-Sur-Style Squircle background, blau (matched UI Header bg-blue-600) -->
+  <rect x="0" y="0" width="1024" height="1024" rx="230" ry="230" fill="#2563eb"/>
+  <!-- Subtiler Glanz oben -->
+  <rect x="0" y="0" width="1024" height="512" rx="230" ry="230" fill="url(#shine)" opacity="0.12"/>
+  <defs>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="white"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- Sync-Symbol (Lucide RefreshCw, weiss, zentriert) -->
+  <!-- Source viewBox 24x24, scale 36 → 864x864, padding 80 each side -->
+  <g transform="translate(80,80) scale(36)"
+     fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+    <path d="M3 3v5h5"/>
+    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+    <path d="M16 16h5v5"/>
+  </g>
+</svg>

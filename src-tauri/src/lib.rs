@@ -1,3 +1,4 @@
+mod conflicts;
 mod folder_settings;
 mod invites;
 mod sidecar;
@@ -104,6 +105,10 @@ pub fn run() {
             invites::invite_purge_expired,
             folder_settings::folder_settings_read,
             folder_settings::folder_settings_write,
+            conflicts::conflicts_list,
+            conflicts::conflicts_keep_local,
+            conflicts::conflicts_take_remote,
+            conflicts::conflicts_keep_both,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
