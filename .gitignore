@@ -23,8 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 
-# Bundled Syncthing sidecar binaries — fetched via `npm run fetch:syncthing`
-src-tauri/binaries/syncthing-*
+# Syncthing-Sidecar-Binaries werden jetzt mit dem Repo committed (~28 MB pro
+# Target, zusammen 56 MB — unter git's 100 MB Limit). Grund: GitHub Releases
+# CDN ist zu unzuverlässig für CI (persistent 504 in v0.1.1/v0.1.2 builds).
+# fetch-syncthing.sh bleibt als manuelles Refresh-Tool für Version-Updates.
 
 # Rust build artifacts (also covered by src-tauri/.gitignore, listed here for clarity)
 src-tauri/target

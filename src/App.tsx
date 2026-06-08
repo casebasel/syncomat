@@ -24,6 +24,7 @@ import { invitePurgeExpired } from "./lib/invitesStore";
 import { ActiveInvitesPanel } from "./components/ActiveInvitesPanel";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { CodeShowModal } from "./components/CodeShowModal";
+import { CreateFolderModal } from "./components/CreateFolderModal";
 import { FolderErrorsModal } from "./components/FolderErrorsModal";
 import { FolderSettingsModal } from "./components/FolderSettingsModal";
 import { TransferRatePill } from "./components/TransferRatePill";
@@ -41,6 +42,7 @@ type Modal =
   | null
   | { kind: "code-show" }
   | { kind: "code-redeem" }
+  | { kind: "create-folder" }
   | { kind: "link"; pending: PendingFolder }
   | { kind: "folder-errors"; folder: Folder }
   | { kind: "folder-settings"; folder: Folder };
@@ -66,7 +68,6 @@ function App() {
 
   const [modal, setModal] = useState<Modal>(null);
   const [scanning, setScanning] = useState(false);
-  const [forceMain, setForceMain] = useState(false);
 
   const connList = useMemo(
     () =>
@@ -202,11 +203,11 @@ function App() {
           />
         )}
 
-        {isFirstRun && !forceMain ? (
+        {isFirstRun ? (
           <EmptyState
+            onCreateFolder={() => setModal({ kind: "create-folder" })}
             onRedeemCode={() => setModal({ kind: "code-redeem" })}
             onShowCode={() => setModal({ kind: "code-show" })}
-            onContinueAlone={() => setForceMain(true)}
           />
         ) : (
           <>
@@ -275,6 +276,12 @@ function App() {
 
             <section className="mt-5 flex gap-2">
               <button
+                onClick={() => setModal({ kind: "create-folder" })}
+                className="flex-1 text-xs font-medium px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              >
+                + Ordner
+              </button>
+              <button
                 onClick={() => setModal({ kind: "code-redeem" })}
                 className="flex-1 text-xs font-medium px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800"
               >
@@ -336,6 +343,13 @@ function App() {
         <FolderSettingsModal
           endpoint={endpoint}
           folder={modal.folder}
+          myDeviceId={myID}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal?.kind === "create-folder" && endpoint && myID && (
+        <CreateFolderModal
+          endpoint={endpoint}
           myDeviceId={myID}
           onClose={() => setModal(null)}
         />
