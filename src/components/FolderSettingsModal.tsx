@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, EyeOff, Loader2, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, EyeOff, Loader2, Sparkles, Trash2, XCircle } from "lucide-react";
 import { Modal } from "./Modal";
 import {
   applyFolderDefaults,
@@ -8,8 +8,24 @@ import {
   DEFAULT_FOLDER_DEFAULTS,
   type FolderDefaults,
 } from "../lib/folderSettings";
-import { deleteFolder, type Endpoint, type Folder } from "../lib/syncthing";
+import {
+  deleteFolder,
+  getConfig,
+  putFolder,
+  setFolderIgnores,
+  tuneFolderForSize,
+  type Endpoint,
+  type Folder,
+} from "../lib/syncthing";
 import { ignoredFoldersAdd } from "../lib/ignored";
+import {
+  estimateIndexRamMB,
+  fmtSize,
+  folderEstimateSize,
+  pickStignoreForWorkload,
+  workloadLabel,
+  type FolderEstimate,
+} from "../lib/unreal";
 
 export function FolderSettingsModal({
   endpoint,
@@ -31,6 +47,14 @@ export function FolderSettingsModal({
   const [meta, setMeta] = useState<{ updatedAt: number; updatedBy: string } | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [clusterWide, setClusterWide] = useState(false);
+  const [tuneState, setTuneState] = useState<
+    | { kind: "idle" }
+    | { kind: "estimating" }
+    | { kind: "ready"; estimate: FolderEstimate }
+    | { kind: "applying" }
+    | { kind: "done" }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +91,47 @@ export function FolderSettingsModal({
       setError(String(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const runTune = async () => {
+    setTuneState({ kind: "estimating" });
+    try {
+      const est = await folderEstimateSize(folder.path);
+      setTuneState({ kind: "ready", estimate: est });
+    } catch (e) {
+      setTuneState({ kind: "error", message: String(e) });
+    }
+  };
+
+  const applyTune = async (alsoApplyPreset: boolean) => {
+    if (tuneState.kind !== "ready") return;
+    const est = tuneState.estimate;
+    setTuneState({ kind: "applying" });
+    try {
+      const fresh = await getConfig(endpoint);
+      const current = fresh.folders.find((f) => f.id === folder.id);
+      if (!current) throw new Error("folder no longer in config");
+      const tuned = tuneFolderForSize(
+        current,
+        est.bytes,
+        est.files,
+        est.workload.kind,
+      );
+      await putFolder(endpoint, tuned);
+      if (alsoApplyPreset) {
+        const patterns = pickStignoreForWorkload(est.workload.kind);
+        if (patterns.length > 0) {
+          try {
+            await setFolderIgnores(endpoint, folder.id, patterns);
+          } catch (e) {
+            console.warn("tune: setFolderIgnores failed", e);
+          }
+        }
+      }
+      setTuneState({ kind: "done" });
+    } catch (e) {
+      setTuneState({ kind: "error", message: String(e) });
     }
   };
 
@@ -176,6 +241,97 @@ export function FolderSettingsModal({
             {fmtTime(meta.updatedAt)}
           </p>
         )}
+
+        {/* Performance-Tuning für existierende Folders. Misst Größe + Workload-
+            Typ, schlägt fsWatcher/Rescan/Block-/Hasher-Defaults + .stignore-
+            Preset vor. Identische Logik wie im CreateFolderModal, aber für
+            nachträgliches Tunen wenn der Folder gewachsen ist oder die App
+            ohne Preset angelegt wurde. */}
+        <details className="pt-3 border-t border-neutral-200 dark:border-neutral-800">
+          <summary className="cursor-pointer text-xs text-blue-600 dark:text-blue-400 select-none hover:underline flex items-center gap-1.5">
+            <Sparkles className="size-3.5" />
+            Performance optimieren
+          </summary>
+          <div className="mt-2 space-y-2 text-xs">
+            {tuneState.kind === "idle" && (
+              <>
+                <p className="text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                  Misst Ordnergröße + Datei-Anzahl, erkennt Unreal/Node-Projekt
+                  und schlägt optimierte Syncthing-Settings vor (Scan-Intervall,
+                  FS-Watcher, Block-/Hasher-Anzahl, optional .stignore-Preset).
+                </p>
+                <button
+                  onClick={runTune}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1.5"
+                >
+                  <Sparkles className="size-3.5" />
+                  Analysieren
+                </button>
+              </>
+            )}
+            {tuneState.kind === "estimating" && (
+              <div className="flex items-center gap-2 text-neutral-500">
+                <Loader2 className="size-3.5 animate-spin" />
+                Schätze Größe…
+              </div>
+            )}
+            {tuneState.kind === "ready" && (
+              <div className="space-y-2.5">
+                <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 px-3 py-2">
+                  <div className="text-neutral-900 dark:text-neutral-100">
+                    ~{fmtSize(tuneState.estimate.bytes)} ·{" "}
+                    {tuneState.estimate.files.toLocaleString("de-DE")} Dateien
+                    {tuneState.estimate.sampled && " (Schätzung)"}
+                  </div>
+                  <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    Index ~
+                    {estimateIndexRamMB(
+                      tuneState.estimate.files,
+                      tuneState.estimate.bytes,
+                    )}{" "}
+                    MB RAM · {workloadLabel(tuneState.estimate.workload.kind)}
+                  </div>
+                </div>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Tuning passt Syncthing-Folder-Einstellungen an die gemessene
+                  Größe an. Bei Unreal: optional auch das .stignore-Preset
+                  (Empfehlung — spart pro Maschine 10-50 GB).
+                </p>
+                <div className="flex gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => applyTune(false)}
+                    className="text-[11px] font-medium px-2.5 py-1 rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Nur Tuning anwenden
+                  </button>
+                  <button
+                    onClick={() => applyTune(true)}
+                    className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    Tuning + .stignore-Preset
+                  </button>
+                </div>
+              </div>
+            )}
+            {tuneState.kind === "applying" && (
+              <div className="flex items-center gap-2 text-neutral-500">
+                <Loader2 className="size-3.5 animate-spin" />
+                Wende an…
+              </div>
+            )}
+            {tuneState.kind === "done" && (
+              <p className="text-emerald-600 dark:text-emerald-400">
+                ✓ Folder optimiert. Syncthing wird die neuen Settings beim
+                nächsten Scan-Zyklus übernehmen.
+              </p>
+            )}
+            {tuneState.kind === "error" && (
+              <p className="text-rose-500 dark:text-rose-400 break-words">
+                {tuneState.message}
+              </p>
+            )}
+          </div>
+        </details>
 
         {error && (
           <p className="text-xs text-rose-500 dark:text-rose-400 break-words">{error}</p>
