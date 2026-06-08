@@ -29,9 +29,10 @@ export function CreateFolderModal({
       });
       if (typeof chosen === "string") {
         setPath(chosen);
-        // Wenn Label leer: vorschlagen aus letzter Pfad-Komponente
+        // Wenn Label leer: vorschlagen aus letzter Pfad-Komponente.
+        // Pfad kann '/' (POSIX) oder '\' (Windows) als Separator haben.
         if (!label.trim()) {
-          const guess = chosen.split("/").filter(Boolean).pop();
+          const guess = chosen.split(/[/\\]/).filter(Boolean).pop();
           if (guess) setLabel(guess);
         }
       }

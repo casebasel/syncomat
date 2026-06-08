@@ -3,10 +3,11 @@ mod invites;
 mod sidecar;
 
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
     Manager,
 };
+use tauri_plugin_autostart::ManagerExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -29,6 +30,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
             let handle = app.handle().clone();
             let state = sidecar::spawn(&handle)?;
@@ -37,9 +42,20 @@ pub fn run() {
             let invite_store = invites::setup(&handle)?;
             app.manage(invite_store);
 
+            // Tray-Menü: Öffnen · Bei-Login-starten (Toggle) · ── · Quit
             let open = MenuItem::with_id(app, "open", "Öffnen", true, None::<&str>)?;
+            let autostart_enabled = app.autolaunch().is_enabled().unwrap_or(false);
+            let autostart_item = CheckMenuItem::with_id(
+                app,
+                "autostart",
+                "Bei Login starten",
+                true,
+                autostart_enabled,
+                None::<&str>,
+            )?;
+            let separator = PredefinedMenuItem::separator(app)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &quit])?;
+            let menu = Menu::with_items(app, &[&open, &autostart_item, &separator, &quit])?;
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -50,6 +66,15 @@ pub fn run() {
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.show();
                             let _ = window.set_focus();
+                        }
+                    }
+                    "autostart" => {
+                        let mgr = app.autolaunch();
+                        let enabled = mgr.is_enabled().unwrap_or(false);
+                        if enabled {
+                            let _ = mgr.disable();
+                        } else {
+                            let _ = mgr.enable();
                         }
                     }
                     "quit" => app.exit(0),

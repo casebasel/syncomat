@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Syncomat",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "identifier": "ch.ca-se.syncomat",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -35,6 +35,9 @@
     "shortDescription": "P2P-Sync ohne Login. Resilio-artig auf Syncthing.",
     "longDescription": "Syncomat ist eine schlanke Desktop-GUI über Syncthing. Pärchen pairen per Einladungs-Code; danach werden alle eigenen Ordner automatisch geteilt. macOS arm64 + Windows x64, ein Window, kein Account, signierte OTA-Updates.",
     "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
       "nsis": {
         "installMode": "currentUser",
         "installerHooks": "./windows-installer/install-hooks.nsh"
