@@ -242,7 +242,7 @@ export function Sidebar({
               {myID.slice(0, 7)}
             </span>
             <span className="text-[10px] text-neutral-500 dark:text-neutral-500">
-              hier
+              lokal
             </span>
           </div>
         )}
