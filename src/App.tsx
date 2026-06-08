@@ -57,16 +57,23 @@ import { GlobalActivityView } from "./components/GlobalActivityView";
 import { Statusbar } from "./components/Statusbar";
 import { Settings as SettingsIcon } from "lucide-react";
 
+// Kleine, kurzlebige Overlays die als Dialog Sinn machen (Wave 3 ggf. auch inline).
 type Modal =
   | null
-  | { kind: "code-show" }
-  | { kind: "code-redeem" }
-  | { kind: "create-folder" }
   | { kind: "link"; pending: PendingFolder }
   | { kind: "folder-errors"; folder: Folder }
-  | { kind: "folder-settings"; folder: Folder }
   | { kind: "folder-conflicts"; folder: Folder }
   | { kind: "device-detail"; deviceID: string };
+
+// Inline-Panels die den Hauptbereich (Inspector/Activity) überlagern statt als
+// Modal aufzupoppen — Native-Redesign Welle 2.
+type Panel =
+  | null
+  | { kind: "settings" }
+  | { kind: "create-folder" }
+  | { kind: "code-show" }
+  | { kind: "code-redeem" }
+  | { kind: "folder-settings"; folder: Folder };
 
 function App() {
   // WebView2-Default-Shortcuts (Find/Print/Reload) blockieren — sonst
@@ -229,9 +236,9 @@ function App() {
 
   const selectedFolder = folders.find((f) => f.id === selectedFolderId) ?? null;
   const showGlobalActivity = selectedFolderId === GLOBAL_ACTIVITY_KEY;
-  // Welle 1 Native-Redesign: Settings ist eine Inline-Ansicht im Hauptbereich,
-  // kein Overlay-Modal mehr. settingsOpen überlagert die Inspector/Activity-View.
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Native-Redesign: Inline-Panel das die Inspector/Activity-Ansicht überlagert
+  // (Settings, Ordner anlegen, Code anzeigen/einlösen, Folder-Settings).
+  const [panel, setPanel] = useState<Panel>(null);
   const visiblePending = (pendingFolders.data ?? []).filter(
     (pf) => !ignored.isIgnored(pf.folderID),
   );
@@ -365,7 +372,7 @@ function App() {
         </div>
       )}
 
-      {(pendingDevices.data?.length ?? 0) > 0 && modal?.kind !== "code-show" && (
+      {(pendingDevices.data?.length ?? 0) > 0 && panel?.kind !== "code-show" && (
         <div className="border-b border-blue-300 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-950/30 shrink-0">
           {pendingDevices.data!.map((pd) => (
             <div key={pd.deviceID} className="flex items-center gap-2 px-4 py-2.5">
@@ -395,10 +402,10 @@ function App() {
       <div className="flex-1 flex overflow-hidden">
         {isFirstRun ? (
           <FirstRunWelcome
-            onCreateFolder={() => setModal({ kind: "create-folder" })}
-            onShowCode={() => setModal({ kind: "code-show" })}
-            onRedeemCode={() => setModal({ kind: "code-redeem" })}
-            onOpenSettings={() => setSettingsOpen(true)}
+            onCreateFolder={() => setPanel({ kind: "create-folder" })}
+            onShowCode={() => setPanel({ kind: "code-show" })}
+            onRedeemCode={() => setPanel({ kind: "code-redeem" })}
+            onOpenSettings={() => setPanel({ kind: "settings" })}
           />
         ) : (
           <>
@@ -412,20 +419,23 @@ function App() {
               endpoint={endpoint}
               ready={ready}
               selectedFolderId={selectedFolderId}
-              onSelectFolder={(f) => setSelectedFolderId(f.id)}
+              onSelectFolder={(f) => {
+                setSelectedFolderId(f.id);
+                setPanel(null);
+              }}
               onSelectPending={onLink}
               onScan={onScan}
               scanning={scanning}
-              onAddFolder={() => setModal({ kind: "create-folder" })}
-              onShowCode={() => setModal({ kind: "code-show" })}
-              onRedeemCode={() => setModal({ kind: "code-redeem" })}
+              onAddFolder={() => setPanel({ kind: "create-folder" })}
+              onShowCode={() => setPanel({ kind: "code-show" })}
+              onRedeemCode={() => setPanel({ kind: "code-redeem" })}
               onSelectDevice={(d) =>
                 setModal({ kind: "device-detail", deviceID: d.deviceID })
               }
               pauseDates={pauseDates}
             />
 
-            {settingsOpen ? (
+            {panel?.kind === "settings" ? (
               <SettingsPanel
                 endpoint={endpoint}
                 status={status.data}
@@ -435,7 +445,46 @@ function App() {
                 onInstallUpdate={updater.installAndRestart}
                 notificationsEnabled={notifications.enabled}
                 onSetNotificationsEnabled={notifications.setEnabled}
-                onBack={() => setSettingsOpen(false)}
+                onBack={() => setPanel(null)}
+              />
+            ) : panel?.kind === "create-folder" ? (
+              <CreateFolderModal
+                endpoint={endpoint}
+                myDeviceId={myID}
+                ready={ready}
+                peers={peers.map((p) => ({
+                  deviceID: p.deviceID,
+                  name: p.name || p.deviceID.slice(0, 7),
+                }))}
+                onClose={() => setPanel(null)}
+              />
+            ) : panel?.kind === "code-show" ? (
+              <CodeShowModal
+                endpoint={endpoint}
+                ready={ready}
+                status={status.data}
+                folders={folders}
+                onClose={() => setPanel(null)}
+              />
+            ) : panel?.kind === "code-redeem" ? (
+              <CodeRedeemModal
+                endpoint={endpoint}
+                ready={ready}
+                status={status.data}
+                onClose={() => setPanel(null)}
+              />
+            ) : panel?.kind === "folder-settings" && endpoint && myID ? (
+              <FolderSettingsModal
+                endpoint={endpoint}
+                folder={panel.folder}
+                myDeviceId={myID}
+                tagSuggestions={allTagSuggestions}
+                onClose={() => setPanel(null)}
+                onRemoved={() => {
+                  ignored.refresh();
+                  setPanel(null);
+                }}
+                onSaved={() => tags.refresh()}
               />
             ) : showGlobalActivity ? (
               <GlobalActivityView
@@ -453,14 +502,14 @@ function App() {
                 tags={tagsByFolderID[selectedFolder.id] ?? []}
                 pausedSince={pauseDates[selectedFolder.id]}
                 onPauseToggle={onPauseToggle}
-                onShowSettings={(f) => setModal({ kind: "folder-settings", folder: f })}
+                onShowSettings={(f) => setPanel({ kind: "folder-settings", folder: f })}
                 onShowConflicts={(f) => setModal({ kind: "folder-conflicts", folder: f })}
                 onShowErrors={(f) => setModal({ kind: "folder-errors", folder: f })}
               />
             ) : (
               <NoSelectionView
-                onCreateFolder={() => setModal({ kind: "create-folder" })}
-                onShowCode={() => setModal({ kind: "code-show" })}
+                onCreateFolder={() => setPanel({ kind: "create-folder" })}
+                onShowCode={() => setPanel({ kind: "code-show" })}
               />
             )}
           </>
@@ -480,11 +529,13 @@ function App() {
           />
         </div>
         <button
-          onClick={() => setSettingsOpen((v) => !v)}
+          onClick={() =>
+            setPanel((p) => (p?.kind === "settings" ? null : { kind: "settings" }))
+          }
           title="Einstellungen"
-          aria-pressed={settingsOpen}
+          aria-pressed={panel?.kind === "settings"}
           className={`px-3 flex items-center border-l border-neutral-200 dark:border-neutral-800 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
-            settingsOpen
+            panel?.kind === "settings"
               ? "text-blue-600 dark:text-blue-400 bg-blue-500/10"
               : "text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
           }`}
@@ -502,40 +553,12 @@ function App() {
           onClose={() => setModal(null)}
         />
       )}
-      {modal?.kind === "code-show" && (
-        <CodeShowModal
-          endpoint={endpoint}
-          ready={ready}
-          status={status.data}
-          folders={folders}
-          onClose={() => setModal(null)}
-        />
-      )}
-      {modal?.kind === "code-redeem" && (
-        <CodeRedeemModal
-          endpoint={endpoint}
-          ready={ready}
-          status={status.data}
-          onClose={() => setModal(null)}
-        />
-      )}
       {modal?.kind === "folder-errors" && endpoint && (
         <FolderErrorsModal
           endpoint={endpoint}
           folderId={modal.folder.id}
           folderLabel={modal.folder.label || modal.folder.id}
           onClose={() => setModal(null)}
-        />
-      )}
-      {modal?.kind === "folder-settings" && endpoint && myID && (
-        <FolderSettingsModal
-          endpoint={endpoint}
-          folder={modal.folder}
-          myDeviceId={myID}
-          tagSuggestions={allTagSuggestions}
-          onClose={() => setModal(null)}
-          onRemoved={() => ignored.refresh()}
-          onSaved={() => tags.refresh()}
         />
       )}
       {modal?.kind === "folder-conflicts" && (
@@ -563,18 +586,6 @@ function App() {
           />
         );
       })()}
-      {modal?.kind === "create-folder" && (
-        <CreateFolderModal
-          endpoint={endpoint}
-          myDeviceId={myID}
-          ready={ready}
-          peers={peers.map((p) => ({
-            deviceID: p.deviceID,
-            name: p.name || p.deviceID.slice(0, 7),
-          }))}
-          onClose={() => setModal(null)}
-        />
-      )}
     </main>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Copy, Check, Loader2, QrCode, Zap } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { Modal } from "./Modal";
+import { PanelShell } from "./PanelShell";
 import { encodeInvite, isPrivateAddressHint } from "../lib/invite";
 import { publishInvite, QUICK_PAIR_ENABLED } from "../lib/rendezvous";
 import {
@@ -215,7 +215,7 @@ export function CodeShowModal({
 
   if (acceptPrompt && generated) {
     return (
-      <Modal title="Neues Gerät möchte verbinden" onClose={onClose} dismissible={!busy}>
+      <PanelShell title="Neues Gerät möchte verbinden" onBack={onClose} dismissible={!busy}>
         <div className="space-y-4">
           <p className="text-sm text-neutral-700 dark:text-neutral-300">
             <span className="font-mono">{acceptPrompt.name || acceptPrompt.deviceID.slice(0, 7)}</span> versucht sich
@@ -273,14 +273,14 @@ export function CodeShowModal({
             </button>
           </div>
         </div>
-      </Modal>
+      </PanelShell>
     );
   }
 
   // ── Quick-Pair-Ansicht: 4 grosse Ziffern + Countdown ──
   if (generated && generated.quickCode) {
     return (
-      <Modal title="Schnell-Pair" onClose={onClose}>
+      <PanelShell title="Schnell-Pair" onBack={onClose}>
         <div className="space-y-4">
           <p className="text-sm text-neutral-700 dark:text-neutral-300">
             Tippe diesen Code auf dem anderen Gerät bei „Code einlösen" ein.
@@ -324,13 +324,13 @@ export function CodeShowModal({
             andere Gerät ihn eingibt, erscheint hier die Bestätigung.
           </p>
         </div>
-      </Modal>
+      </PanelShell>
     );
   }
 
   if (generated) {
     return (
-      <Modal title="Einladungscode" onClose={onClose}>
+      <PanelShell title="Einladungscode" onBack={onClose}>
         <div className="space-y-3">
           <p className="text-sm text-neutral-700 dark:text-neutral-300">
             Gib diesen Code an dein anderes Gerät weiter — z.B. via AirDrop oder Signal.
@@ -383,12 +383,12 @@ export function CodeShowModal({
             Lass dieses Fenster offen — sobald das andere Gerät den Code einlöst, erscheint hier der nächste Schritt.
           </p>
         </div>
-      </Modal>
+      </PanelShell>
     );
   }
 
   return (
-    <Modal title="Einladungscode erstellen" onClose={onClose} dismissible={!busy}>
+    <PanelShell title="Einladungscode erstellen" onBack={onClose} dismissible={!busy}>
       <div className="space-y-4">
         <div>
           <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
@@ -482,7 +482,7 @@ export function CodeShowModal({
           </button>
         </div>
       </div>
-    </Modal>
+    </PanelShell>
   );
 }
 

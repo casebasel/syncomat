@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, EyeOff, Loader2, Sparkles, Trash2, XCircle } from "lucide-react";
-import { Modal } from "./Modal";
+import { PanelShell } from "./PanelShell";
 import {
   applyFolderDefaults,
   folderSettingsRead,
@@ -192,12 +192,12 @@ export function FolderSettingsModal({
 
   if (!loaded) {
     return (
-      <Modal title={`Einstellungen — ${folder.label}`} onClose={onClose}>
+      <PanelShell title={`Einstellungen — ${folder.label}`} onBack={onClose}>
         <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
           <Loader2 className="size-4 animate-spin" />
           Lade…
         </div>
-      </Modal>
+      </PanelShell>
     );
   }
 
@@ -255,9 +255,9 @@ export function FolderSettingsModal({
   );
 
   return (
-    <Modal
+    <PanelShell
       title={`Einstellungen — ${folder.label}`}
-      onClose={onClose}
+      onBack={onClose}
       dismissible={!busy && !confirmRemove}
       footer={footerNode}
     >
@@ -478,7 +478,7 @@ export function FolderSettingsModal({
           </div>
         )}
       </div>
-    </Modal>
+    </PanelShell>
   );
 }
 

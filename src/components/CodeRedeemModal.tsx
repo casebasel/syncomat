@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Check, ChevronRight, Loader2, Zap } from "lucide-react";
-import { Modal } from "./Modal";
+import { PanelShell } from "./PanelShell";
 import { executeRedemption, isSuccess, type RedeemPhase } from "../lib/redeemFlow";
 import type { Endpoint, SystemStatus } from "../lib/syncthing";
 import { retrieveInvite, QUICK_PAIR_ENABLED } from "../lib/rendezvous";
@@ -115,7 +115,7 @@ export function CodeRedeemModal({
 
   if (phase === "done") {
     return (
-      <Modal title="Verbunden" onClose={onClose}>
+      <PanelShell title="Verbunden" onBack={onClose}>
         <div className="space-y-4 text-sm">
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-full bg-emerald-100 dark:bg-emerald-950/50 flex items-center justify-center">
@@ -142,13 +142,13 @@ export function CodeRedeemModal({
             </button>
           </div>
         </div>
-      </Modal>
+      </PanelShell>
     );
   }
 
   if (phase === "error") {
     return (
-      <Modal title="Einlösen fehlgeschlagen" onClose={onClose}>
+      <PanelShell title="Einlösen fehlgeschlagen" onBack={onClose}>
         <div className="space-y-4 text-sm">
           <p className="text-rose-600 dark:text-rose-400">{error?.message}</p>
           {error?.detail && (
@@ -178,13 +178,13 @@ export function CodeRedeemModal({
             </button>
           </div>
         </div>
-      </Modal>
+      </PanelShell>
     );
   }
 
   if (phase === "running") {
     return (
-      <Modal title="Einlösen…" onClose={onClose} dismissible={false}>
+      <PanelShell title="Einlösen…" onBack={onClose} dismissible={false}>
         <div className="space-y-2">
           {steps.map((s, i) => {
             const isLast = i === steps.length - 1;
@@ -203,12 +203,12 @@ export function CodeRedeemModal({
             );
           })}
         </div>
-      </Modal>
+      </PanelShell>
     );
   }
 
   return (
-    <Modal title="Einladungscode einlösen" onClose={onClose}>
+    <PanelShell title="Einladungscode einlösen" onBack={onClose}>
       <div className="space-y-3">
         {/* Quick-Pair: 4-Ziffern-Code holt den vollen Invite vom Rendezvous */}
         {QUICK_PAIR_ENABLED && !code && (
@@ -317,7 +317,7 @@ export function CodeRedeemModal({
           </button>
         </div>
       </div>
-    </Modal>
+    </PanelShell>
   );
 }
 

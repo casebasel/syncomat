@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { AlertTriangle, FolderOpen, Loader2 } from "lucide-react";
-import { Modal } from "./Modal";
+import { PanelShell } from "./PanelShell";
 import {
   putFolder,
   setFolderIgnores,
@@ -147,7 +147,7 @@ export function CreateFolderModal({
   const notReady = !ready || !endpoint || !myDeviceId;
 
   return (
-    <Modal title="Neuen Ordner anlegen" onClose={onClose} dismissible={!busy}>
+    <PanelShell title="Neuen Ordner anlegen" onBack={onClose} dismissible={!busy}>
       <div className="space-y-4">
         <p className="text-xs text-neutral-500 dark:text-neutral-400">
           Lege einen Ordner an, den du später per Einladungs-Code mit anderen
@@ -305,6 +305,6 @@ export function CreateFolderModal({
           </button>
         </div>
       </div>
-    </Modal>
+    </PanelShell>
   );
 }
