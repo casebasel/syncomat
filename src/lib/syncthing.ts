@@ -96,6 +96,8 @@ export type FolderStatus = {
   needBytes: number;
   errors: number;
   pullErrors: number;
+  localFiles: number;
+  globalFiles: number;
 };
 
 export type SyncEvent = {
@@ -693,6 +695,8 @@ export type AggregateStatus = {
   needBytes: number;
   errorCount: number;
   lastUpdate: Date | null;
+  localFiles: number;
+  localBytes: number;
 };
 
 export function useAggregateStatus(
@@ -705,12 +709,21 @@ export function useAggregateStatus(
     needBytes: 0,
     errorCount: 0,
     lastUpdate: null,
+    localFiles: 0,
+    localBytes: 0,
   });
   const ids = folders.map((f) => f.id).join(",");
 
   useEffect(() => {
     if (!ep || !ready) {
-      setAgg({ state: "idle", needBytes: 0, errorCount: 0, lastUpdate: null });
+      setAgg({
+        state: "idle",
+        needBytes: 0,
+        errorCount: 0,
+        lastUpdate: null,
+        localFiles: 0,
+        localBytes: 0,
+      });
       return;
     }
     let cancelled = false;
@@ -718,7 +731,14 @@ export function useAggregateStatus(
     const refetch = async () => {
       if (folders.length === 0) {
         if (!cancelled)
-          setAgg({ state: "idle", needBytes: 0, errorCount: 0, lastUpdate: new Date() });
+          setAgg({
+            state: "idle",
+            needBytes: 0,
+            errorCount: 0,
+            lastUpdate: new Date(),
+            localFiles: 0,
+            localBytes: 0,
+          });
         return;
       }
       const results = await Promise.all(
@@ -727,14 +747,25 @@ export function useAggregateStatus(
       if (cancelled) return;
       let errorCount = 0;
       let needBytes = 0;
+      let localFiles = 0;
+      let localBytes = 0;
       for (const s of results) {
         if (!s) continue;
         errorCount += (s.errors || 0) + (s.pullErrors || 0);
         needBytes += s.needBytes || 0;
+        localFiles += s.localFiles || 0;
+        localBytes += s.localBytes || 0;
       }
       const state: AggregateStatus["state"] =
         errorCount > 0 ? "error" : needBytes > 0 ? "syncing" : "idle";
-      setAgg({ state, needBytes, errorCount, lastUpdate: new Date() });
+      setAgg({
+        state,
+        needBytes,
+        errorCount,
+        lastUpdate: new Date(),
+        localFiles,
+        localBytes,
+      });
     };
 
     refetch();

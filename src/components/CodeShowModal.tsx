@@ -9,6 +9,7 @@ import {
   inviteMarkRedeemed,
 } from "../lib/invitesStore";
 import {
+  deletePendingDevice,
   putDevice,
   putFolder,
   usePendingDevices,
@@ -221,7 +222,25 @@ export function CodeShowModal({
           )}
           <div className="flex justify-end gap-2 pt-2">
             <button
-              onClick={() => setAcceptPrompt(null)}
+              onClick={async () => {
+                // Audit-Finding: vorher hat "Nein, ignorieren" nur setAcceptPrompt(null)
+                // gemacht. Der pending-device blieb in Syncthings Liste — beim nächsten
+                // Poll kam der Prompt sofort wieder hoch. Endlosschleife.
+                // Jetzt: Pending-device wirklich aus Syncthing-Liste entfernen.
+                if (endpoint) {
+                  try {
+                    await deletePendingDevice(endpoint, acceptPrompt.deviceID);
+                  } catch (e) {
+                    console.warn("deletePendingDevice failed", e);
+                  }
+                }
+                // seen-Set updaten damit auch der lokale Auto-detect-Loop nicht
+                // sofort den gleichen device wieder als "neu" interpretiert
+                if (seenDeviceIdsRef.current) {
+                  seenDeviceIdsRef.current.add(acceptPrompt.deviceID);
+                }
+                setAcceptPrompt(null);
+              }}
               disabled={busy}
               className="text-xs font-medium px-3 py-1.5 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >

@@ -38,7 +38,11 @@ export function ConflictResolverModal({
   };
 
   return (
-    <Modal title={`Konflikte in „${folderLabel}"`} onClose={onClose}>
+    <Modal
+      title={`Konflikte in „${folderLabel}"`}
+      onClose={onClose}
+      dismissible={busyKey === null}
+    >
       {items === null ? (
         <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
           <Loader2 className="size-4 animate-spin" /> Lade…

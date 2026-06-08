@@ -27,22 +27,23 @@ pub fn spawn(app: &AppHandle) -> Result<SyncthingState, Box<dyn std::error::Erro
     let port = pick_free_port()?;
     let url = format!("http://127.0.0.1:{port}");
 
+    // SECURITY (Audit): API-Key + GUI-Address kommen über ENV statt argv.
+    // Auf Unix/macOS sind argv via `ps aux` / /proc/<pid>/cmdline für andere
+    // User des Systems lesbar — ENV-Vars sind privater (auch wenn nicht
+    // perfekt geschützt). Plus: matched what Syncthing's docs recommend.
     let (mut rx, child) = app
         .shell()
         .sidecar("syncthing")?
         .args([
             "serve".to_string(),
             format!("--home={}", home.to_string_lossy()),
-            format!("--gui-address={url}"),
-            format!("--gui-apikey={api_key}"),
             "--no-browser".to_string(),
             "--no-restart".to_string(),
             "--no-upgrade".to_string(),
         ])
-        // STMONITORED=yes tells Syncthing it is already supervised — skip its
-        // own monitor/main fork. Without this, kill() leaves the inner main
-        // process orphaned and the lockfile blocks the next start.
         .env("STMONITORED", "yes")
+        .env("STGUIAPIKEY", &api_key)
+        .env("STGUIADDRESS", &url)
         .spawn()?;
 
     let handle = app.clone();

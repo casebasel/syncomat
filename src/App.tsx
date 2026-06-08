@@ -42,13 +42,18 @@ import {
   type DeletionSuggestion,
 } from "./lib/folderSettings";
 import { useUpdater } from "./lib/updater";
-import { deleteFolder } from "./lib/syncthing";
+import {
+  deleteFolder,
+  setFolderIgnores,
+  tuneFolderForSize,
+} from "./lib/syncthing";
 import { ignoredFoldersAdd } from "./lib/ignored";
 import { DeviceRow } from "./components/DeviceRow";
 import { EmptyState } from "./components/EmptyState";
 import { FolderList } from "./components/FolderList";
 import { Header } from "./components/Header";
-import { LinkFolderModal } from "./components/LinkFolderModal";
+import { LinkFolderModal, type LinkConfirmOptions } from "./components/LinkFolderModal";
+import { pickStignoreForWorkload } from "./lib/unreal";
 import { Statusbar } from "./components/Statusbar";
 
 type Modal =
@@ -123,10 +128,21 @@ function App() {
     return r;
   }, [connList]);
 
-  const peers = devices.filter((d) => d.deviceID !== myID);
-  const peersConnected = peers.filter(
-    (d) => connectionsByID[d.deviceID]?.connected,
-  ).length;
+  // Memoized: peers + peersConnected werden bei jeder Event-Tick (ItemFinished
+  // im Background-Aggregate) neu berechnet wenn man's nicht memoiziert. Audit-
+  // Finding: high-frequency re-render. Devices.length ist stabil über Session.
+  const peers = useMemo(
+    () => devices.filter((d) => d.deviceID !== myID),
+    // devices ist eine config-derivierte array, aber neue Referenz pro Fetch.
+    // Wir keyen auf die device-IDs-string statt der Array-Reference.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [devices.map((d) => d.deviceID).join(","), myID],
+  );
+  const peersConnected = useMemo(
+    () =>
+      peers.filter((d) => connectionsByID[d.deviceID]?.connected).length,
+    [peers, connectionsByID],
+  );
 
   const notifications = useNotificationsEnabled();
   useNotificationTriggers({
@@ -187,10 +203,11 @@ function App() {
     pending: PendingFolder,
     label: string,
     localPath: string,
+    options: LinkConfirmOptions,
   ) => {
     if (!endpoint || !myID) throw new Error("Endpoint nicht bereit");
     const offerers = Object.keys(pending.offeredBy);
-    const folder: Folder = {
+    let folder: Folder = {
       id: pending.folderID,
       label,
       path: localPath,
@@ -204,7 +221,29 @@ function App() {
       // folder.path. Hardcoded:true bricht silent den Sync mit Windows-Peers
       // (NTFS = case-insensitive), siehe Audit-Finding.
     };
+    // Wenn der Empfänger ein Preset gewählt hat: tune Folder + setze .stignore
+    // VOR dem putFolder, damit Syncthing nicht erst die ganzen Ignore-Files
+    // anfasst und dann re-ignored. Bei Unreal verhindert das den Download von
+    // DerivedDataCache (10-50 GB) gleich beim ersten Sync.
+    if (options.applyPreset && options.estimate) {
+      folder = tuneFolderForSize(
+        folder,
+        options.estimate.bytes,
+        options.estimate.files,
+        options.preset,
+      );
+    }
     await putFolder(endpoint, folder);
+    if (options.applyPreset) {
+      const patterns = pickStignoreForWorkload(options.preset);
+      if (patterns.length > 0) {
+        try {
+          await setFolderIgnores(endpoint, folder.id, patterns);
+        } catch (e) {
+          console.warn("link: setFolderIgnores failed", e);
+        }
+      }
+    }
   };
 
   const onAcceptDevice = async (pd: PendingDevice) => {
@@ -392,6 +431,8 @@ function App() {
           needBytes={aggregate.needBytes}
           errorCount={aggregate.errorCount}
           lastSyncAt={aggregate.lastUpdate}
+          localFiles={aggregate.localFiles}
+          localBytes={aggregate.localBytes}
           version={version}
         />
       </div>
@@ -399,7 +440,9 @@ function App() {
       {modal?.kind === "link" && (
         <LinkFolderModal
           pending={modal.pending}
-          onConfirm={(label, path) => onLinkConfirm(modal.pending, label, path)}
+          onConfirm={(label, path, options) =>
+            onLinkConfirm(modal.pending, label, path, options)
+          }
           onClose={() => setModal(null)}
         />
       )}
