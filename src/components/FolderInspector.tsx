@@ -19,7 +19,7 @@ import type {
   Folder,
   FolderStatus,
 } from "../lib/syncthing";
-import { useFolderStatus } from "../lib/syncthing";
+import { useSharedFolderStatus as useFolderStatus } from "../lib/folderStatusStore";
 import { useFolderConflicts } from "../lib/conflicts";
 
 export function FolderInspector({

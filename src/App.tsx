@@ -51,8 +51,9 @@ import {
 import { ignoredFoldersAdd } from "./lib/ignored";
 import { LinkFolderModal, type LinkConfirmOptions } from "./components/LinkFolderModal";
 import { pickStignoreForWorkload } from "./lib/unreal";
-import { Sidebar } from "./components/Sidebar";
+import { Sidebar, GLOBAL_ACTIVITY_KEY } from "./components/Sidebar";
 import { FolderInspector } from "./components/FolderInspector";
+import { GlobalActivityView } from "./components/GlobalActivityView";
 import { Statusbar } from "./components/Statusbar";
 import { Settings as SettingsIcon } from "lucide-react";
 
@@ -219,6 +220,8 @@ function App() {
       if (selectedFolderId !== null) setSelectedFolderId(null);
       return;
     }
+    // "Alle Ordner"-Pseudo-Selection darf bestehen bleiben
+    if (selectedFolderId === GLOBAL_ACTIVITY_KEY) return;
     if (!selectedFolderId || !folders.some((f) => f.id === selectedFolderId)) {
       setSelectedFolderId(folders[0]!.id);
     }
@@ -226,6 +229,7 @@ function App() {
   }, [folders.map((f) => f.id).join(",")]);
 
   const selectedFolder = folders.find((f) => f.id === selectedFolderId) ?? null;
+  const showGlobalActivity = selectedFolderId === GLOBAL_ACTIVITY_KEY;
   const visiblePending = (pendingFolders.data ?? []).filter(
     (pf) => !ignored.isIgnored(pf.folderID),
   );
@@ -419,7 +423,12 @@ function App() {
               pauseDates={pauseDates}
             />
 
-            {selectedFolder ? (
+            {showGlobalActivity ? (
+              <GlobalActivityView
+                folders={folders}
+                onSelectFolder={(f) => setSelectedFolderId(f.id)}
+              />
+            ) : selectedFolder ? (
               <FolderInspector
                 folder={selectedFolder}
                 endpoint={endpoint}

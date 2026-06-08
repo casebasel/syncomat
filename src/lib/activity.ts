@@ -38,6 +38,9 @@ const subscribers = new Map<string, Set<() => void>>();
 function notifyFolder(folderId: string) {
   const subs = subscribers.get(folderId);
   if (subs) for (const fn of subs) fn();
+  // Plus alle wildcard-Subscriber (Globale Activity-View)
+  const wildcardSubs = subscribers.get("__all__");
+  if (wildcardSubs) for (const fn of wildcardSubs) fn();
 }
 
 function uid(): string {
@@ -121,6 +124,46 @@ function ensureAttached() {
   const handler: EventHandler = handleSyncEvent;
   bus.add(handler);
   attached = true;
+}
+
+/**
+ * Hook für die Globale Activity-View: merget Events von ALLEN folderIds
+ * und gibt die jüngsten 200 sortiert zurück. Nutzt denselben Modul-Cache
+ * + Subscribe-Pattern wie useFolderActivity, aber listened für alle.
+ */
+export function useAllActivity(): ActivityEvent[] {
+  const [items, setItems] = useState<ActivityEvent[]>(() => collectAll());
+
+  useEffect(() => {
+    ensureAttached();
+    const onUpdate = () => setItems(collectAll());
+    // Subscribe auf ALLE Folder-IDs die jemals im Cache landen
+    const wildcardKey = "__all__";
+    let subs = subscribers.get(wildcardKey);
+    if (!subs) {
+      subs = new Set();
+      subscribers.set(wildcardKey, subs);
+    }
+    subs.add(onUpdate);
+    return () => {
+      const s = subscribers.get(wildcardKey);
+      if (s) {
+        s.delete(onUpdate);
+        if (s.size === 0) subscribers.delete(wildcardKey);
+      }
+    };
+  }, []);
+
+  return items;
+}
+
+function collectAll(): ActivityEvent[] {
+  const merged: ActivityEvent[] = [];
+  for (const list of cache.values()) {
+    merged.push(...list);
+  }
+  merged.sort((a, b) => b.ts - a.ts);
+  return merged.slice(0, MAX_EVENTS_PER_FOLDER);
 }
 
 /**

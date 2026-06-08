@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
+  Activity,
   ChevronDown,
   ChevronRight,
   KeyRound,
@@ -16,12 +17,13 @@ import type {
   FolderStatus,
   PendingFolder,
 } from "../lib/syncthing";
-import { useFolderStatus } from "../lib/syncthing";
+import { useSharedFolderStatus as useFolderStatus } from "../lib/folderStatusStore";
 import { useFolderConflicts } from "../lib/conflicts";
 
 const UNTAGGED_KEY = "__untagged__";
 const PENDING_KEY = "__pending__";
 const LS_COLLAPSED_KEY = "syncomat.sidebar.collapsedGroups";
+export const GLOBAL_ACTIVITY_KEY = "__all__";
 
 function loadCollapsed(): Set<string> {
   try {
@@ -153,6 +155,28 @@ export function Sidebar({
           Jetzt syncen
         </button>
       </div>
+
+      {/* Globale Aktivität — Quick-Access oben, vor allen Tag-Gruppen.
+          Nutzt einen Pseudo-Folder mit GLOBAL_ACTIVITY_KEY als ID damit
+          die existierende selectedFolderId-Logik im Parent ohne extra
+          state-Sache hochreicht. */}
+      <button
+        onClick={() => onSelectFolder({ id: GLOBAL_ACTIVITY_KEY } as Folder)}
+        aria-current={selectedFolderId === GLOBAL_ACTIVITY_KEY ? "true" : undefined}
+        className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 focus-visible:outline-none ${
+          selectedFolderId === GLOBAL_ACTIVITY_KEY
+            ? "bg-blue-100/70 dark:bg-blue-950/60 text-blue-900 dark:text-blue-100 font-semibold border-l-2 border-blue-600"
+            : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40 border-l-2 border-transparent"
+        }`}
+      >
+        <Activity
+          className={`size-3.5 ${selectedFolderId === GLOBAL_ACTIVITY_KEY ? "text-blue-600 dark:text-blue-300" : "text-neutral-400"}`}
+        />
+        <span className="flex-1 text-left">Alle Ordner</span>
+        <span className="text-[10px] text-neutral-400 tabular-nums">
+          {folders.length}
+        </span>
+      </button>
 
       {/* Pending folders */}
       {pending.length > 0 && (
@@ -336,7 +360,12 @@ function Group({
   );
 }
 
-function FolderItem({
+// React.memo: Sidebar rendert sich bei jedem Aggregate-Tick (ItemFinished-Burst
+// während Big-Syncs) neu. Ohne memo würden alle FolderItem-Renders durchlaufen
+// — auch wenn nur das eine geänderte Folder einen neuen Status hat. Mit memo
+// rendert nur das Item das wirklich neue Daten sieht (über useFolderStatus-
+// Subscriber). Bei 5+ Folders messbarer Frame-Time-Gewinn.
+const FolderItem = memo(function FolderItem({
   folder,
   endpoint,
   ready,
@@ -402,7 +431,7 @@ function FolderItem({
       )}
     </button>
   );
-}
+});
 
 function PendingItem({
   pending,
