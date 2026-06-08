@@ -24,6 +24,7 @@ import { invitePurgeExpired } from "./lib/invitesStore";
 import { useIgnoredFolders } from "./lib/ignored";
 import { useFolderTags } from "./lib/tags";
 import { usePauseDates } from "./lib/pauseDates";
+import { useBlockBrowserShortcuts } from "./lib/keyboardShortcuts";
 import {
   useNotificationTriggers,
   useNotificationsEnabled,
@@ -66,6 +67,11 @@ type Modal =
   | { kind: "settings" };
 
 function App() {
+  // WebView2-Default-Shortcuts (Find/Print/Reload) blockieren — sonst
+  // oeffnet sich auf Windows die Find-Bar wenn der User Ctrl+F drueckt
+  // und der Tag-Eingabe-Workflow ist unterbrochen.
+  useBlockBrowserShortcuts();
+
   const endpoint = useEndpoint();
   const ready = useSyncthingReady(endpoint);
   const status = useStatus(endpoint, ready);
