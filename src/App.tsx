@@ -23,6 +23,10 @@ import {
 
 import { invitePurgeExpired } from "./lib/invitesStore";
 import { useIgnoredFolders } from "./lib/ignored";
+import {
+  useNotificationTriggers,
+  useNotificationsEnabled,
+} from "./lib/notifications";
 import { ActiveInvitesPanel } from "./components/ActiveInvitesPanel";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { CodeShowModal } from "./components/CodeShowModal";
@@ -123,6 +127,16 @@ function App() {
   const peersConnected = peers.filter(
     (d) => connectionsByID[d.deviceID]?.connected,
   ).length;
+
+  const notifications = useNotificationsEnabled();
+  useNotificationTriggers({
+    enabled: notifications.enabled,
+    connections: connectionsByID,
+    devices,
+    pendingDevices: pendingDevices.data ?? [],
+    pendingFolders: pendingFolders.data ?? [],
+    updateState: updater.state,
+  });
 
   const headerTone = !ready
     ? "wait"
@@ -437,6 +451,8 @@ function App() {
           version={version}
           updateState={updater.state}
           onRecheckUpdates={updater.recheck}
+          notificationsEnabled={notifications.enabled}
+          onSetNotificationsEnabled={notifications.setEnabled}
           onClose={() => setModal(null)}
         />
       )}

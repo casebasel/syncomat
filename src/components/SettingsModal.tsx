@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { CheckCircle2, Copy, ExternalLink, Loader2, RefreshCw, RotateCcw, FolderX } from "lucide-react";
+import { Bell, CheckCircle2, Copy, ExternalLink, Loader2, RefreshCw, RotateCcw, FolderX } from "lucide-react";
 import { Modal } from "./Modal";
 import type { Endpoint, SystemStatus } from "../lib/syncthing";
 import type { UpdateState } from "../lib/updater";
@@ -15,6 +15,8 @@ export function SettingsModal({
   version,
   updateState,
   onRecheckUpdates,
+  notificationsEnabled,
+  onSetNotificationsEnabled,
   onClose,
 }: {
   endpoint: Endpoint | null;
@@ -22,6 +24,8 @@ export function SettingsModal({
   version: string | null;
   updateState: UpdateState;
   onRecheckUpdates: () => void;
+  notificationsEnabled: boolean;
+  onSetNotificationsEnabled: (v: boolean) => void;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
@@ -123,6 +127,32 @@ export function SettingsModal({
               Prüfen
             </button>
           </div>
+        </section>
+
+        {/* Benachrichtigungen */}
+        <section>
+          <h3 className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
+            Benachrichtigungen
+          </h3>
+          <label className="flex items-start gap-3 cursor-pointer select-none px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40">
+            <div className="size-9 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 dark:text-neutral-400 shrink-0">
+              <Bell className="size-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                System-Benachrichtigungen
+              </div>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                Peer verbindet sich · neuer Ordner verfügbar · Update bereit
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={notificationsEnabled}
+              onChange={(e) => onSetNotificationsEnabled(e.target.checked)}
+              className="mt-0.5 size-4 accent-blue-600"
+            />
+          </label>
         </section>
 
         {/* Power-User */}

@@ -12,14 +12,27 @@ export type UpdateState =
   | { kind: "error"; message: string };
 
 /**
- * Auto-check beim Mount (silent). User-initiierter Re-check + Download via Methoden.
+ * Auto-check beim Mount (silent), plus periodisches re-check alle 6h.
+ * User-initiierter Re-check + Download via Methoden.
  */
+const PERIODIC_RECHECK_MS = 6 * 60 * 60 * 1000; // 6h
+
 export function useUpdater(autoCheck = true) {
   const [state, setState] = useState<UpdateState>({ kind: "idle" });
 
   useEffect(() => {
     if (!autoCheck) return;
     void checkOnce(setState);
+    // Re-check alle 6h damit User auch ohne App-Neustart Updates sehen.
+    // Skipped wenn ein Download grad läuft oder Update schon ready ist.
+    const id = setInterval(() => {
+      setState((s) => {
+        if (s.kind === "downloading" || s.kind === "ready") return s;
+        void checkOnce(setState);
+        return s;
+      });
+    }, PERIODIC_RECHECK_MS);
+    return () => clearInterval(id);
   }, [autoCheck]);
 
   const recheck = () => checkOnce(setState);

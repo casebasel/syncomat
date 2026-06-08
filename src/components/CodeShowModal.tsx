@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Check, Loader2 } from "lucide-react";
+import { Copy, Check, Loader2, QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { Modal } from "./Modal";
 import { encodeInvite, isPrivateAddressHint } from "../lib/invite";
 import {
@@ -52,6 +53,7 @@ export function CodeShowModal({
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showQR, setShowQR] = useState(false);
 
   const seenDeviceIdsRef = useRef<Set<string> | null>(null);
 
@@ -247,21 +249,48 @@ export function CodeShowModal({
             Gib diesen Code an dein anderes Gerät weiter — z.B. via AirDrop oder Signal.
             Behandle ihn wie ein Passwort.
           </p>
-          <textarea
-            readOnly
-            value={generated.raw}
-            onClick={(e) => e.currentTarget.select()}
-            className="w-full font-mono text-[11px] p-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 break-all min-h-[140px] resize-none focus:outline-none focus:border-blue-500"
-          />
-          <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
+          {showQR ? (
+            <div className="flex flex-col items-center gap-2 py-2">
+              <div className="p-3 rounded-lg bg-white border border-neutral-300 dark:border-neutral-700">
+                <QRCodeSVG
+                  value={generated.raw}
+                  size={220}
+                  level="M"
+                  marginSize={0}
+                />
+              </div>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 text-center max-w-[260px]">
+                Scan-Vorgang: auf dem anderen Gerät „Code einlösen" → der gescannte
+                Text wird automatisch eingefügt.
+              </p>
+            </div>
+          ) : (
+            <textarea
+              readOnly
+              value={generated.raw}
+              onClick={(e) => e.currentTarget.select()}
+              className="w-full font-mono text-[11px] p-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 break-all min-h-[140px] resize-none focus:outline-none focus:border-blue-500"
+            />
+          )}
+          <div className="flex items-center justify-between gap-2 text-xs text-neutral-500 dark:text-neutral-400">
             <span>Läuft ab {fmtExpiry(generated.expiresAt)}</span>
-            <button
-              onClick={copy}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            >
-              {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
-              {copied ? "Kopiert" : "Kopieren"}
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setShowQR((v) => !v)}
+                title={showQR ? "Als Text zeigen" : "Als QR-Code zeigen"}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                <QrCode className="size-3.5" />
+                {showQR ? "Text" : "QR"}
+              </button>
+              <button
+                onClick={copy}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+                {copied ? "Kopiert" : "Kopieren"}
+              </button>
+            </div>
           </div>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 pt-2">
             Lass dieses Fenster offen — sobald das andere Gerät den Code einlöst, melde ich mich.
