@@ -1,12 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 import {
+  getConfig,
+  getFolderIgnores,
   putFolder,
   setFolderIgnores,
   type Endpoint,
   type Folder,
   type FolderID,
 } from "./syncthing";
+
+/** Pattern die WIR setzen wenn ignore_hidden=true. Wird beim toggle-off
+ * gezielt rausgefiltert; user-erstellte Patterns bleiben unberührt. */
+const HIDDEN_PATTERNS = [".*", ".DS_Store", "Thumbs.db", "desktop.ini"];
 
 export type FolderDefaults = {
   ignore_hidden: boolean;
@@ -47,23 +53,41 @@ export const folderSettingsWrite = (
 
 /**
  * Schreibt die Defaults in die lokale Syncthing-Folder-Config:
- * - ignore_hidden → .stignore (über REST setFolderIgnores)
+ * - ignore_hidden → .stignore (merged mit existing user-Patterns)
  * - trashcan → folder.versioning
+ *
+ * Holt sich vor dem PUT den FRISCHEN folder aus Syncthings config —
+ * nicht den vom Caller übergebenen, der könnte stale sein (Replication-Hook).
  */
 export async function applyFolderDefaults(
   ep: Endpoint,
   folder: Folder,
   defaults: FolderDefaults,
 ): Promise<void> {
-  // Hidden-Files-Pattern. Standard für macOS/Linux: alles was mit '.' beginnt,
-  // plus Windows-OS-Schmutz.
-  const hiddenPatterns = defaults.ignore_hidden
-    ? [".*", ".DS_Store", "Thumbs.db", "desktop.ini"]
-    : [];
-  await setFolderIgnores(ep, folder.id, hiddenPatterns);
+  // ─ ignore patterns ─
+  // Merge: existing user patterns minus HIDDEN_PATTERNS, dann ggf. HIDDEN_PATTERNS rein.
+  const current = await getFolderIgnores(ep, folder.id).catch(() => ({
+    ignore: null,
+    expanded: null,
+  }));
+  const userPatterns = (current.ignore ?? []).filter(
+    (p) => !HIDDEN_PATTERNS.includes(p),
+  );
+  const nextIgnores = defaults.ignore_hidden
+    ? [...HIDDEN_PATTERNS, ...userPatterns]
+    : userPatterns;
+  await setFolderIgnores(ep, folder.id, nextIgnores);
+
+  // ─ versioning ─
+  // Fresh folder fetch um stale-reference (z.B. devices[] vom Replication-Hook) zu vermeiden.
+  const fresh = await getConfig(ep);
+  const currentFolder = fresh.folders.find((f) => f.id === folder.id);
+  if (!currentFolder) {
+    throw new Error(`folder ${folder.id} not found in syncthing config`);
+  }
 
   const updatedFolder: Folder = {
-    ...folder,
+    ...currentFolder,
     versioning: defaults.trashcan
       ? {
           type: "trashcan",

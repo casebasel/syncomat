@@ -45,10 +45,23 @@ pub fn folder_settings_read(folder_path: String) -> Result<Option<FolderDefaults
     if !path.exists() {
         return Ok(None);
     }
-    let raw = fs::read_to_string(&path).map_err(|e| format!("read: {e}"))?;
-    let parsed: FolderDefaultsFile = serde_json::from_str(&raw)
-        .map_err(|e| format!("parse {}: {e}", path.display()))?;
-    Ok(Some(parsed))
+    let raw = match fs::read_to_string(&path) {
+        Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(format!("read: {e}")),
+    };
+    // Korrupte JSON (partial write von concurrent Syncthing-Sync) → graceful None
+    // statt 30s-Spam von parse-errors im Replication-Hook.
+    match serde_json::from_str::<FolderDefaultsFile>(&raw) {
+        Ok(parsed) => Ok(Some(parsed)),
+        Err(e) => {
+            eprintln!(
+                "[folder_settings] {} unparseable ({e}), treating as missing",
+                path.display()
+            );
+            Ok(None)
+        }
+    }
 }
 
 #[tauri::command]
