@@ -31,15 +31,12 @@ export function FolderSettingsModal({
   endpoint,
   folder,
   myDeviceId,
-  peers,
   onClose,
   onRemoved,
 }: {
   endpoint: Endpoint;
   folder: Folder;
   myDeviceId: string;
-  /** Alle bekannten Peers — fürs nachträgliche Teilen */
-  peers: { deviceID: string; name: string }[];
   onClose: () => void;
   onRemoved?: () => void;
 }) {
@@ -50,16 +47,6 @@ export function FolderSettingsModal({
   const [meta, setMeta] = useState<{ updatedAt: number; updatedBy: string } | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [clusterWide, setClusterWide] = useState(false);
-  // Sharing-State: welche peers sind aktuell im Folder. Initialisiert aus
-  // folder.devices, modifizierbar via Toggle pro peer. Auf Submit wird der
-  // diff via putFolder durchgereicht.
-  const [sharedWith, setSharedWith] = useState<Set<string>>(() => {
-    const set = new Set<string>();
-    for (const d of folder.devices) {
-      if (d.deviceID !== myDeviceId) set.add(d.deviceID);
-    }
-    return set;
-  });
   const [tuneState, setTuneState] = useState<
     | { kind: "idle" }
     | { kind: "estimating" }
@@ -99,29 +86,6 @@ export function FolderSettingsModal({
       await folderSettingsWrite(folder.path, myDeviceId, defaults);
       // 2. Apply to local Syncthing config immediately
       await applyFolderDefaults(endpoint, folder, defaults);
-      // 3. Sharing-Diff: wenn der User Geräte zugeschaltet oder entfernt hat,
-      // putFolder mit den geänderten devices. Fresh-Fetch um nicht stale-state
-      // (versioning etc.) zu überschreiben.
-      const currentShared = new Set(
-        folder.devices.filter((d) => d.deviceID !== myDeviceId).map((d) => d.deviceID),
-      );
-      const changed =
-        currentShared.size !== sharedWith.size ||
-        [...sharedWith].some((id) => !currentShared.has(id));
-      if (changed) {
-        const fresh = await getConfig(endpoint);
-        const live = fresh.folders.find((f) => f.id === folder.id);
-        if (live) {
-          const updated = {
-            ...live,
-            devices: [
-              { deviceID: myDeviceId },
-              ...Array.from(sharedWith).map((deviceID) => ({ deviceID })),
-            ],
-          };
-          await putFolder(endpoint, updated);
-        }
-      }
       onClose();
     } catch (e) {
       setError(String(e));
@@ -229,55 +193,6 @@ export function FolderSettingsModal({
           Diese Einstellungen werden über alle Geräte synchronisiert (via versteckter
           Datei <code className="font-mono text-[10px]">.syncomat/folder-defaults.json</code> im Ordner).
         </p>
-
-        {/* Sharing — welche peers den Folder bekommen. Lokal beim Speichern
-            werden Änderungen via putFolder durchgereicht. Beim Peer erscheint
-            der Folder dann als "Verfügbar" (PendingFolder) und kann verknüpft
-            werden. Beim Entfernen verschwindet er aus deren active sync. */}
-        {peers.length > 0 && (
-          <section>
-            <h3 className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">
-              Geteilt mit
-            </h3>
-            <div className="space-y-1">
-              {peers.map((p) => {
-                const shared = sharedWith.has(p.deviceID);
-                return (
-                  <label
-                    key={p.deviceID}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 cursor-pointer select-none"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={shared}
-                      onChange={(e) => {
-                        setSharedWith((prev) => {
-                          const next = new Set(prev);
-                          if (e.target.checked) next.add(p.deviceID);
-                          else next.delete(p.deviceID);
-                          return next;
-                        });
-                      }}
-                      className="size-3.5 accent-blue-600"
-                    />
-                    <div className="min-w-0 flex-1 text-xs">
-                      <div className="text-neutral-900 dark:text-neutral-100 truncate">
-                        {p.name}
-                      </div>
-                      <div className="font-mono text-[10px] text-neutral-500 dark:text-neutral-500">
-                        {p.deviceID.slice(0, 7)}
-                      </div>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1.5">
-              Wird beim Speichern angewendet. Der andere Peer sieht den Ordner
-              dann als „Verfügbar" und kann ihn verknüpfen.
-            </p>
-          </section>
-        )}
 
         <ToggleRow
           icon={<EyeOff className="size-4" />}

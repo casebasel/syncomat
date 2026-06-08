@@ -117,6 +117,46 @@ function App() {
     getVersion().then(setVersion).catch(() => {});
   }, []);
 
+  // Auto-Share-Reconciliation: stellt sicher dass JEDER Folder mit ALLEN
+  // bekannten Peers geshared ist. Default-Verhalten nach Marlons Concept-Defaults
+  // (Resilio-Style: alles wird mit allen meinen Geräten geteilt, kein manuelles
+  // pro-Folder-Auswählen). Greift wenn:
+  //  - Folders die vor v0.1.17 ohne peers angelegt wurden (orderA bug)
+  //  - Folders die angelegt wurden während ein peer paused war
+  //  - Edge-cases wo acceptIncoming einzelne Folders verpasst hat
+  // Läuft bei jedem config.data + devices change. putFolder ist idempotent
+  // und Syncthing dedupliziert devices[].
+  useEffect(() => {
+    if (!endpoint || !ready || !config.data || !myID) return;
+    const allFolders = config.data.folders;
+    const peerIDs = config.data.devices
+      .filter((d) => d.deviceID !== myID)
+      .map((d) => d.deviceID);
+    if (peerIDs.length === 0 || allFolders.length === 0) return;
+    for (const f of allFolders) {
+      const missing = peerIDs.filter(
+        (id) => !f.devices.some((d) => d.deviceID === id),
+      );
+      if (missing.length === 0) continue;
+      const updated = {
+        ...f,
+        devices: [...f.devices, ...missing.map((id) => ({ deviceID: id }))],
+      };
+      putFolder(endpoint, updated).catch((e) => {
+        console.warn(`[auto-share] reconciliation failed for ${f.id}`, e);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    endpoint?.url,
+    endpoint?.api_key,
+    ready,
+    myID,
+    // Re-run wenn neuer peer oder neuer folder dazukommt
+    config.data?.folders.map((f) => `${f.id}|${f.devices.length}`).join(","),
+    config.data?.devices.map((d) => d.deviceID).join(","),
+  ]);
+
   const connList = useMemo(
     () =>
       connections.data ? Object.entries(connections.data.connections) : [],
@@ -476,10 +516,6 @@ function App() {
           endpoint={endpoint}
           folder={modal.folder}
           myDeviceId={myID}
-          peers={peers.map((p) => ({
-            deviceID: p.deviceID,
-            name: p.name || p.deviceID.slice(0, 7),
-          }))}
           onClose={() => setModal(null)}
           onRemoved={() => ignored.refresh()}
         />
