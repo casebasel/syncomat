@@ -289,7 +289,7 @@ export function FolderSettingsModal({
                       tuneState.estimate.files,
                       tuneState.estimate.bytes,
                     )}{" "}
-                    MB RAM · {workloadLabel(tuneState.estimate.workload.kind)}
+                    MB RAM · {workloadLabel(tuneState.estimate.workload.kind, tuneState.estimate.workload.uproject_count)}
                   </div>
                 </div>
                 <p className="text-[11px] text-neutral-500 dark:text-neutral-400">

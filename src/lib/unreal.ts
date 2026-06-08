@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
-/** Workload-Detection für CreateFolderModal — Rust-side WalkDir mit max_depth=2 */
+/** Workload-Detection für CreateFolderModal — Rust-side WalkDir bis max_depth=4 */
 export type WorkloadDetection = {
   kind: "unreal" | "unity" | "node" | "godot" | "generic";
   has_uproject: boolean;
@@ -10,6 +10,9 @@ export type WorkloadDetection = {
   has_derived_data_cache: boolean;
   has_intermediate: boolean;
   has_node_modules: boolean;
+  /** Wieviele Unreal-Projekte gefunden — relevant für Multi-Projekt-Workspaces.
+   * Bei 1: einzelnes Projekt im Root. Bei N>1: Workspace mit N Subprojekten. */
+  uproject_count: number;
 };
 
 export type FolderEstimate = {
@@ -27,40 +30,51 @@ export const workloadDetect = (path: string) =>
 export const folderEstimateSize = (path: string) =>
   invoke<FolderEstimate>("folder_estimate_size", { path });
 
-/**
- * Unreal Engine 5 .stignore-Preset — basiert auf Epic's offiziellem .gitignore.
- *
- * Wichtigste Patterns: DerivedDataCache + Intermediate + Saved + Binaries
- * sind zusammen typisch 30-70% des UE-Projekt-Volumens und vollständig
- * regenerierbar. Syncen dieser Folders ist katastrophal:
- *   - DDC: 10-50 GB binary cache pro Maschine, wird bei jedem Asset-Build neu erzeugt
- *   - Intermediate/: 100k+ build-Files die churnen → Sync-Loop
- *   - Binaries/: kompilierte DLLs/EXEs → besser pro Maschine bauen
- *   - Saved/Cooked: build-Output, 10s GB
- */
+// Unreal Engine 5 .stignore-Preset — basiert auf Epic's offiziellem .gitignore.
+//
+// WICHTIG (Syncthing-Syntax, anders als gitignore!):
+// - Pattern OHNE slash (z.B. `DerivedDataCache`) matchet in JEDER Tiefe.
+// - Pattern MIT slash (z.B. `Saved/Cooked`) matchet NUR an Folder-Root.
+//   → daher Doppelstern-Prefix für rekursives Matching.
+//
+// Diese Patterns sind speziell für Multi-Projekt-Workspaces gebaut:
+//   /UE-Projects/         <- Folder-Root
+//   ├── ProjectA/Saved/Cooked/   <- wird vom Doppelstern-Prefix gematcht
+//   └── ProjectB/Saved/Cooked/   <- wird vom Doppelstern-Prefix gematcht
+//
+// Wichtigste Patterns: DerivedDataCache + Intermediate + Saved + Binaries
+// sind zusammen typisch 30-70% des UE-Projekt-Volumens und vollständig
+// regenerierbar. Syncen dieser Folders ist katastrophal:
+//   - DDC: 10-50 GB binary cache pro Maschine, wird bei jedem Asset-Build neu erzeugt
+//   - Intermediate/: 100k+ build-Files die churnen → Sync-Loop
+//   - Binaries/: kompilierte DLLs/EXEs → besser pro Maschine bauen
+//   - Saved/Cooked: build-Output, 10s GB
 export const UNREAL_STIGNORE: string[] = [
   "// Unreal Engine 5 — Syncomat-Default-Preset",
-  "// Syntax: gitignore-aehnlich, ! = negieren, (?i) = case-insensitive, // = Kommentar",
+  "// Multi-Projekt-tauglich: '**/' prefix = rekursiv durch alle Sub-Folders.",
+  "// '!' = negieren, '(?i)' = case-insensitive, '//' = Kommentar",
   "",
   "// === Engine-/Editor-Caches (regenerierbar, riesig) ===",
+  "// Bare patterns matchen in jeder Tiefe — fangen also auch ProjectA/DerivedDataCache",
   "DerivedDataCache",
   "Intermediate",
   "Build",
-  "Saved/Autosaves",
-  "Saved/Backup",
-  "Saved/Crashes",
-  "Saved/Cooked",
-  "Saved/HardwareSurvey",
-  "Saved/Logs",
-  "Saved/SourceControl",
-  "Saved/StagedBuilds",
-  "Saved/Screenshots",
-  "Saved/CrashReportClient",
+  "// Pfad-haltige patterns brauchen '**/' damit sie nicht nur am Root matchen",
+  "**/Saved/Autosaves",
+  "**/Saved/Backup",
+  "**/Saved/Crashes",
+  "**/Saved/Cooked",
+  "**/Saved/HardwareSurvey",
+  "**/Saved/Logs",
+  "**/Saved/SourceControl",
+  "**/Saved/StagedBuilds",
+  "**/Saved/Screenshots",
+  "**/Saved/CrashReportClient",
   "// Plugin-Caches in Unterordnern",
-  "Plugins/*/Intermediate",
-  "Plugins/*/Binaries",
-  "Plugins/*/Saved",
-  "Plugins/*/DerivedDataCache",
+  "**/Plugins/*/Intermediate",
+  "**/Plugins/*/Binaries",
+  "**/Plugins/*/Saved",
+  "**/Plugins/*/DerivedDataCache",
   "",
   "// === Build-Output / kompilierte Binaries (regenerierbar) ===",
   "Binaries",
@@ -114,8 +128,8 @@ export const UNREAL_STIGNORE: string[] = [
   ".stignore",
   "",
   "// === Bewusst NICHT ignoriert (Negation gegen Saved-Wildcard) ===",
-  "// Saved/Config = Team-Editor-Einstellungen",
-  "!Saved/Config",
+  "// Saved/Config = Team-Editor-Einstellungen, auch in Subfolders behalten",
+  "!**/Saved/Config",
 ];
 
 /** Generic .stignore — nur OS-Mull + dotfiles. Default für non-Unreal Folders. */
@@ -157,8 +171,14 @@ export function pickStignoreForWorkload(kind: WorkloadDetection["kind"]): string
   }
 }
 
-/** UI-Label für Workload-Kind */
-export function workloadLabel(kind: WorkloadDetection["kind"]): string {
+/** UI-Label für Workload-Kind. uprojectCount erweitert für Multi-Projekt-Workspaces. */
+export function workloadLabel(
+  kind: WorkloadDetection["kind"],
+  uprojectCount = 1,
+): string {
+  if (kind === "unreal" && uprojectCount > 1) {
+    return `Unreal-Workspace (${uprojectCount} Projekte)`;
+  }
   return {
     unreal: "Unreal-Projekt",
     unity: "Unity-Projekt",

@@ -13,6 +13,9 @@ pub struct WorkloadDetection {
     pub has_derived_data_cache: bool,
     pub has_intermediate: bool,
     pub has_node_modules: bool,
+    /// Anzahl gefundener *.uproject Files. Relevant für Multi-Projekt-Workspaces
+    /// (z.B. Marlon's Setup mit 10 UE-Projekten unter einem Sync-Folder).
+    pub uproject_count: u32,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -48,14 +51,41 @@ fn workload_detect_blocking(path: &str) -> Result<WorkloadDetection, String> {
         has_derived_data_cache: false,
         has_intermediate: false,
         has_node_modules: false,
+        uproject_count: 0,
     };
 
-    // Nur Top-Level + 1 Ebene tiefer scannen — Unreal-Projekt ist *.uproject im root
+    // max_depth=4 deckt:
+    //   root/Project.uproject (depth 1)                       <- direkter Unreal-Folder
+    //   root/Sub/Project.uproject (depth 2)                   <- Multi-Projekt Workspace (Marlon)
+    //   root/Sub/Group/Project.uproject (depth 3)             <- Quartals-/Themen-Gruppierung
+    //   root/Sub/Group/Year/Project.uproject (depth 4)        <- noch eine Ebene Buffer
+    // Pruning der bekannten Cache-Dirs erspart uns trotzdem Millionen Files
+    // (Intermediate/ allein hat 100k+ Files pro Projekt).
     let walker = WalkDir::new(root)
-        .max_depth(2)
+        .max_depth(4)
         .follow_links(false)
         .same_file_system(true)
         .into_iter()
+        .filter_entry(|e| {
+            if e.depth() == 0 {
+                return true;
+            }
+            match e.file_name().to_str() {
+                Some(n) => !matches!(
+                    n,
+                    "DerivedDataCache"
+                        | "Intermediate"
+                        | "Saved"
+                        | "Binaries"
+                        | "node_modules"
+                        | ".git"
+                        | "target"
+                        | ".stversions"
+                        | ".stfolder"
+                ),
+                None => true,
+            }
+        })
         .filter_map(|e| e.ok());
 
     for entry in walker {
@@ -66,9 +96,10 @@ fn workload_detect_blocking(path: &str) -> Result<WorkloadDetection, String> {
         if entry.file_type().is_file() {
             if name.ends_with(".uproject") {
                 det.has_uproject = true;
-            } else if name == "package.json" && entry.depth() == 1 {
+                det.uproject_count = det.uproject_count.saturating_add(1);
+            } else if name == "package.json" {
                 det.has_package_json = true;
-            } else if name == "project.godot" && entry.depth() == 1 {
+            } else if name == "project.godot" {
                 det.has_godot_project = true;
             }
         } else if entry.file_type().is_dir() {
@@ -76,16 +107,9 @@ fn workload_detect_blocking(path: &str) -> Result<WorkloadDetection, String> {
                 "DerivedDataCache" => det.has_derived_data_cache = true,
                 "Intermediate" => det.has_intermediate = true,
                 "node_modules" => det.has_node_modules = true,
-                "Assets" | "ProjectSettings" => {
+                "ProjectSettings" => {
                     // Unity hat charakteristisch Assets/ + ProjectSettings/
-                    // Wir setzen nicht direkt unity=true, sondern beide flags
-                    // und decide-en später.
-                    if entry.depth() == 1 {
-                        // Hack: nutze unity_project als "saw one of Assets/ProjectSettings"
-                        if name == "ProjectSettings" {
-                            det.has_unity_project = true;
-                        }
-                    }
+                    det.has_unity_project = true;
                 }
                 _ => {}
             }

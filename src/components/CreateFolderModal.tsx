@@ -227,7 +227,7 @@ export function CreateFolderModal({
                 </div>
                 <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                   Index ~{expectedRamMB} MB RAM ·{" "}
-                  {workloadLabel(estimate.workload.kind)}
+                  {workloadLabel(estimate.workload.kind, estimate.workload.uproject_count)}
                   {estimate.workload.has_derived_data_cache &&
                     " · DerivedDataCache gefunden"}
                   {estimate.workload.has_intermediate &&
@@ -237,10 +237,17 @@ export function CreateFolderModal({
             </div>
             {isUnreal && (
               <div className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed border-t border-neutral-200 dark:border-neutral-800 pt-2">
-                <strong>Unreal-Projekt erkannt.</strong> DerivedDataCache
-                (10-50 GB), Intermediate, Saved und Binaries werden NICHT
-                synct — die bauen sich auf jeder Maschine neu. Spart pro
-                Rechner massiv Speicher.
+                <strong>
+                  {estimate.workload.uproject_count > 1
+                    ? `Unreal-Workspace mit ${estimate.workload.uproject_count} Projekten erkannt.`
+                    : "Unreal-Projekt erkannt."}
+                </strong>{" "}
+                DerivedDataCache (10-50 GB pro Projekt), Intermediate, Saved
+                und Binaries werden NICHT synct — die bauen sich auf jeder
+                Maschine neu. Bei {estimate.workload.uproject_count > 1
+                  ? `${estimate.workload.uproject_count} Projekten`
+                  : "einem Projekt"}{" "}
+                spart das pro Rechner massiv Speicher.
               </div>
             )}
             <div>

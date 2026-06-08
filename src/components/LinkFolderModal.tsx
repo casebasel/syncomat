@@ -162,15 +162,19 @@ export function LinkFolderModal({
                 </div>
                 <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                   Index ~{expectedRamMB} MB RAM ·{" "}
-                  {workloadLabel(estimate.workload.kind)}
+                  {workloadLabel(estimate.workload.kind, estimate.workload.uproject_count)}
                 </div>
               </div>
             </div>
             {isUnreal && (
               <div className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed border-t border-neutral-200 dark:border-neutral-800 pt-2">
-                <strong>Unreal-Projekt erkannt.</strong> DerivedDataCache,
-                Intermediate, Saved und Binaries werden NICHT mitgesynct —
-                spart pro Maschine 10-50 GB.
+                <strong>
+                  {estimate.workload.uproject_count > 1
+                    ? `Unreal-Workspace mit ${estimate.workload.uproject_count} Projekten erkannt.`
+                    : "Unreal-Projekt erkannt."}
+                </strong>{" "}
+                DerivedDataCache, Intermediate, Saved und Binaries werden NICHT
+                mitgesynct — spart pro Maschine 10-50 GB pro Projekt.
               </div>
             )}
           </div>
