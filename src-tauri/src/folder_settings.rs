@@ -26,6 +26,17 @@ pub struct FolderDefaults {
     /// Welches Gerät die Cluster-Deletion getriggert hat (für UI)
     #[serde(default)]
     pub deletion_requested_by: Option<String>,
+    /// User-definierte Tags zum Gruppieren / Filtern. Reine UI-Metadaten —
+    /// Syncthing kennt diese Tags nicht. Werden via .syncomat/folder-defaults.json
+    /// zwischen Geräten geshared, so dass dieselbe Gruppierung überall greift.
+    ///
+    /// HISTORICAL BUG (v0.1.20–v0.2.8): dieses Field war im Frontend-Typ
+    /// definiert aber FEHLTE in dieser Rust-struct. serde hat den TS-tags-array
+    /// beim deserialize stillschweigend verworfen → kein Tag wurde je
+    /// gespeichert. Fix in v0.2.9 ergänzt das Field jetzt korrekt mit
+    /// #[serde(default)] (Backwards-compat mit alten Files ohne tags).
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
