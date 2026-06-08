@@ -522,7 +522,6 @@ function App() {
           onInstallUpdate={updater.installAndRestart}
           notificationsEnabled={notifications.enabled}
           onSetNotificationsEnabled={notifications.setEnabled}
-          folders={folders}
           onClose={() => setModal(null)}
         />
       )}
