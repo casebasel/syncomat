@@ -39,11 +39,13 @@ export function Statusbar({
   needBytes,
   errorCount,
   lastSyncAt,
+  version,
 }: {
   aggregateState: AggregateState;
   needBytes: number;
   errorCount: number;
   lastSyncAt: Date | null;
+  version: string | null;
 }) {
   let left = "Aktuell · alles synchron";
   if (aggregateState === "syncing")
@@ -59,7 +61,13 @@ export function Statusbar({
   return (
     <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[11px]">
       <span className={leftCls}>{left}</span>
-      <span className="text-neutral-400 dark:text-neutral-500">
+      <span className="text-neutral-400 dark:text-neutral-500 flex items-center gap-1.5">
+        {version && (
+          <>
+            <span className="font-mono">v{version}</span>
+            <span className="text-neutral-300 dark:text-neutral-700">·</span>
+          </>
+        )}
         zuletzt: {fmtRelativeTime(lastSyncAt)}
       </span>
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import "./App.css";
 
 import {
@@ -68,6 +69,11 @@ function App() {
 
   const [modal, setModal] = useState<Modal>(null);
   const [scanning, setScanning] = useState(false);
+  const [version, setVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    getVersion().then(setVersion).catch(() => {});
+  }, []);
 
   const connList = useMemo(
     () =>
@@ -304,6 +310,7 @@ function App() {
           needBytes={aggregate.needBytes}
           errorCount={aggregate.errorCount}
           lastSyncAt={aggregate.lastUpdate}
+          version={version}
         />
       </div>
 
