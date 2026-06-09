@@ -5,7 +5,6 @@ import "./App.css";
 import {
   deletePendingDevice,
   putDevice,
-  patchDevice,
   putFolder,
   scanAllFolders,
   useAggregateStatus,
@@ -22,7 +21,6 @@ import {
 } from "./lib/syncthing";
 
 import { invitePurgeExpired } from "./lib/invitesStore";
-import { autoAcceptActive } from "./lib/autoAccept";
 import { useIgnoredFolders } from "./lib/ignored";
 import { useFolderTags } from "./lib/tags";
 import { usePauseDates } from "./lib/pauseDates";
@@ -138,102 +136,12 @@ function App() {
     getVersion().then(setVersion).catch(() => {});
   }, []);
 
-  // Auto-Share-Reconciliation: stellt sicher dass JEDER Folder mit ALLEN
-  // bekannten Peers geshared ist. Default-Verhalten nach Marlons Concept-Defaults
-  // (Resilio-Style: alles wird mit allen meinen Geräten geteilt, kein manuelles
-  // pro-Folder-Auswählen). Greift wenn:
-  //  - Folders die vor v0.1.17 ohne peers angelegt wurden (orderA bug)
-  //  - Folders die angelegt wurden während ein peer paused war
-  //  - Edge-cases wo acceptIncoming einzelne Folders verpasst hat
-  // Läuft bei jedem config.data + devices change. putFolder ist idempotent
-  // und Syncthing dedupliziert devices[].
-  useEffect(() => {
-    if (!endpoint || !ready || !config.data || !myID) return;
-    const allFolders = config.data.folders;
-    const peerIDs = config.data.devices
-      .filter((d) => d.deviceID !== myID)
-      .map((d) => d.deviceID);
-    if (peerIDs.length === 0 || allFolders.length === 0) return;
-    for (const f of allFolders) {
-      const missing = peerIDs.filter(
-        (id) => !f.devices.some((d) => d.deviceID === id),
-      );
-      if (missing.length === 0) continue;
-      const updated = {
-        ...f,
-        devices: [...f.devices, ...missing.map((id) => ({ deviceID: id }))],
-      };
-      putFolder(endpoint, updated).catch((e) => {
-        console.warn(`[auto-share] reconciliation failed for ${f.id}`, e);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    endpoint?.url,
-    endpoint?.api_key,
-    ready,
-    myID,
-    // Re-run wenn neuer peer oder neuer folder dazukommt
-    config.data?.folders.map((f) => `${f.id}|${f.devices.length}`).join(","),
-    config.data?.devices.map((d) => d.deviceID).join(","),
-  ]);
-
-  // Introducer-Migration: Syncomats Modell ist "alle meine Geräte = ein Mesh".
-  // Syncthing-Pairings sind aber NICHT transitiv — wurden B und C beide nur über
-  // A gepairt, kennen sie sich nicht (Stern statt Mesh). Wir markieren jedes
-  // Peer-Device als introducer, damit A seine Peers gegenseitig vorstellt und
-  // sich der Cluster bei jedem neuen Pairing selbst vervollständigt. Greift auch
-  // für Geräte die vor v0.8.4 mit introducer:false angelegt wurden. Idempotent:
-  // PATCH nur wenn introducer noch nicht gesetzt ist; der dep-key enthält das
-  // introducer-Flag, daher kein Loop nachdem es geflippt wurde.
-  useEffect(() => {
-    if (!endpoint || !ready || !config.data || !myID) return;
-    for (const d of config.data.devices) {
-      if (d.deviceID === myID || d.introducer) continue;
-      patchDevice(endpoint, d.deviceID, { introducer: true }).catch((e) => {
-        console.warn(
-          `[introducer-migration] failed for ${d.deviceID.slice(0, 7)}`,
-          e,
-        );
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    endpoint?.url,
-    endpoint?.api_key,
-    ready,
-    myID,
-    config.data?.devices.map((d) => `${d.deviceID}|${d.introducer}`).join(","),
-  ]);
-
-  // Auto-Accept nach Code: hat dieses Gerät kürzlich einen Einladungs-Code
-  // erzeugt (autoAcceptActive = innerhalb der Code-Gültigkeit), werden eingehende
-  // Pending-Devices automatisch akzeptiert — kein manuelles "Annehmen". Läuft auf
-  // App-Ebene, also auch wenn das Code-Panel schon zu ist. Folder-Share folgt via
-  // Auto-Share-Reconciliation, Mesh via introducer. putDevice ist idempotent.
-  useEffect(() => {
-    if (!endpoint || !ready) return;
-    const pds = pendingDevices.data;
-    if (!pds || pds.length === 0 || !autoAcceptActive()) return;
-    for (const pd of pds) {
-      putDevice(endpoint, {
-        deviceID: pd.deviceID,
-        name: pd.name || pd.deviceID.slice(0, 7),
-        addresses: ["dynamic"],
-        introducer: true,
-        autoAcceptFolders: false,
-        paused: false,
-      }).catch((e) =>
-        console.warn(`[auto-accept] ${pd.deviceID.slice(0, 7)} failed`, e),
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    endpoint?.url,
-    endpoint?.api_key,
-    ready,
-    pendingDevices.data?.map((d) => d.deviceID).join(","),
-  ]);
+  // VEREINFACHUNG (Sprint #1): KEINE stillen Hintergrund-Automatiken mehr.
+  // Entfernt: Auto-Share-Reconciliation (verteilte Ordner ungefragt an jeden
+  // Peer), Introducer-Migration (transitives Mesh -> "Geräte tauchen von selbst
+  // auf" + Entfernen wirkungslos), Auto-Accept-Loop (stilles Annehmen). Pairing
+  // und Folder-Sharing sind ab jetzt ausschliesslich explizite, sichtbare
+  // Aktionen. Syncthings vorhersehbare Defaults bleiben unangetastet.
 
   const connList = useMemo(
     () =>
@@ -381,10 +289,9 @@ function App() {
       deviceID: pd.deviceID,
       name: pd.name || pd.deviceID.slice(0, 7),
       addresses: ["dynamic"],
-      // introducer: true -> dieses Gerät stellt seine anderen Peers vor, sodass
-      // sich ein Mesh bildet statt eines Sterns. So wird "einmal pairen = ganzer
-      // Cluster verbindet sich" wahr (Resilio-Verhalten).
-      introducer: true,
+      // introducer: false (Sprint #1) — kein transitives Mesh. Geräte werden
+      // einzeln explizit gepairt; nichts kommt von selbst dazu.
+      introducer: false,
       autoAcceptFolders: false,
       paused: false,
     });
@@ -437,8 +344,7 @@ function App() {
       )}
 
       {(pendingDevices.data?.length ?? 0) > 0 &&
-        panel?.kind !== "code-show" &&
-        !autoAcceptActive() && (
+        panel?.kind !== "code-show" && (
         <div className="border-b border-blue-300 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-950/30 shrink-0">
           {pendingDevices.data!.map((pd) => (
             <div key={pd.deviceID} className="flex items-center gap-2 px-4 py-2.5">
