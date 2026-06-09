@@ -17,7 +17,6 @@ import {
   type Endpoint,
   type Folder,
 } from "../lib/syncthing";
-import { ignoredFoldersAdd } from "../lib/ignored";
 import {
   estimateIndexRamMB,
   fmtSize,
@@ -146,7 +145,6 @@ export function FolderSettingsModal({
   // Lokal entfernen (gemeinsamer Endteil beider Pfade).
   const removeLocally = async () => {
     await deleteFolder(endpoint, folder.id);
-    await ignoredFoldersAdd(folder.id, folder.label || folder.id);
     onRemoved?.();
     onClose();
   };
@@ -427,8 +425,8 @@ export function FolderSettingsModal({
                     ✓ Andere Geräte machen weiter wie bisher.
                   </li>
                   <li>
-                    ✓ Dieser Ordner taucht nicht mehr als „Verfügbar" auf —
-                    Re-Enable über Einstellungen → Ignorierte Ordner.
+                    ✓ Taucht später wieder als „Verfügbar" auf, falls ein Gerät
+                    ihn weiterhin teilt — dann einfach neu verknüpfen.
                   </li>
                 </ul>
               </div>

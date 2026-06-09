@@ -7,17 +7,14 @@ import {
   Copy,
   Download,
   ExternalLink,
-  FolderX,
   Info,
   Loader2,
   RefreshCw,
-  RotateCcw,
 } from "lucide-react";
 import type { Endpoint, SystemStatus } from "../lib/syncthing";
 import type { UpdateState } from "../lib/updater";
-import { ignoredFoldersRemove, useIgnoredFolders } from "../lib/ignored";
 
-type Tab = "general" | "updates" | "notifications" | "ignored" | "power-user";
+type Tab = "general" | "updates" | "notifications" | "power-user";
 
 /**
  * Einstellungen als INLINE-Ansicht im Hauptbereich (kein Overlay-Modal mehr).
@@ -46,7 +43,6 @@ export function SettingsPanel({
   onBack: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("general");
-  const ignored = useIgnoredFolders();
 
   return (
     <section className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-neutral-900">
@@ -88,13 +84,6 @@ export function SettingsPanel({
             onClick={() => setTab("notifications")}
           />
           <TabButton
-            label="Ignorierte Ordner"
-            icon={<FolderX className="size-[15px]" />}
-            active={tab === "ignored"}
-            onClick={() => setTab("ignored")}
-            badge={ignored.data.length > 0 ? String(ignored.data.length) : undefined}
-          />
-          <TabButton
             label="Power-User"
             icon={<ExternalLink className="size-[15px]" />}
             active={tab === "power-user"}
@@ -118,15 +107,6 @@ export function SettingsPanel({
               <NotificationsTab
                 enabled={notificationsEnabled}
                 onSet={onSetNotificationsEnabled}
-              />
-            )}
-            {tab === "ignored" && (
-              <IgnoredTab
-                entries={ignored.data}
-                onReactivate={async (id) => {
-                  await ignoredFoldersRemove(id).catch(() => {});
-                  ignored.refresh();
-                }}
               />
             )}
             {tab === "power-user" && <PowerUserTab endpoint={endpoint} />}
@@ -387,69 +367,6 @@ function NotificationsTab({
         Beim ersten Mal fragt das System nach Erlaubnis. Lehnst du ab, kann
         die App keine Benachrichtigungen schicken — Toggle bleibt aus.
       </p>
-    </div>
-  );
-}
-
-function IgnoredTab({
-  entries,
-  onReactivate,
-}: {
-  entries: { folder_id: string; ignored_at: number; last_seen_label: string | null }[];
-  onReactivate: (folderId: string) => void;
-}) {
-  if (entries.length === 0) {
-    return (
-      <div className="space-y-3">
-        <SectionHeading>Ignorierte Ordner</SectionHeading>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          Keine ignorierten Ordner.
-        </p>
-        <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
-          Wenn du einen Ordner entfernst, erscheint er nicht mehr als
-          „Verfügbar" und kann hier reaktiviert werden.
-        </p>
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-3">
-      <SectionHeading>Ignorierte Ordner ({entries.length})</SectionHeading>
-      <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
-        Werden nicht als „Verfügbar" gezeigt, auch wenn ein Peer sie anbietet.
-      </p>
-      <div className="space-y-1.5">
-        {entries.map((entry) => (
-          <div
-            key={entry.folder_id}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40"
-          >
-            <FolderX className="size-3.5 text-neutral-400 dark:text-neutral-500 shrink-0" />
-            <div className="min-w-0 flex-1 text-xs">
-              <div className="text-neutral-900 dark:text-neutral-100 truncate">
-                {entry.last_seen_label || entry.folder_id}
-              </div>
-              <div className="text-[10px] text-neutral-500 dark:text-neutral-500">
-                Ignoriert{" "}
-                {new Date(entry.ignored_at * 1000).toLocaleString("de-DE", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </div>
-            </div>
-            <button
-              onClick={() => onReactivate(entry.folder_id)}
-              title="Reaktivieren — Ordner taucht wieder als Verfügbar auf"
-              className="text-xs px-2 py-1 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center gap-1"
-            >
-              <RotateCcw className="size-3" />
-              Reaktivieren
-            </button>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

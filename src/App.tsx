@@ -21,7 +21,6 @@ import {
 } from "./lib/syncthing";
 
 import { invitePurgeExpired } from "./lib/invitesStore";
-import { useIgnoredFolders } from "./lib/ignored";
 import { useFolderTags } from "./lib/tags";
 import { usePauseDates } from "./lib/pauseDates";
 import { useBlockBrowserShortcuts } from "./lib/keyboardShortcuts";
@@ -89,7 +88,6 @@ function App() {
 
   const aggregate = useAggregateStatus(endpoint, ready, folders);
   useFolderSettingsReplication(endpoint, ready, folders, myID);
-  const ignored = useIgnoredFolders();
   const tags = useFolderTags(folders);
   const pauseDates = usePauseDates(folders);
   const tagsByFolderID = tags.byID;
@@ -178,9 +176,7 @@ function App() {
   // Native-Redesign: Inline-Panel das die Inspector/Activity-Ansicht überlagert
   // (Settings, Ordner anlegen, Code anzeigen/einlösen, Folder-Settings).
   const [panel, setPanel] = useState<Panel>(null);
-  const visiblePending = (pendingFolders.data ?? []).filter(
-    (pf) => !ignored.isIgnored(pf.folderID),
-  );
+  const visiblePending = pendingFolders.data ?? [];
 
   // Beim App-Start expired Codes purgen (sonst wächst die invites.json unbounded).
   useEffect(() => {
@@ -392,10 +388,7 @@ function App() {
                 myDeviceId={myID}
                 tagSuggestions={allTagSuggestions}
                 onClose={() => setPanel(null)}
-                onRemoved={() => {
-                  ignored.refresh();
-                  setPanel(null);
-                }}
+                onRemoved={() => setPanel(null)}
                 onSaved={() => tags.refresh()}
               />
             ) : panel?.kind === "folder-conflicts" ? (

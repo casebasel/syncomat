@@ -1,7 +1,6 @@
 mod conflicts;
 mod folder_settings;
 mod folder_stats;
-mod ignored_folders;
 mod invites;
 mod reveal;
 mod sidecar;
@@ -46,9 +45,6 @@ pub fn run() {
 
             let invite_store = invites::setup(&handle)?;
             app.manage(invite_store);
-
-            let ignored_store = ignored_folders::setup(&handle)?;
-            app.manage(ignored_store);
 
             // Tray-Menü: Öffnen · Bei-Login-starten (Toggle) · ── · Quit
             let open = MenuItem::with_id(app, "open", "Öffnen", true, None::<&str>)?;
@@ -115,9 +111,6 @@ pub fn run() {
             conflicts::conflicts_keep_local,
             conflicts::conflicts_take_remote,
             conflicts::conflicts_keep_both,
-            ignored_folders::ignored_folders_list,
-            ignored_folders::ignored_folders_add,
-            ignored_folders::ignored_folders_remove,
             folder_stats::workload_detect,
             folder_stats::folder_estimate_size,
             reveal::reveal_in_file_manager,
