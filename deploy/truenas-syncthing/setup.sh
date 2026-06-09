@@ -33,22 +33,36 @@ cp -v "$HERE/docker-compose.yml" "$APPDIR/docker-compose.yml"
 echo "[5/6] Container starten ..."
 docker compose -f "$APPDIR/docker-compose.yml" up -d
 
-echo "[6/6] Auf Config warten + Device-ID lesen ..."
+echo "[6/6] Auf Config warten, Device-ID + API-Key lesen, GUI-Passwort setzen ..."
 for i in $(seq 1 30); do
   [ -f "$APPDIR/config/config.xml" ] && break
   sleep 1
 done
 DEVID="$(grep -oE '<device id="[A-Z0-9-]{63}"' "$APPDIR/config/config.xml" 2>/dev/null | head -1 | grep -oE '[A-Z0-9-]{63}' || true)"
+APIKEY="$(grep -oE '<apikey>[^<]+</apikey>' "$APPDIR/config/config.xml" 2>/dev/null | sed -E 's#</?apikey>##g' | head -1 || true)"
+
+# GUI-Passwort setzen (best-effort), damit die GUI nicht auth-los offen ist (auch
+# nicht im Live-Netz/ZeroTier). Schlaegt es fehl -> manuell in der GUI setzen.
+GUIPW=""
+if [ -n "$APIKEY" ]; then
+  sleep 2
+  GUIPW="$(openssl rand -base64 12 2>/dev/null || head -c 12 /dev/urandom | base64)"
+  curl -fsS -X PATCH "http://localhost:8384/rest/config/gui" \
+    -H "X-API-Key: $APIKEY" -H "Content-Type: application/json" \
+    -d "{\"user\":\"admin\",\"password\":\"$GUIPW\"}" >/dev/null 2>&1 || GUIPW="(automatisch fehlgeschlagen -> in der GUI setzen)"
+fi
 
 echo
 echo "================ FERTIG ================"
-echo "GUI (nur im Live-Netz): http://192.168.100.100:8384"
-echo "NAS Device-ID: ${DEVID:-<noch nicht bereit — gleich: sudo grep device\\ id $APPDIR/config/config.xml>}"
+echo "GUI:  http://192.168.100.100:8384  (lokal)   |   http://10.35.253.1:8384  (ZeroTier, fuer den Mac remote)"
+echo "GUI-Login:    admin / ${GUIPW:-<in der GUI setzen>}"
+echo "NAS Device-ID: ${DEVID:-<gleich: sudo grep 'device id' $APPDIR/config/config.xml>}"
+echo "API-Key (fuer Syncomat -> Server-Node):  ${APIKEY:-<gleich: sudo grep apikey $APPDIR/config/config.xml>}"
 echo
 echo "NAECHSTE SCHRITTE -> README.md:"
-echo "  1) GUI oeffnen, Settings -> GUI: Benutzer + Passwort setzen."
-echo "  2) NAS mit einem Desktop pairen (Device-ID oben). Statische Adressen am NAS-Device:"
-echo "       tcp://192.168.100.100:22000  (Live)   +   tcp://10.35.253.1:22000 (ZeroTier)"
-echo "  3) Angebotene Ordner als 'Receive Only' annehmen, Pfad /var/syncthing/data/<Projekt>, .stignore setzen."
-echo "  4) TrueNAS-UI: Periodic Snapshot Task auf tank/Syncthing + Quota."
+echo "  1) NAS mit einem Desktop pairen (Device-ID oben). Statische Adressen am NAS-Device:"
+echo "       tcp://192.168.100.100:22000 (Live) + tcp://10.35.253.1:22000 (ZeroTier) + dynamic"
+echo "  2) Angebotene Ordner als 'Receive Only' annehmen, Pfad /var/syncthing/data/<Projekt>, .stignore."
+echo "     ODER bequem aus Syncomat: GERAETE -> Server-Icon -> NAS mit URL + API-Key oben verbinden."
+echo "  3) TrueNAS-UI: Periodic Snapshot Task auf tank/Syncthing + Quota."
 echo "========================================"

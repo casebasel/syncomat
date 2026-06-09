@@ -18,9 +18,11 @@ kopiert die Compose nach `/mnt/Apps/syncthing/`, startet den Container, gibt die
 
 ## Nach dem Deploy (in dieser Reihenfolge)
 
-**1. GUI absichern.** `http://192.168.100.100:8384` → Settings → GUI → Benutzer + Passwort.
-*(Die GUI ist nur im Live-Netz erreichbar, kein Tunnel. Wer sie auch über ZeroTier
-braucht: `STGUIADDRESS=0.0.0.0:8384` in der Compose — aber erst NACH Passwort.)*
+**1. GUI & Zugriff.** `setup.sh` setzt automatisch ein GUI-Passwort (Login `admin / <ausgegeben>`).
+Erreichbar **lokal** `http://192.168.100.100:8384` UND über **ZeroTier** `http://10.35.253.1:8384`
+(fürs entfernte MacBook — nur der Mac ist auf ZeroTier, die Windows-Render hängen lokal).
+**Kein Cloudflare-Tunnel** — ZeroTier ist der sichere Fern-Pfad, nichts public exponiert.
+Passwort ändern: GUI → Settings → GUI.
 
 **2. NAS pairen.** Auf einem Desktop (Syncomat) die NAS-Device-ID hinzufügen, ODER
 in der NAS-GUI ein Desktop-Gerät hinzufügen. Am NAS-Device **statische Adressen** setzen:
@@ -76,6 +78,6 @@ Saved
 ## Risiko-Kurzliste (Details: `docs/truenas-node-konzept.md`)
 - 🔴 Receive-Only erzwingen + Snapshots = Pflicht, sonst 4. Spiegel statt Backup.
 - 🔴 PUID/PGID **muss** 3003:3002 sein (sonst gehören Sync-Dateien root, Render-Nodes blind).
-- 🔴 GUI nie ohne Passwort über Tunnel.
+- 🔴 GUI hat ein Passwort (setup.sh setzt es), KEIN Tunnel — Fernzugriff nur über ZeroTier (Mac).
 - 🟡 NAS als Introducer unnötig — nach Pairing auf den Desktops `introducer:false` am NAS-Device.
 - 🟡 Neuer/leerer Desktop kann Massenlöschung Richtung NAS auslösen → Snapshot ist das Netz.

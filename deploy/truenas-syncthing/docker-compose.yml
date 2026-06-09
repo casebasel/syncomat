@@ -19,9 +19,10 @@ services:
       - PUID=3003                       # ndisplay -> darf in die Unreal-Datasets schreiben
       - PGID=3002                       # Gruppe ndisplay (group-writable)
       - TZ=Europe/Zurich
-      # GUI ans LIVE-Netz binden (192.168.100.x — wo Mac + Windows-Render leben),
-      # NICHT 0.0.0.0, NICHT Cloudflare-Tunnel -> kein offener Zugriff. GUI-Passwort danach setzen.
-      - STGUIADDRESS=192.168.100.100:8384
+      # GUI an 0.0.0.0 -> erreichbar im Live-Netz (192.168.100.100) UND ueber
+      # ZeroTier (10.35.253.1) fuers entfernte MacBook. KEIN Cloudflare-Tunnel noetig:
+      # ZeroTier ist der sichere Fern-Pfad. setup.sh setzt automatisch ein GUI-Passwort.
+      - STGUIADDRESS=0.0.0.0:8384
 
     volumes:
       # Identitaet/Keys/DB der Node — MUSS Redeploys ueberleben
