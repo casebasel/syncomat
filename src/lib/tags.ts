@@ -1,13 +1,6 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { folderSettingsRead } from "./folderSettings";
 import type { Folder } from "./syncthing";
-
-// ── Lokaler Tags-Store (Sprint #4): Tags leben PRO GERÄT in app_data, nie
-// gesynct (siehe src-tauri/src/tags.rs). tags_get_all liefert die ganze Map,
-// tags_set schreibt/löscht einen Folder. ──
-export const tagsGetAll = () => invoke<Record<string, string[]>>("tags_get_all");
-export const tagsSet = (folderId: string, tags: string[]) =>
-  invoke<void>("tags_set", { folderId, tags });
 
 /**
  * Globaler Event-Bus: useFolderSettingsReplication ruft notifyTagsChanged()
@@ -24,12 +17,14 @@ export function notifyTagsChanged() {
 }
 
 /**
- * Tags pro Folder — lokal in app_data, nie gesynct. Dieser Hook lädt die ganze
- * Map und filtert auf aktuell existierende Folders.
+ * Tags pro Folder werden in .syncomat/folder-defaults.json gespeichert.
+ * Dieser Hook lädt sie für eine Liste von Folders und gibt eine Map
+ * folderID → tags[] zurück.
  *
- * Refresh-Trigger: mount · refresh() nach lokalem Save · notifyTagsChanged().
- * KEIN Poll mehr nötig — der Store ändert sich nur wenn WIR schreiben (was
- * notifyTagsChanged feuert). Ein Timer weniger.
+ * Refresh-Trigger:
+ *   1. setInterval alle 15s (war 60s — zu langsam für Sync-Propagation)
+ *   2. refresh() für sofortiges re-fetch nach lokalem Save
+ *   3. tagSubscribers (global Event) wenn Replication ein peer-update sieht
  */
 export function useFolderTags(folders: Folder[]): {
   byID: Record<string, string[]>;
@@ -37,32 +32,36 @@ export function useFolderTags(folders: Folder[]): {
 } {
   const [byID, setByID] = useState<Record<string, string[]>>({});
   const [tick, setTick] = useState(0);
-  const idKey = folders.map((f) => f.id).join(",");
+  // Path-set als dep damit Folder-Add/Remove triggert
+  const pathKey = folders.map((f) => `${f.id}|${f.path}`).join(",");
 
   useEffect(() => {
     let cancelled = false;
-    const ids = new Set(folders.map((f) => f.id));
     const fetchAll = async () => {
-      try {
-        const all = await tagsGetAll();
-        if (cancelled) return;
-        const next: Record<string, string[]> = {};
-        for (const [fid, tg] of Object.entries(all)) {
-          if (ids.has(fid) && tg.length > 0) next[fid] = tg;
+      const next: Record<string, string[]> = {};
+      for (const f of folders) {
+        try {
+          const file = await folderSettingsRead(f.path);
+          if (file?.settings.tags && file.settings.tags.length > 0) {
+            next[f.id] = file.settings.tags;
+          }
+        } catch {
+          // ignore missing settings.json
         }
-        setByID(next);
-      } catch {
-        // ignore
       }
+      if (!cancelled) setByID(next);
     };
     void fetchAll();
+    const id = setInterval(fetchAll, 15_000);
+    // Subscribe auf global Tag-Updates (von Replication-Hook nach Peer-Sync)
     const onExternalUpdate = () => void fetchAll();
     tagSubscribers.add(onExternalUpdate);
     return () => {
       cancelled = true;
+      clearInterval(id);
       tagSubscribers.delete(onExternalUpdate);
     };
-  }, [idKey, tick]);
+  }, [pathKey, tick]);
 
   return { byID, refresh: () => setTick((t) => t + 1) };
 }
