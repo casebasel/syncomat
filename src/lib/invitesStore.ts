@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
 
 export type InviteStatus =
   | { kind: "pending" }
@@ -55,45 +54,5 @@ export const inviteReleaseConsumed = (id: string) =>
 
 export const invitePurgeExpired = () => invoke<number>("invite_purge_expired");
 
-// ── React-Hook ─────────────────────────────────────────────────
-
-export type ActiveInvitesState = {
-  data: ActiveInvite[] | null;
-  error: Error | null;
-  refresh: () => void;
-};
-
-export function useActiveInvites(pollMs = 5000): ActiveInvitesState {
-  const [data, setData] = useState<ActiveInvite[] | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetchOnce = () => {
-      inviteList()
-        .then((d) => !cancelled && setData(d))
-        .catch((e: Error) => !cancelled && setError(e));
-    };
-    fetchOnce();
-    const id = setInterval(fetchOnce, pollMs);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [pollMs, tick]);
-
-  return { data, error, refresh: () => setTick((t) => t + 1) };
-}
-
-// ── Helper-Funktionen ──────────────────────────────────────────
-
-export function deriveDisplayStatus(
-  inv: ActiveInvite,
-  now: number = Math.floor(Date.now() / 1000),
-): "pending" | "redeemed" | "revoked" | "expired" {
-  if (inv.status.kind === "redeemed") return "redeemed";
-  if (inv.status.kind === "revoked") return "revoked";
-  if (inv.expires_at < now) return "expired";
-  return "pending";
-}
+// (Sprint #2) useActiveInvites + deriveDisplayStatus entfernt — toter Code
+// (null Aufrufer). Das Aktive-Einladungen-Dashboard existiert nicht.

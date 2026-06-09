@@ -337,15 +337,8 @@ pub fn invite_get_issuer_secret(state: tauri::State<'_, InviteStore>) -> Result<
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub fn invite_check_consumed(
-    state: tauri::State<'_, InviteStore>,
-    id: String,
-) -> Result<bool, String> {
-    state
-        .with_read(|s| s.consumed_codes.contains(&id))
-        .map_err(|e| e.to_string())
-}
+// (Sprint #2) invite_check_consumed entfernt — toter Command (nie aufgerufen)
+// + TOCTOU-Falle neben dem atomaren invite_consume_once.
 
 /// Atomically check-and-mark a code as consumed.
 /// Returns true if the code was newly added (caller may proceed), false if it was

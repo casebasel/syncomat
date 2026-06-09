@@ -137,25 +137,5 @@ export function useSharedFolderStatus(
   return { data: folderId ? cache.get(folderId) ?? null : null };
 }
 
-/** Liefert alle current cached statuses (für useAggregateStatus). */
-export function getAllCachedStatuses(): Map<FolderID, FolderStatus | null> {
-  return new Map(cache);
-}
-
-/** Subscribe auf JEDEN folder-Status-Update (für useAggregateStatus). */
-export function subscribeAllStatusChanges(fn: () => void): () => void {
-  const wildcardKey = "__all__";
-  let subs = subscribers.get(wildcardKey);
-  if (!subs) {
-    subs = new Set();
-    subscribers.set(wildcardKey, subs);
-  }
-  subs.add(fn);
-  return () => {
-    const s = subscribers.get(wildcardKey);
-    if (s) {
-      s.delete(fn);
-      if (s.size === 0) subscribers.delete(wildcardKey);
-    }
-  };
-}
+// (Sprint #2) getAllCachedStatuses + subscribeAllStatusChanges entfernt —
+// toter Code (null Aufrufer).
