@@ -4,7 +4,6 @@ import "./App.css";
 
 import {
   deletePendingDevice,
-  putDevice,
   putFolder,
   scanAllFolders,
   useAggregateStatus,
@@ -21,6 +20,7 @@ import {
 } from "./lib/syncthing";
 
 import { invitePurgeExpired } from "./lib/invitesStore";
+import { acceptDevice } from "./lib/pairing";
 import { useFolderTags } from "./lib/tags";
 import { usePauseDates } from "./lib/pauseDates";
 import { useBlockBrowserShortcuts } from "./lib/keyboardShortcuts";
@@ -251,16 +251,7 @@ function App() {
 
   const onAcceptDevice = async (pd: PendingDevice) => {
     if (!endpoint) return;
-    await putDevice(endpoint, {
-      deviceID: pd.deviceID,
-      name: pd.name || pd.deviceID.slice(0, 7),
-      addresses: ["dynamic"],
-      // introducer: false (Sprint #1) — kein transitives Mesh. Geräte werden
-      // einzeln explizit gepairt; nichts kommt von selbst dazu.
-      introducer: false,
-      autoAcceptFolders: false,
-      paused: false,
-    });
+    await acceptDevice(endpoint, pd, folders);
   };
 
   const onIgnoreDevice = async (pd: PendingDevice) => {

@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { PanelShell } from "./PanelShell";
 import { encodeInvite, isPrivateAddressHint } from "../lib/invite";
 import { publishInvite, QUICK_PAIR_ENABLED } from "../lib/rendezvous";
+import { acceptDevice } from "../lib/pairing";
 import { armAutoAccept, autoAcceptActive } from "../lib/autoAccept";
 import {
   inviteCreate,
@@ -12,8 +13,6 @@ import {
 } from "../lib/invitesStore";
 import {
   deletePendingDevice,
-  putDevice,
-  putFolder,
   usePendingDevices,
   type Endpoint,
   type Folder,
@@ -175,42 +174,15 @@ export function CodeShowModal({
     setBusy(true);
     setError(null);
     try {
-      // 1) Add the device with proper settings
-      await putDevice(endpoint, {
-        deviceID: acceptPrompt.deviceID,
-        name: acceptPrompt.name || acceptPrompt.deviceID.slice(0, 7),
-        addresses: ["dynamic"],
-        // introducer: false (Sprint #1) — kein Mesh, explizites Pairing
-        introducer: false,
-        autoAcceptFolders: false,
-        paused: false,
-      });
-      // 2) Auto-Share alle eigenen Folders mit dem neuen Device.
-      // Promise.allSettled damit ein einzelner Folder-PUT-Fehler nicht die anderen abbricht.
-      const results = await Promise.allSettled(
-        folders.map((f) => {
-          const alreadyShared = f.devices.some(
-            (d) => d.deviceID === acceptPrompt.deviceID,
-          );
-          if (alreadyShared) return Promise.resolve();
-          const updated: Folder = {
-            ...f,
-            devices: [...f.devices, { deviceID: acceptPrompt.deviceID }],
-          };
-          return putFolder(endpoint, updated);
-        }),
-      );
-      const failed = results.filter((r) => r.status === "rejected").length;
-      if (failed > 0) {
-        console.warn(`[CodeShowModal] ${failed}/${folders.length} folder-shares failed`);
-      }
-      // 3) Mark invite as redeemed — IDs sind jetzt synchron (siehe generate())
+      // Gerät annehmen (hinzufügen + Ordner teilen + Pending wegräumen) — die
+      // EINE atomare Funktion, identisch zum Pending-Banner.
+      await acceptDevice(endpoint, acceptPrompt, folders);
+      // Invite als eingelöst markieren (Code-spezifisch).
       try {
         await inviteMarkRedeemed(generated.codeId, acceptPrompt.deviceID);
       } catch (e) {
         console.warn("[CodeShowModal] mark_redeemed failed", e);
       }
-      // 4) Close
       onClose();
     } catch (e) {
       setError(String(e));
