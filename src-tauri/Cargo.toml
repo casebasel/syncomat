@@ -1,6 +1,6 @@
 [package]
 name = "syncomat"
-version = "0.8.7"
+version = "0.8.8"
 description = "P2P-Sync ohne Login. Resilio-artig auf Syncthing."
 authors = ["Marlon Candeloro"]
 edition = "2021"

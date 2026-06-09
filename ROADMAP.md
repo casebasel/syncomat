@@ -4,6 +4,16 @@
 > die zur **selben Wurzel** führen. Diese Datei ist die Single Source of Truth.
 > Volle Audit-Outputs (50 UX-Findings, 40 Vereinfachungs-Items) liegen in den
 > Workflow-Transkripten dieser Session.
+>
+> **Kurskorrektur (nach Marlons Test):** Config-Sync ist GEWOLLT (configure once —
+> Settings + Tags einmal einstellen, gilt überall). Die Regel ist NICHT „nichts
+> syncen", sondern: **zerstörerische Aktionen (Löschen) + stille Überraschungen
+> (Geräte/Ordner von selbst) raus — harmlose Config-Replikation bleibt.** Der
+> folder-defaults-Kanal bleibt also; nur Lösch-Mechanik + stille Automatiken sind
+> weg. Schritte unten, die „Kanal/Tags löschen" sagen, sind dadurch überholt.
+>
+> **Ausgeliefert:** v0.8.6 (#1–#3) · v0.8.7 (Fixes: Ordner-öffnen, Gerätename) ·
+> v0.8.8 (#4b Lösch-Reste, #5 Blocklist).
 
 ---
 
