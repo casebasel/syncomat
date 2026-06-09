@@ -482,6 +482,7 @@ function App() {
       <div className="border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 shrink-0 flex items-stretch">
         <div className="flex-1 px-4">
           <Statusbar
+            ready={ready}
             aggregateState={aggregate.state}
             needBytes={aggregate.needBytes}
             errorCount={aggregate.errorCount}

@@ -40,7 +40,7 @@ const STYLE: Record<
     dot: "bg-amber-500",
     bg: "bg-amber-100 dark:bg-amber-950/40",
     text: "text-amber-700 dark:text-amber-300",
-    label: "Wartet auf Peer",
+    label: "Wartet auf Gerät",
     icon: WifiOff,
   },
   "waiting-data": {
@@ -141,7 +141,7 @@ export function computeStatusLabel(
     case "scanning":
       return "Scant";
     case "waiting-peer":
-      return ctx.peerName ? `Wartet auf ${ctx.peerName}` : "Wartet auf Peer";
+      return ctx.peerName ? `Wartet auf ${ctx.peerName}` : "Wartet auf Gerät";
     case "waiting-data":
       return ctx.needBytes
         ? `Wartet · ${fmtBytes(ctx.needBytes)} offen`

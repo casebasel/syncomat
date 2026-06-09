@@ -200,7 +200,7 @@ export function CreateFolderModal({
           {path && !estimate && !estimating && (
             <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-1">
               {peers.length === 0
-                ? "Existierende Dateien werden mitgesynct sobald ein Peer dazukommt."
+                ? "Existierende Dateien werden mitgesynct sobald ein Gerät dazukommt."
                 : `Wird automatisch mit ${peers.length} Gerät${peers.length === 1 ? "" : "en"} geteilt (${peers.map((p) => p.name || p.deviceID.slice(0, 7)).join(", ")}).`}
             </p>
           )}

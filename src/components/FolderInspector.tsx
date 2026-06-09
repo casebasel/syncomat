@@ -253,7 +253,7 @@ function fmtMeta(
   } else if (peerOnline) {
     parts.push(`${peerCount} Gerät${peerCount === 1 ? "" : "e"}`);
   } else {
-    parts.push("Peer offline");
+    parts.push("Gerät offline");
   }
   return parts.join(" · ");
 }

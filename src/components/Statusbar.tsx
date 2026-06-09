@@ -42,6 +42,7 @@ function fmtRelativeTime(d: Date | null): string {
 }
 
 export function Statusbar({
+  ready,
   aggregateState,
   needBytes,
   errorCount,
@@ -50,6 +51,7 @@ export function Statusbar({
   localFiles,
   localBytes,
 }: {
+  ready: boolean;
   aggregateState: AggregateState;
   needBytes: number;
   errorCount: number;
@@ -58,10 +60,12 @@ export function Statusbar({
   localFiles?: number;
   localBytes?: number;
 }) {
-  let left = "Alle Ordner synchron";
-  if (aggregateState === "syncing")
+  // Beim Boot NICHT grün „Alle Ordner synchron" lügen — erst wenn der Sync-Dienst
+  // wirklich verbunden ist (sonst wirkt ein leerer/ladender Zustand wie „alles ok").
+  let left = ready ? "Alle Ordner synchron" : "Sync-Dienst startet…";
+  if (ready && aggregateState === "syncing")
     left = `Synct · ${fmtBytes(needBytes)} offen`;
-  if (aggregateState === "error")
+  if (ready && aggregateState === "error")
     left = `${errorCount} Datei-Fehler · Details im Inspector`;
 
   const leftCls =

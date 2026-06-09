@@ -353,7 +353,7 @@ function NotificationsTab({
             System-Benachrichtigungen
           </div>
           <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-            Peer verbindet sich · neuer Ordner verfügbar · Update bereit
+            Gerät verbindet sich · neuer Ordner verfügbar · Update bereit
           </p>
         </div>
         <input
