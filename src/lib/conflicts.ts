@@ -37,6 +37,13 @@ export const conflictsKeepBoth = (
 ) =>
   invoke<string>("conflicts_keep_both", { folderPath, conflictRel, peerFragment });
 
+export type ResolveAllMode = "keep_local" | "keep_remote" | "keep_newest";
+
+/** Löst ALLE Konflikte eines Ordners in einem Rutsch auf (für den "zwei
+ * befüllte Ordner verbinden"-Workflow). Gibt die Anzahl aufgelöster zurück. */
+export const conflictsResolveAll = (folderPath: string, mode: ResolveAllMode) =>
+  invoke<number>("conflicts_resolve_all", { folderPath, mode });
+
 // ── Modul-level Cache + Request-Coalescing + Subscribe-Pattern ──
 //
 // Vor v0.1.13: jede LinkedFolderCard hatte ihren eigenen WalkDir-Poll alle 60s.

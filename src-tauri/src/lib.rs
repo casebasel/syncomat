@@ -111,6 +111,7 @@ pub fn run() {
             conflicts::conflicts_keep_local,
             conflicts::conflicts_take_remote,
             conflicts::conflicts_keep_both,
+            conflicts::conflicts_resolve_all,
             folder_stats::workload_detect,
             folder_stats::folder_estimate_size,
             reveal::reveal_in_file_manager,

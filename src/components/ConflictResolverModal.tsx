@@ -4,12 +4,22 @@ import { PanelShell } from "./PanelShell";
 import {
   conflictsKeepBoth,
   conflictsKeepLocal,
+  conflictsResolveAll,
   conflictsTakeRemote,
   fmtConflictBytes,
   fmtConflictWhen,
   useFolderConflicts,
   type ConflictItem,
+  type ResolveAllMode,
 } from "../lib/conflicts";
+
+function bulkLabel(m: ResolveAllMode): string {
+  return m === "keep_local"
+    ? "überall meine behalten"
+    : m === "keep_remote"
+      ? "überall deren übernehmen"
+      : "überall die neueste behalten";
+}
 
 export function ConflictResolverModal({
   folderPath,
@@ -23,6 +33,8 @@ export function ConflictResolverModal({
   const { items, refresh } = useFolderConflicts(folderPath, { active: true });
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [bulkConfirm, setBulkConfirm] = useState<ResolveAllMode | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const act = async (action: () => Promise<unknown>, key: string) => {
     setError(null);
@@ -34,6 +46,20 @@ export function ConflictResolverModal({
       setError(String(e));
     } finally {
       setBusyKey(null);
+    }
+  };
+
+  const resolveAll = async (mode: ResolveAllMode) => {
+    setError(null);
+    setBulkBusy(true);
+    try {
+      await conflictsResolveAll(folderPath, mode);
+      setBulkConfirm(null);
+      refresh();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -59,8 +85,64 @@ export function ConflictResolverModal({
           <p className="text-xs text-neutral-500 dark:text-neutral-400">
             Wenn dieselbe Datei auf zwei Geräten gleichzeitig geändert wurde,
             behält Syncthing eine Version als <code>.sync-conflict-…</code>{" "}
-            Variante. Wähle pro Konflikt was passieren soll.
+            Variante. Wähle pro Konflikt — oder alle auf einmal.
           </p>
+
+          {/* Bulk-Auflösung — für den "zwei befüllte Ordner verbinden"-Workflow:
+              hunderte/tausende Konflikte mit einer Entscheidung statt Klick-für-Klick. */}
+          <div className="rounded-xl border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5">
+            {bulkConfirm === null ? (
+              <>
+                <div className="text-xs font-medium text-amber-900 dark:text-amber-200 mb-2">
+                  Alle {items.length} Konflikte auf einmal:
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => setBulkConfirm("keep_local")}
+                    disabled={bulkBusy}
+                    className="text-[11px] font-medium px-2.5 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
+                  >
+                    Überall meine behalten
+                  </button>
+                  <button
+                    onClick={() => setBulkConfirm("keep_remote")}
+                    disabled={bulkBusy}
+                    className="text-[11px] font-medium px-2.5 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
+                  >
+                    Überall deren übernehmen
+                  </button>
+                  <button
+                    onClick={() => setBulkConfirm("keep_newest")}
+                    disabled={bulkBusy}
+                    className="text-[11px] font-medium px-2.5 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+                  >
+                    Überall neueste behalten
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-amber-900 dark:text-amber-200 flex-1 min-w-0">
+                  {items.length} Konflikte — {bulkLabel(bulkConfirm)}. Sicher?
+                </span>
+                <button
+                  onClick={() => setBulkConfirm(null)}
+                  disabled={bulkBusy}
+                  className="text-[11px] px-2.5 py-1.5 rounded-md text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={() => void resolveAll(bulkConfirm)}
+                  disabled={bulkBusy}
+                  className="text-[11px] font-medium px-2.5 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 flex items-center gap-1"
+                >
+                  {bulkBusy && <Loader2 className="size-3 animate-spin" />}
+                  Ja, alle auflösen
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
             {items.map((c) => (

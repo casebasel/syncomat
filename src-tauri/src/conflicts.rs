@@ -318,3 +318,84 @@ pub fn conflicts_keep_both(
     }
     Ok(candidate.to_string_lossy().to_string())
 }
+
+/// Bulk-Auflösung ALLER Konflikte eines Ordners in einem Rutsch — für den
+/// "zwei befüllte Ordner verbinden"-Workflow (kann hunderte/tausende Konflikte
+/// erzeugen, die niemand einzeln klickt). Modi:
+///   "keep_local"  → überall die lokale (Haupt-)Version behalten, Konflikt-Kopien löschen
+///   "keep_remote" → überall die Remote-(Konflikt-)Version übernehmen
+///   "keep_newest" → pro Datei die zuletzt geänderte Version behalten
+/// Gibt die Anzahl aufgelöster Konflikte zurück.
+#[tauri::command]
+pub async fn conflicts_resolve_all(folder_path: String, mode: String) -> Result<usize, String> {
+    tauri::async_runtime::spawn_blocking(move || conflicts_resolve_all_blocking(&folder_path, &mode))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn conflicts_resolve_all_blocking(folder_path: &str, mode: &str) -> Result<usize, String> {
+    if !matches!(mode, "keep_local" | "keep_remote" | "keep_newest") {
+        return Err(format!("unknown mode: {mode}"));
+    }
+    let root = Path::new(folder_path);
+    if !root.exists() {
+        return Err("folder not found".into());
+    }
+    let walker = WalkDir::new(root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| !is_pruned(e));
+
+    let mut resolved = 0usize;
+    for entry in walker.filter_map(|e| e.ok()) {
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let file_name = match entry.file_name().to_str() {
+            Some(n) => n,
+            None => continue,
+        };
+        let marker_pos = match file_name.find(CONFLICT_MARKER) {
+            Some(p) => p,
+            None => continue,
+        };
+        // Original-Name rekonstruieren: <before><ext> (wie conflicts_keep_both).
+        let before = &file_name[..marker_pos];
+        let after = &file_name[marker_pos + CONFLICT_MARKER.len()..];
+        let ext = after.rfind('.').map(|p| &after[p..]).unwrap_or("");
+        let original_name = format!("{before}{ext}");
+
+        let conflict_path = entry.path().to_path_buf();
+        let original_path = conflict_path.with_file_name(&original_name);
+
+        let take_remote = match mode {
+            "keep_local" => false,
+            "keep_remote" => true,
+            _ => {
+                // keep_newest: neuere mtime gewinnt; existiert kein Original -> Konflikt nehmen.
+                let cm = fs::metadata(&conflict_path).and_then(|m| m.modified()).ok();
+                let om = fs::metadata(&original_path).and_then(|m| m.modified()).ok();
+                match (cm, om) {
+                    (Some(c), Some(o)) => c > o,
+                    (Some(_), None) => true,
+                    _ => false,
+                }
+            }
+        };
+
+        if take_remote {
+            // Konflikt-Version wird zum Original (cross-volume-safe: rename, sonst copy+delete).
+            if fs::rename(&conflict_path, &original_path).is_err() {
+                if fs::copy(&conflict_path, &original_path).is_ok() {
+                    let _ = fs::remove_file(&conflict_path);
+                } else {
+                    continue; // weder rename noch copy -> diesen Konflikt überspringen
+                }
+            }
+        } else {
+            let _ = fs::remove_file(&conflict_path);
+        }
+        resolved += 1;
+    }
+    Ok(resolved)
+}
