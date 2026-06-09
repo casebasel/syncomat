@@ -3,6 +3,7 @@ mod folder_settings;
 mod folder_stats;
 mod ignored_folders;
 mod invites;
+mod reveal;
 mod sidecar;
 
 use tauri::{
@@ -119,6 +120,7 @@ pub fn run() {
             ignored_folders::ignored_folders_remove,
             folder_stats::workload_detect,
             folder_stats::folder_estimate_size,
+            reveal::reveal_in_file_manager,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

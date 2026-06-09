@@ -284,7 +284,7 @@ export function Sidebar({
           <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md">
             <SyncStatusBadge state="synced" size="md" />
             <span className="text-[13px] font-medium flex-1 text-neutral-900 dark:text-neutral-100 truncate">
-              {myID.slice(0, 7)}
+              {devices.find((d) => d.deviceID === myID)?.name || myID.slice(0, 7)}
             </span>
             <span className="text-[10px] text-neutral-500 dark:text-neutral-500">
               lokal

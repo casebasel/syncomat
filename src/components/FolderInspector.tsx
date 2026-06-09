@@ -7,7 +7,8 @@ import {
   Play,
   Settings,
 } from "lucide-react";
-import { openUrl, openPath } from "@tauri-apps/plugin-opener";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { invoke } from "@tauri-apps/api/core";
 
 // Plattform-abhängiger Name des Dateimanagers für Tooltips.
 const FILE_MANAGER =
@@ -110,12 +111,12 @@ export function FolderInspector({
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() =>
-              openPath(folder.path).catch((e) =>
-                console.warn("openPath failed", e),
+              invoke("reveal_in_file_manager", { path: folder.path }).catch(
+                (e) => console.warn("reveal failed", e),
               )
             }
             title={`Im ${FILE_MANAGER} öffnen`}
-            className="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="p-1.5 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
           >
             <FolderOpen className="size-4" />
           </button>
