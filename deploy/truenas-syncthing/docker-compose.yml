@@ -20,13 +20,16 @@ services:
       - PGID=3002                       # Gruppe ndisplay (group-writable)
       - TZ=Europe/Zurich
       # GUI an 0.0.0.0 -> erreichbar im Live-Netz (192.168.100.100) UND ueber
-      # ZeroTier (10.35.253.1) fuers entfernte MacBook. KEIN Cloudflare-Tunnel noetig:
+      # ZeroTier (192.168.191.17) fuers entfernte MacBook. KEIN Cloudflare-Tunnel noetig:
       # ZeroTier ist der sichere Fern-Pfad. setup.sh setzt automatisch ein GUI-Passwort.
       - STGUIADDRESS=0.0.0.0:8384
 
     volumes:
       # Identitaet/Keys/DB der Node — MUSS Redeploys ueberleben
       - /mnt/Apps/syncthing/config:/var/syncthing/config
-      # Ziel-Dataset: jeder Cluster-Ordner landet als Unterordner /var/syncthing/data/<Projekt>
+      # Ziel-Dataset: bestehende Ordner liegen als /var/syncthing/data/<Projekt>
       - /mnt/tank/Syncthing:/var/syncthing/data
+      # /mnt komplett -> Syncthing kann Ordner auf JEDEM Pool ablegen (synchub waehlt
+      # den Ort: m2_4TB-SSD, tank-HDD, ...). Neue Pfade dann /mnt/<pool>/<dataset>/...
+      - /mnt:/mnt
     # Bei network_mode: host KEIN ports-Block (sonst Compose-Fehler).
