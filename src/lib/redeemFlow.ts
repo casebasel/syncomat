@@ -94,9 +94,9 @@ export async function* executeRedemption(
     deviceID: payload.iss,
     name: peerName,
     addresses,
-    // introducer: false (Sprint #1) — kein Mesh; wir verbinden uns nur mit dem
-    // Gerät, dessen Code wir bewusst eingelöst haben.
-    introducer: false,
+    // introducer: true — der Einlader stellt uns seine anderen Geräte vor, sodass
+    // wir dem ganzen Cluster beitreten („alles im Umlauf bekommen").
+    introducer: true,
     autoAcceptFolders: false,
     paused: true,
   };

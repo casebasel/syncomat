@@ -11,11 +11,11 @@ import {
  * Pending-Banner (App.tsx) UND vom Code-Anzeigen-Flow (CodeShowModal), damit beide
  * Wege identisch sind. Macht drei Dinge in fester Reihenfolge:
  *
- *   1. Gerät zur Syncthing-Config hinzufügen — introducer:false (kein Mesh,
- *      explizites Pairing).
- *   2. Alle eigenen Ordner EINMALIG mit dem Gerät teilen. „Configure once": ein
- *      angenommenes Gerät bekommt meine Ordner. Bewusste Einmal-Aktion beim Klick,
- *      KEIN Hintergrund-Loop (der war das Überraschungs-Problem aus Sprint #1).
+ *   1. Gerät zur Syncthing-Config hinzufügen — introducer:true: es stellt seine
+ *      Peers vor, sodass ein neu gekoppeltes Gerät den GANZEN Cluster bekommt.
+ *   2. Alle eigenen Ordner sofort mit dem Gerät teilen. Die Auto-Share-
+ *      Reconciliation (App.tsx) hält das danach clusterweit aktuell — Marlons
+ *      Modell „ein Gerät koppeln → alles im Umlauf bekommen".
  *   3. Pending-Eintrag wegräumen, damit das Banner nicht nachhallt.
  */
 export async function acceptDevice(
@@ -27,7 +27,7 @@ export async function acceptDevice(
     deviceID: pd.deviceID,
     name: pd.name || pd.deviceID.slice(0, 7),
     addresses: ["dynamic"],
-    introducer: false,
+    introducer: true,
     autoAcceptFolders: false,
     paused: false,
   });

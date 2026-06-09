@@ -5,6 +5,7 @@ import "./App.css";
 
 import {
   deletePendingDevice,
+  patchDevice,
   putFolder,
   scanAllFolders,
   useAggregateStatus,
@@ -21,6 +22,7 @@ import {
 } from "./lib/syncthing";
 
 import { invitePurgeExpired } from "./lib/invitesStore";
+import { autoAcceptActive } from "./lib/autoAccept";
 import { acceptDevice } from "./lib/pairing";
 import { useFolderTags } from "./lib/tags";
 import { usePauseDates } from "./lib/pauseDates";
@@ -111,12 +113,87 @@ function App() {
     getVersion().then(setVersion).catch(() => {});
   }, []);
 
-  // VEREINFACHUNG (Sprint #1): KEINE stillen Hintergrund-Automatiken mehr.
-  // Entfernt: Auto-Share-Reconciliation (verteilte Ordner ungefragt an jeden
-  // Peer), Introducer-Migration (transitives Mesh -> "Geräte tauchen von selbst
-  // auf" + Entfernen wirkungslos), Auto-Accept-Loop (stilles Annehmen). Pairing
-  // und Folder-Sharing sind ab jetzt ausschliesslich explizite, sichtbare
-  // Aktionen. Syncthings vorhersehbare Defaults bleiben unangetastet.
+  // ── Marlons Modell: "ein Gerät koppeln → alles im Umlauf bekommen" ──
+  // Drei Automatiken, die genau das liefern. (In #1 entfernt um Bug-bedingte
+  // Überraschungen zu stoppen — aber die Bugs (Config-Wipe, Geister-Delete,
+  // Geister-Konflikte) sind seit v0.8.5–v0.9.1 gefixt. Auf dem stabilen Cluster
+  // tun diese drei jetzt sauber ihren Job: Vollvernetzung + alles-überall.)
+
+  // 1) Auto-Share-Reconciliation: jeder Ordner wird mit ALLEN bekannten Geräten
+  // geteilt. So bekommt ein neu gekoppeltes Gerät automatisch alle Ordner im
+  // Umlauf angeboten. putFolder ist idempotent, Syncthing dedupliziert devices[].
+  useEffect(() => {
+    if (!endpoint || !ready || !config.data || !myID) return;
+    const allFolders = config.data.folders;
+    const peerIDs = config.data.devices
+      .filter((d) => d.deviceID !== myID)
+      .map((d) => d.deviceID);
+    if (peerIDs.length === 0 || allFolders.length === 0) return;
+    for (const f of allFolders) {
+      const missing = peerIDs.filter(
+        (id) => !f.devices.some((d) => d.deviceID === id),
+      );
+      if (missing.length === 0) continue;
+      const updated = {
+        ...f,
+        devices: [...f.devices, ...missing.map((id) => ({ deviceID: id }))],
+      };
+      putFolder(endpoint, updated).catch((e) => {
+        console.warn(`[auto-share] reconciliation failed for ${f.id}`, e);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    endpoint?.url,
+    endpoint?.api_key,
+    ready,
+    myID,
+    config.data?.folders.map((f) => `${f.id}|${f.devices.length}`).join(","),
+    config.data?.devices.map((d) => d.deviceID).join(","),
+  ]);
+
+  // 2) Introducer-Migration: jedes Peer-Gerät als introducer markieren, damit der
+  // Cluster sich bei jedem Pairing selbst vervollständigt (A stellt B und C
+  // gegenseitig vor → Mesh statt Stern). Idempotent: PATCH nur wenn noch nicht
+  // gesetzt; der dep-key enthält das introducer-Flag → kein Loop nach dem Flip.
+  useEffect(() => {
+    if (!endpoint || !ready || !config.data || !myID) return;
+    for (const d of config.data.devices) {
+      if (d.deviceID === myID || d.introducer) continue;
+      patchDevice(endpoint, d.deviceID, { introducer: true }).catch((e) => {
+        console.warn(`[introducer-migration] failed for ${d.deviceID.slice(0, 7)}`, e);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    endpoint?.url,
+    endpoint?.api_key,
+    ready,
+    myID,
+    config.data?.devices.map((d) => `${d.deviceID}|${d.introducer}`).join(","),
+  ]);
+
+  // 3) Auto-Accept nach Code: hat dieses Gerät kürzlich einen Einladungs-Code
+  // erzeugt (autoAcceptActive = innerhalb der Code-Gültigkeit), werden eingehende
+  // Pending-Geräte automatisch akzeptiert — inkl. Ordner-Share + Mesh via
+  // acceptDevice. Kein manuelles "Annehmen". Läuft auf App-Ebene, auch wenn das
+  // Code-Panel schon zu ist.
+  useEffect(() => {
+    if (!endpoint || !ready) return;
+    const pds = pendingDevices.data;
+    if (!pds || pds.length === 0 || !autoAcceptActive()) return;
+    for (const pd of pds) {
+      acceptDevice(endpoint, pd, folders).catch((e) =>
+        console.warn(`[auto-accept] ${pd.deviceID.slice(0, 7)} failed`, e),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    endpoint?.url,
+    endpoint?.api_key,
+    ready,
+    pendingDevices.data?.map((d) => d.deviceID).join(","),
+  ]);
 
   const connList = useMemo(
     () =>
@@ -290,7 +367,8 @@ function App() {
 
 
       {(pendingDevices.data?.length ?? 0) > 0 &&
-        panel?.kind !== "code-show" && (
+        panel?.kind !== "code-show" &&
+        !autoAcceptActive() && (
         <div className="border-b border-blue-300 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-950/30 shrink-0">
           {pendingDevices.data!.map((pd) => (
             <div key={pd.deviceID} className="flex items-center gap-2 px-4 py-2.5">
