@@ -12,7 +12,6 @@ import {
   deleteFolder,
   getConfig,
   putFolder,
-  scanFolder,
   setFolderIgnores,
   tuneFolderForSize,
   type Endpoint,
@@ -34,7 +33,6 @@ export function FolderSettingsModal({
   folder,
   myDeviceId,
   tagSuggestions,
-  connectedPeerIds,
   onClose,
   onRemoved,
   onSaved,
@@ -44,8 +42,6 @@ export function FolderSettingsModal({
   myDeviceId: string;
   /** Tags die bei anderen Folders verwendet werden — für Autocomplete im Editor */
   tagSuggestions: string[];
-  /** Device-IDs der aktuell VERBUNDENEN Peers — für zuverlässiges Cluster-Delete */
-  connectedPeerIds: string[];
   onClose: () => void;
   onRemoved?: () => void;
   /** Wird nach erfolgreichem Speichern gefeuert — Parent triggert refresh
@@ -58,9 +54,6 @@ export function FolderSettingsModal({
   const [error, setError] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ updatedAt: number; updatedBy: string } | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
-  const [clusterWide, setClusterWide] = useState(false);
-  // Sub-Status während Cluster-Delete den Marker zu den Geräten propagiert.
-  const [removeStatus, setRemoveStatus] = useState<string | null>(null);
   const [tuneState, setTuneState] = useState<
     | { kind: "idle" }
     | { kind: "estimating" }
@@ -168,71 +161,18 @@ export function FolderSettingsModal({
     onClose();
   };
 
-  const remove = async (forceDespiteUnsynced = false) => {
+  // VEREINFACHUNG (Sprint #3): „Entfernen" ist rein lokal. Es nimmt den Ordner
+  // nur HIER aus dem Sync (Dateien bleiben auf der Platte). Will man ihn auf einem
+  // anderen Gerät auch weg, macht man das dort selbst — kein verteiltes Lösch-
+  // Protokoll, keine replizierten Marker. (Cluster-Delete ersatzlos entfernt.)
+  const remove = async () => {
     setBusy(true);
     setError(null);
     try {
-      if (!clusterWide) {
-        // Nur lokal — keine Propagation nötig.
-        await removeLocally();
-        return;
-      }
-
-      // CLUSTER-WIDE: der Marker muss die Geräte ERREICHEN bevor wir den
-      // Folder lokal kappen — sonst stoppt Syncthing den Sync und der Marker
-      // geht verloren. Frühere Version wartete blind 1s -> Bug (Marlon).
-      const peerIds = folder.devices
-        .map((d) => d.deviceID)
-        .filter((id) => id !== myDeviceId);
-      const onlinePeers = peerIds.filter((id) => connectedPeerIds.includes(id));
-
-      if (peerIds.length === 0) {
-        // Kein Peer am Folder — "cluster-wide" ist bedeutungslos, lokal löschen.
-        await removeLocally();
-        return;
-      }
-
-      if (onlinePeers.length === 0 && !forceDespiteUnsynced) {
-        // Niemand online -> Marker kann nicht propagieren. Nicht blind löschen
-        // (Signal ginge verloren). User entscheidet: warten oder nur-lokal.
-        setError(
-          "Kein verbundenes Gerät — der Löschwunsch kann gerade nicht gesendet " +
-            "werden. Warte bis das andere Gerät online ist, oder entferne nur hier.",
-        );
-        setBusy(false);
-        return;
-      }
-
-      // 1. Marker schreiben
-      setRemoveStatus("Löschwunsch wird geschrieben…");
-      await folderSettingsWrite(folder.path, myDeviceId, {
-        ...defaults,
-        deletion_requested: true,
-        deletion_requested_by: myDeviceId,
-      });
-      // 2. Forcierter Scan: Syncthing soll die geänderte Datei SOFORT
-      //    aufnehmen, nicht erst nach fsWatcherDelayS (bei Unreal 10-30s).
-      try {
-        await scanFolder(endpoint, folder.id);
-      } catch (e) {
-        console.warn("[cluster-delete] scan failed (non-fatal)", e);
-      }
-      // 3. Großzügige Grace, damit der Index-Austausch + Pull des winzigen
-      //    JSON-Files beim verbundenen Peer durch ist. 10s reicht auf LAN
-      //    locker; wir koppeln das NICHT an completion (race-anfällig).
-      if (!forceDespiteUnsynced) {
-        for (let i = 10; i > 0; i--) {
-          setRemoveStatus(`Sende an ${onlinePeers.length} Gerät${onlinePeers.length === 1 ? "" : "e"}… ${i}s`);
-          await new Promise((r) => setTimeout(r, 1000));
-        }
-      }
-      // 4. Jetzt lokal entfernen.
-      setRemoveStatus("Entferne lokal…");
       await removeLocally();
     } catch (e) {
       setError(String(e));
       setBusy(false);
-      setRemoveStatus(null);
     }
   };
 
@@ -275,29 +215,9 @@ export function FolderSettingsModal({
     </div>
   ) : (
     <div className="flex items-center gap-2 justify-end">
-      {removeStatus && (
-        <span className="text-[11px] text-neutral-500 dark:text-neutral-400 mr-auto flex items-center gap-1.5">
-          <Loader2 className="size-3 animate-spin" />
-          {removeStatus}
-        </span>
-      )}
-      {/* Wenn kein Peer online war: Fallback nur-lokal-entfernen anbieten */}
-      {error && clusterWide && !busy && (
-        <button
-          onClick={() => {
-            setClusterWide(false);
-            setError(null);
-            void remove(true);
-          }}
-          className="text-xs font-medium px-3 py-1.5 rounded-lg border border-rose-300 dark:border-rose-500/40 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-        >
-          Nur hier entfernen
-        </button>
-      )}
       <button
         onClick={() => {
           setConfirmRemove(false);
-          setClusterWide(false);
           setError(null);
         }}
         disabled={busy}
@@ -315,7 +235,7 @@ export function FolderSettingsModal({
         ) : (
           <Trash2 className="size-3.5" />
         )}
-        {clusterWide ? "Überall entfernen" : "Hier entfernen"}
+        Entfernen
       </button>
     </div>
   );
@@ -523,24 +443,6 @@ export function FolderSettingsModal({
                 </ul>
               </div>
             </div>
-            <label className="flex items-start gap-2 cursor-pointer select-none px-3 py-2 rounded-lg bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30">
-              <input
-                type="checkbox"
-                checked={clusterWide}
-                onChange={(e) => setClusterWide(e.target.checked)}
-                className="mt-0.5 accent-rose-600"
-              />
-              <div className="text-[11px] text-neutral-700 dark:text-neutral-300">
-                <span className="font-medium text-rose-700 dark:text-rose-400">
-                  Auch auf allen anderen Geräten vorschlagen
-                </span>
-                <p className="text-neutral-500 dark:text-neutral-400 mt-0.5">
-                  Markiert den Ordner Cluster-weit. Andere Syncomat-Instanzen
-                  sehen einen Banner „auch hier entfernen?" — die User entscheiden
-                  pro Gerät selbst.
-                </p>
-              </div>
-            </label>
           </div>
         )}
       </div>

@@ -40,15 +40,12 @@ import { SettingsPanel } from "./components/SettingsModal";
 import { UpdateBanner } from "./components/UpdateBanner";
 import {
   useFolderSettingsReplication,
-  type DeletionSuggestion,
 } from "./lib/folderSettings";
 import { useUpdater } from "./lib/updater";
 import {
-  deleteFolder,
   setFolderIgnores,
   tuneFolderForSize,
 } from "./lib/syncthing";
-import { ignoredFoldersAdd } from "./lib/ignored";
 import { LinkFolderModal, type LinkConfirmOptions } from "./components/LinkFolderModal";
 import { pickStignoreForWorkload } from "./lib/unreal";
 import { Sidebar, GLOBAL_ACTIVITY_KEY } from "./components/Sidebar";
@@ -91,16 +88,7 @@ function App() {
   const myID = status.data?.myID ?? null;
 
   const aggregate = useAggregateStatus(endpoint, ready, folders);
-  const [deletionSuggestion, setDeletionSuggestion] =
-    useState<DeletionSuggestion | null>(null);
-  useFolderSettingsReplication(
-    endpoint,
-    ready,
-    folders,
-    myID,
-    30_000,
-    (s) => setDeletionSuggestion(s),
-  );
+  useFolderSettingsReplication(endpoint, ready, folders, myID);
   const ignored = useIgnoredFolders();
   const tags = useFolderTags(folders);
   const pauseDates = usePauseDates(folders);
@@ -114,18 +102,6 @@ function App() {
     return Array.from(set).sort();
   }, [tagsByFolderID]);
 
-  const acceptClusterDelete = async () => {
-    if (!deletionSuggestion || !endpoint) return;
-    const f = deletionSuggestion.folder;
-    try {
-      await deleteFolder(endpoint, f.id);
-      await ignoredFoldersAdd(f.id, f.label || f.id);
-      ignored.refresh();
-    } catch (e) {
-      console.warn("cluster-delete-accept failed", e);
-    }
-    setDeletionSuggestion(null);
-  };
   const updater = useUpdater(true);
   const [updateDismissed, setUpdateDismissed] = useState(false);
 
@@ -153,12 +129,6 @@ function App() {
     for (const [id, c] of connList) r[id] = c;
     return r;
   }, [connList]);
-
-  // Device-IDs der aktuell verbundenen Peers — für zuverlässiges Cluster-Delete.
-  const connectedPeerIds = useMemo(
-    () => connList.filter(([, c]) => c.connected).map(([id]) => id),
-    [connList],
-  );
 
   // Memoized: peers + peersConnected werden bei jeder Event-Tick (ItemFinished
   // im Background-Aggregate) neu berechnet wenn man's nicht memoiziert. Audit-
@@ -312,36 +282,6 @@ function App() {
         />
       )}
 
-      {deletionSuggestion && (
-        <div className="flex items-start gap-3 px-4 py-2.5 border-b border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-950/30 shrink-0">
-          <div className="size-7 rounded-md bg-rose-600 text-white flex items-center justify-center shrink-0 mt-0.5">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
-              <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-            </svg>
-          </div>
-          <div className="min-w-0 flex-1 text-xs">
-            <div className="font-medium text-rose-900 dark:text-rose-200">
-              Ordner „{deletionSuggestion.folder.label || deletionSuggestion.folder.id}" — auch hier entfernen?
-            </div>
-            <p className="text-rose-700/80 dark:text-rose-300/80 mt-0.5">
-              {deletionSuggestion.by.slice(0, 7)} hat diesen Ordner Cluster-weit zum Entfernen markiert.
-              Datei-Inhalte bleiben auf der Platte.
-            </p>
-          </div>
-          <button
-            onClick={() => setDeletionSuggestion(null)}
-            className="text-xs px-2 py-1 rounded-md text-rose-900 dark:text-rose-200 hover:bg-rose-100 dark:hover:bg-rose-900/40 shrink-0"
-          >
-            Nicht entfernen
-          </button>
-          <button
-            onClick={acceptClusterDelete}
-            className="text-xs font-medium px-2.5 py-1 rounded-md bg-rose-600 text-white hover:bg-rose-700 shrink-0"
-          >
-            Hier entfernen
-          </button>
-        </div>
-      )}
 
       {(pendingDevices.data?.length ?? 0) > 0 &&
         panel?.kind !== "code-show" && (
@@ -451,7 +391,6 @@ function App() {
                 folder={panel.folder}
                 myDeviceId={myID}
                 tagSuggestions={allTagSuggestions}
-                connectedPeerIds={connectedPeerIds}
                 onClose={() => setPanel(null)}
                 onRemoved={() => {
                   ignored.refresh();
