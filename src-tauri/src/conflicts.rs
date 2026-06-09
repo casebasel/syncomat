@@ -26,6 +26,7 @@ const PRUNE_DIRS: &[&str] = &[
     "node_modules",
     ".stversions",
     ".stfolder",
+    ".syncomat",
     "target",
     ".vs",
     ".vscode",

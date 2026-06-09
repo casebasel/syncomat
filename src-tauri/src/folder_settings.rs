@@ -50,9 +50,34 @@ fn defaults_path(folder_path: &Path) -> PathBuf {
     folder_path.join(SUBDIR).join(FILENAME)
 }
 
+/// Auto-Resolve für Syncomat-eigene Config-Konflikte: die Metadaten
+/// (.syncomat/folder-defaults.json) syncen mit — bei gleichzeitigem Schreiben auf
+/// zwei Geräten erzeugt Syncthing `.sync-conflict-`-Varianten. Die gehören NICHT
+/// in den Nutzer-Konflikt-Dialog: die Haupt-Datei ist die Wahrheit (last-writer-
+/// wins ist für Settings/Tags ok). Wir löschen die Varianten + alte `von-`-
+/// Artefakte still bei jedem Read. Syncthing propagiert die Löschung -> der
+/// Konflikt verschwindet cluster-weit, ohne dass der Nutzer je etwas tun muss.
+fn clean_config_artifacts(dir: &Path) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.starts_with("folder-defaults.sync-conflict-")
+            || name.starts_with("folder-defaults.von-")
+        {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
+}
+
 #[tauri::command]
 pub fn folder_settings_read(folder_path: String) -> Result<Option<FolderDefaultsFile>, String> {
     let path = defaults_path(Path::new(&folder_path));
+    if let Some(dir) = path.parent() {
+        clean_config_artifacts(dir);
+    }
     if !path.exists() {
         return Ok(None);
     }
