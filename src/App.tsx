@@ -402,7 +402,7 @@ function App() {
       )}
 
       <div className="flex-1 flex overflow-hidden">
-        {isFirstRun ? (
+        {isFirstRun && !panel ? (
           <FirstRunWelcome
             onCreateFolder={() => setPanel({ kind: "create-folder" })}
             onShowCode={() => setPanel({ kind: "code-show" })}
