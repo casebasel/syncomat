@@ -4,6 +4,7 @@ mod folder_stats;
 mod ignored_folders;
 mod invites;
 mod sidecar;
+mod tags;
 
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
@@ -48,6 +49,9 @@ pub fn run() {
 
             let ignored_store = ignored_folders::setup(&handle)?;
             app.manage(ignored_store);
+
+            let tag_store = tags::setup(&handle)?;
+            app.manage(tag_store);
 
             // Tray-Menü: Öffnen · Bei-Login-starten (Toggle) · ── · Quit
             let open = MenuItem::with_id(app, "open", "Öffnen", true, None::<&str>)?;
@@ -117,6 +121,8 @@ pub fn run() {
             ignored_folders::ignored_folders_list,
             ignored_folders::ignored_folders_add,
             ignored_folders::ignored_folders_remove,
+            tags::tags_get_all,
+            tags::tags_set,
             folder_stats::workload_detect,
             folder_stats::folder_estimate_size,
         ])

@@ -27,6 +27,7 @@ import {
   type FolderEstimate,
 } from "../lib/unreal";
 import { TagEditor } from "./TagEditor";
+import { tagsGetAll, tagsSet, notifyTagsChanged } from "../lib/tags";
 
 export function FolderSettingsModal({
   endpoint,
@@ -54,6 +55,9 @@ export function FolderSettingsModal({
   const [error, setError] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ updatedAt: number; updatedBy: string } | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  // Tags leben lokal in app_data (Sprint #4) — separat von den (noch) gesyncten
+  // Settings, nie über den Sync-Kanal.
+  const [tags, setTags] = useState<string[]>([]);
   const [tuneState, setTuneState] = useState<
     | { kind: "idle" }
     | { kind: "estimating" }
@@ -84,6 +88,37 @@ export function FolderSettingsModal({
       cancelled = true;
     };
   }, [folder.path]);
+
+  // Tags lokal laden. Einmalige Migration: hatte der Folder noch Tags im alten
+  // gesyncten folder-defaults.json, aber lokal noch keine -> übernehmen, damit
+  // bestehende Tags (z.B. #hello) beim Umstieg nicht verloren gehen.
+  useEffect(() => {
+    let cancelled = false;
+    tagsGetAll()
+      .then(async (all) => {
+        if (cancelled) return;
+        const local = all[folder.id];
+        if (local && local.length > 0) {
+          setTags(local);
+          return;
+        }
+        try {
+          const file = await folderSettingsRead(folder.path);
+          const synced = file?.settings.tags ?? [];
+          if (!cancelled && synced.length > 0) {
+            setTags(synced);
+            await tagsSet(folder.id, synced);
+            notifyTagsChanged();
+          }
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [folder.id, folder.path]);
 
   const save = async () => {
     setBusy(true);
@@ -255,8 +290,11 @@ export function FolderSettingsModal({
             Tags
           </h3>
           <TagEditor
-            tags={defaults.tags ?? []}
-            onChange={(tags) => setDefaults({ ...defaults, tags })}
+            tags={tags}
+            onChange={(t) => {
+              setTags(t);
+              void tagsSet(folder.id, t).then(() => notifyTagsChanged());
+            }}
             suggestions={tagSuggestions}
           />
           <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-1.5">
