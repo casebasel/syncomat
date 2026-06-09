@@ -699,6 +699,43 @@ export type AggregateStatus = {
   localBytes: number;
 };
 
+/** Pro-Ordner-Status-Map fürs Tag-Dashboard ("Alle Ordner"-View). Pollt alle
+ * Folder alle 3s — aber nur solange das Dashboard gemountet ist (transienter
+ * View). Gibt folderId → FolderStatus|null zurück, damit der Aufrufer pro Tag
+ * aggregieren UND pro Ordner anzeigen kann. */
+export function useFolderStatuses(
+  ep: Endpoint | null,
+  ready: boolean,
+  folders: Folder[],
+): Record<string, FolderStatus | null> {
+  const [statuses, setStatuses] = useState<Record<string, FolderStatus | null>>({});
+  const ids = folders.map((f) => f.id).join(",");
+  useEffect(() => {
+    if (!ep || !ready || folders.length === 0) {
+      setStatuses({});
+      return;
+    }
+    let cancelled = false;
+    const refetch = async () => {
+      const entries = await Promise.all(
+        folders.map(
+          async (f) =>
+            [f.id, await getFolderStatus(ep, f.id).catch(() => null)] as const,
+        ),
+      );
+      if (!cancelled) setStatuses(Object.fromEntries(entries));
+    };
+    void refetch();
+    const id = setInterval(() => void refetch(), 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ep?.url, ep?.api_key, ready, ids]);
+  return statuses;
+}
+
 export function useAggregateStatus(
   ep: Endpoint | null,
   ready: boolean,

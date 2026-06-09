@@ -523,6 +523,9 @@ function App() {
             ) : showGlobalActivity ? (
               <GlobalActivityView
                 folders={folders}
+                tagsByFolderID={tagsByFolderID}
+                endpoint={endpoint}
+                ready={ready}
                 onSelectFolder={(f) => setSelectedFolderId(f.id)}
               />
             ) : selectedFolder ? (
