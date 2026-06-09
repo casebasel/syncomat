@@ -1,0 +1,31 @@
+# Syncthing-Hub auf TrueNAS — 24/7 Cluster-Node + ZFS-Snapshot-Backup
+# Vanilla Syncthing-Daemon (headless, KEIN Syncomat-GUI).
+# Stil wie Marlons bestehende Stacks. Deploy via setup.sh (sudo).
+name: syncthing-hub          # eindeutig -> kein Service-Override (Noa-Lehre)
+
+services:
+  syncthing:
+    # WICHTIG: muss zur Syncomat-Sidecar-Version passen (aktuell v2.1.1).
+    # Falls :2.1.1 nicht zieht -> :2 oder :latest (muss v2.x sein, nicht 1.x).
+    image: syncthing/syncthing:2.1.1
+    container_name: syncthing-hub
+    hostname: truenas-hub               # so erscheint die Node im Cluster
+    restart: unless-stopped
+
+    # host-mode: noetig fuer lokale Discovery (21027/UDP) + Bind an LAN + ZeroTier
+    network_mode: host
+
+    environment:
+      - PUID=3003                       # ndisplay -> darf in die Unreal-Datasets schreiben
+      - PGID=3002                       # Gruppe ndisplay (group-writable)
+      - TZ=Europe/Zurich
+      # GUI ans LIVE-Netz binden (192.168.100.x — wo Mac + Windows-Render leben),
+      # NICHT 0.0.0.0, NICHT Cloudflare-Tunnel -> kein offener Zugriff. GUI-Passwort danach setzen.
+      - STGUIADDRESS=192.168.100.100:8384
+
+    volumes:
+      # Identitaet/Keys/DB der Node — MUSS Redeploys ueberleben
+      - /mnt/Apps/syncthing/config:/var/syncthing/config
+      # Ziel-Dataset: jeder Cluster-Ordner landet als Unterordner /var/syncthing/data/<Projekt>
+      - /mnt/tank/Syncthing:/var/syncthing/data
+    # Bei network_mode: host KEIN ports-Block (sonst Compose-Fehler).
