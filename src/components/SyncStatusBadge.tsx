@@ -129,7 +129,6 @@ export function computeStatusLabel(
     globalBytes?: number;
     conflictCount?: number;
     errorCount?: number;
-    pausedSince?: number; // unix ms
   } = {},
 ): string {
   switch (state) {
@@ -155,9 +154,7 @@ export function computeStatusLabel(
         ? `Konflikt · ${ctx.conflictCount}`
         : "Konflikte";
     case "paused":
-      return ctx.pausedSince
-        ? `Pausiert seit ${fmtPauseDate(ctx.pausedSince)}`
-        : "Pausiert";
+      return "Pausiert";
     case "local-only":
       return "Nur lokal";
     case "synced":
@@ -169,9 +166,4 @@ function fmtBytes(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
   if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-function fmtPauseDate(unixMs: number): string {
-  const d = new Date(unixMs);
-  return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }) + ".";
 }

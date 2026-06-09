@@ -39,7 +39,6 @@ export function FolderInspector({
   connections,
   myID,
   tags,
-  pausedSince,
   onPauseToggle,
   onShowSettings,
   onShowConflicts,
@@ -52,7 +51,6 @@ export function FolderInspector({
   connections: Record<DeviceID, Connection>;
   myID: DeviceID | null;
   tags: string[];
-  pausedSince?: number;
   onPauseToggle: (f: Folder) => void;
   onShowSettings: (f: Folder) => void;
   onShowConflicts: (f: Folder) => void;
@@ -79,7 +77,6 @@ export function FolderInspector({
     globalBytes: status?.globalBytes,
     conflictCount,
     errorCount,
-    pausedSince,
   });
 
   return (

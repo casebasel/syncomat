@@ -25,7 +25,6 @@ import { invitePurgeExpired } from "./lib/invitesStore";
 import { autoAcceptActive } from "./lib/autoAccept";
 import { acceptDevice } from "./lib/pairing";
 import { useFolderTags } from "./lib/tags";
-import { usePauseDates } from "./lib/pauseDates";
 import { useBlockBrowserShortcuts } from "./lib/keyboardShortcuts";
 import {
   useNotificationTriggers,
@@ -92,7 +91,6 @@ function App() {
   const aggregate = useAggregateStatus(endpoint, ready, folders);
   useFolderSettingsReplication(endpoint, ready, folders, myID);
   const tags = useFolderTags(folders);
-  const pauseDates = usePauseDates(folders);
   const tagsByFolderID = tags.byID;
   // Alle existierenden Tags für Autocomplete im TagEditor
   const allTagSuggestions = useMemo(() => {
@@ -252,23 +250,19 @@ function App() {
   const isFirstRun = isEmpty && !everSeen;
   const isConfigLost = isEmpty && everSeen;
 
-  // Selected folder für Inspector. Default: erster Folder wenn nichts gewählt.
+  // Selected folder als reine Ableitung (kein State-setzender Effekt mehr — das
+  // war ein Render→setState→Render-Anti-Pattern). selectedFolderId hält nur die
+  // EXPLIZITE Wahl (oder null/GLOBAL); der effektive Inspector-Folder fällt auf
+  // den ersten Ordner zurück, wenn nichts Gültiges gewählt ist. effectiveSelectedId
+  // geht an die Sidebar fürs Highlight, damit der Default-Ordner markiert bleibt.
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  useEffect(() => {
-    if (folders.length === 0) {
-      if (selectedFolderId !== null) setSelectedFolderId(null);
-      return;
-    }
-    // "Alle Ordner"-Pseudo-Selection darf bestehen bleiben
-    if (selectedFolderId === GLOBAL_ACTIVITY_KEY) return;
-    if (!selectedFolderId || !folders.some((f) => f.id === selectedFolderId)) {
-      setSelectedFolderId(folders[0]!.id);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [folders.map((f) => f.id).join(",")]);
-
-  const selectedFolder = folders.find((f) => f.id === selectedFolderId) ?? null;
   const showGlobalActivity = selectedFolderId === GLOBAL_ACTIVITY_KEY;
+  const selectedFolder = showGlobalActivity
+    ? null
+    : (folders.find((f) => f.id === selectedFolderId) ?? folders[0] ?? null);
+  const effectiveSelectedId = showGlobalActivity
+    ? GLOBAL_ACTIVITY_KEY
+    : (selectedFolder?.id ?? null);
   // Native-Redesign: Inline-Panel das die Inspector/Activity-Ansicht überlagert
   // (Settings, Ordner anlegen, Code anzeigen/einlösen, Folder-Settings).
   const [panel, setPanel] = useState<Panel>(null);
@@ -420,7 +414,7 @@ function App() {
               myID={myID}
               endpoint={endpoint}
               ready={ready}
-              selectedFolderId={selectedFolderId}
+              selectedFolderId={effectiveSelectedId}
               onSelectFolder={(f) => {
                 setSelectedFolderId(f.id);
                 setPanel(null);
@@ -434,7 +428,6 @@ function App() {
               onSelectDevice={(d) =>
                 setPanel({ kind: "device-detail", deviceID: d.deviceID })
               }
-              pauseDates={pauseDates}
             />
 
             {panel?.kind === "settings" ? (
@@ -541,7 +534,6 @@ function App() {
                 connections={connectionsByID}
                 myID={myID}
                 tags={tagsByFolderID[selectedFolder.id] ?? []}
-                pausedSince={pauseDates[selectedFolder.id]}
                 onPauseToggle={onPauseToggle}
                 onShowSettings={(f) => setPanel({ kind: "folder-settings", folder: f })}
                 onShowConflicts={(f) => setPanel({ kind: "folder-conflicts", folder: f })}

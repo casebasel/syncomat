@@ -60,7 +60,6 @@ export function Sidebar({
   onShowCode,
   onRedeemCode,
   onSelectDevice,
-  pauseDates,
 }: {
   folders: Folder[];
   pending: PendingFolder[];
@@ -80,8 +79,6 @@ export function Sidebar({
   onRedeemCode: () => void;
   /** Klick auf Geraet-Item öffnet Device-Detail-Modal. self device wird nicht durchgereicht. */
   onSelectDevice: (d: Device) => void;
-  /** Lokale Pause-Dates pro folderId → unixMs für "Pausiert seit X" labels */
-  pauseDates: Record<string, number>;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
 
@@ -213,7 +210,6 @@ export function Sidebar({
               myID={myID}
               selected={selectedFolderId === f.id}
               onSelect={onSelectFolder}
-              pausedSince={pauseDates[f.id]}
             />
           ))}
         </Group>
@@ -238,7 +234,6 @@ export function Sidebar({
               myID={myID}
               selected={selectedFolderId === f.id}
               onSelect={onSelectFolder}
-              pausedSince={pauseDates[f.id]}
             />
           ))}
         </Group>
@@ -374,7 +369,6 @@ const FolderItem = memo(function FolderItem({
   myID,
   selected,
   onSelect,
-  pausedSince,
 }: {
   folder: Folder;
   endpoint: Endpoint | null;
@@ -384,7 +378,6 @@ const FolderItem = memo(function FolderItem({
   myID: DeviceID | null;
   selected: boolean;
   onSelect: (f: Folder) => void;
-  pausedSince?: number;
 }) {
   const { data: status } = useFolderStatus(endpoint, ready, folder.id);
   const { count: conflictCount } = useFolderConflicts(folder.path);
@@ -404,7 +397,6 @@ const FolderItem = memo(function FolderItem({
     globalBytes: status?.globalBytes,
     conflictCount,
     errorCount: (status?.errors ?? 0) + (status?.pullErrors ?? 0),
-    pausedSince,
   });
 
   return (
