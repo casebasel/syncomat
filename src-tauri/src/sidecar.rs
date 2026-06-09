@@ -7,6 +7,13 @@ use tauri_plugin_shell::{
 };
 use uuid::Uuid;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+// CREATE_NO_WINDOW — verhindert kurz aufblitzende Konsolenfenster beim
+// powershell/taskkill-Aufruf während des App-Starts.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 #[derive(Clone, Serialize)]
 pub struct SyncthingEndpoint {
     pub url: String,
@@ -24,6 +31,15 @@ pub fn spawn(app: &AppHandle) -> Result<SyncthingState, Box<dyn std::error::Erro
     fs::create_dir_all(&home)?;
 
     let api_key = read_or_generate_api_key(&app_data.join("api-key.txt"))?;
+
+    // Selbst-Heilung: einen aus einem früheren App-Run verwaisten syncthing
+    // sauber beenden BEVOR wir neu starten. Tritt auf wenn unser cleanup() umgangen
+    // wurde (Updater-Relaunch, Crash, harter Quit) — dann hält der Alte die
+    // leveldb-Sperre, der neue syncthing startet nicht, und die App hängt ewig auf
+    // "Sync-Dienst startet noch". Graceful-Shutdown flusht zudem die Config, damit
+    // frisch gepairte Geräte/Freigaben nicht verloren gehen.
+    kill_stale_syncthing(&app_data, &home, &api_key);
+
     let port = pick_free_port()?;
     let url = format!("http://127.0.0.1:{port}");
 
@@ -45,6 +61,14 @@ pub fn spawn(app: &AppHandle) -> Result<SyncthingState, Box<dyn std::error::Erro
         .env("STGUIAPIKEY", &api_key)
         .env("STGUIADDRESS", &url)
         .spawn()?;
+
+    // Laufzeit-Info (pid + port) persistieren, damit der NÄCHSTE App-Start einen
+    // evtl. verwaisten syncthing gezielt graceful beenden kann. Wird in cleanup()
+    // bei sauberem Beenden wieder gelöscht.
+    let _ = fs::write(
+        app_data.join("syncthing-runtime.json"),
+        format!("{{\"pid\":{},\"port\":{}}}", child.pid(), port),
+    );
 
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -82,7 +106,8 @@ pub fn cleanup(app: &AppHandle) {
         // große Folders corrupt werden → next-start = full rescan (Stunden).
         // Aktuell synchronous via blocking call; akzeptabel weil cleanup() im
         // shutdown-Path läuft.
-        let shutdown_ok = try_graceful_shutdown(&endpoint);
+        let shutdown_ok =
+            try_graceful_shutdown(&endpoint.url.replace("http://", ""), &endpoint.api_key);
         if shutdown_ok {
             println!("[syncthing] graceful shutdown sent, waiting up to 8s");
             // Give Syncthing up to 8s to flush its leveldb + exit
@@ -100,13 +125,108 @@ pub fn cleanup(app: &AppHandle) {
             Err(e) => eprintln!("[syncthing-cleanup] kill failed: {e}"),
         }
     }
+    // Sauber beendet -> Runtime-Marker löschen, damit der nächste Start nicht
+    // versucht einen längst toten Prozess zu killen.
+    if let Ok(dir) = app.path().app_data_dir() {
+        let _ = fs::remove_file(dir.join("syncthing-runtime.json"));
+    }
 }
 
-fn try_graceful_shutdown(endpoint: &SyncthingEndpoint) -> bool {
+/// Beendet einen evtl. noch laufenden syncthing aus einem früheren App-Run.
+/// Graceful (HTTP-Shutdown -> Config-Flush) wenn möglich, sonst hard kill.
+/// PID-Reuse-Schutz: killt nur wenn der Prozess wirklich UNSER syncthing ist
+/// (Command-Line enthält unseren home-Pfad).
+fn kill_stale_syncthing(app_data: &Path, home: &Path, api_key: &str) {
+    let runtime_file = app_data.join("syncthing-runtime.json");
+    let Ok(contents) = fs::read_to_string(&runtime_file) else {
+        return;
+    };
+    let (Some(pid), Some(port)) = (parse_json_u32(&contents, "pid"), parse_json_u32(&contents, "port"))
+    else {
+        let _ = fs::remove_file(&runtime_file);
+        return;
+    };
+    if !pid_is_our_syncthing(pid, home) {
+        // Längst tot oder PID anderweitig vergeben -> nichts killen.
+        let _ = fs::remove_file(&runtime_file);
+        return;
+    }
+    println!("[sidecar] verwaister syncthing (pid {pid}, port {port}) gefunden -> beende vor Neustart");
+    // 1) Graceful: flusht die Config (sonst gehen frisch gepairte Geräte verloren).
+    if try_graceful_shutdown(&format!("127.0.0.1:{port}"), api_key) {
+        std::thread::sleep(std::time::Duration::from_millis(2500));
+    }
+    // 2) Hard-kill-Fallback, falls er noch lebt.
+    if pid_is_our_syncthing(pid, home) {
+        kill_pid(pid);
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+    let _ = fs::remove_file(&runtime_file);
+}
+
+/// Mini-Parser für {"pid":123,"port":456} — kein serde_json nötig.
+fn parse_json_u32(s: &str, key: &str) -> Option<u32> {
+    let pat = format!("\"{key}\":");
+    let start = s.find(&pat)? + pat.len();
+    let rest = &s[start..];
+    let end = rest
+        .find(|c: char| !c.is_ascii_digit() && c != ' ')
+        .unwrap_or(rest.len());
+    rest[..end].trim().parse().ok()
+}
+
+/// Prüft (cross-platform, ohne extra Crate) ob `pid` lebt UND unser syncthing ist.
+fn pid_is_our_syncthing(pid: u32, home: &Path) -> bool {
+    let home_str = home.to_string_lossy();
+    #[cfg(unix)]
+    {
+        if let Ok(out) = std::process::Command::new("ps")
+            .args(["-p", &pid.to_string(), "-o", "command="])
+            .output()
+        {
+            let cmd = String::from_utf8_lossy(&out.stdout);
+            return cmd.contains("syncthing") && cmd.contains(home_str.as_ref());
+        }
+    }
+    #[cfg(windows)]
+    {
+        if let Ok(out) = std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                &format!("(Get-CimInstance Win32_Process -Filter 'ProcessId={pid}').CommandLine"),
+            ])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+        {
+            let cmd = String::from_utf8_lossy(&out.stdout);
+            return cmd.contains("syncthing") && cmd.contains(home_str.as_ref());
+        }
+    }
+    false
+}
+
+/// Hartes Beenden per PID (Fallback wenn graceful nicht griff).
+fn kill_pid(pid: u32) {
+    #[cfg(unix)]
+    {
+        let _ = std::process::Command::new("kill")
+            .args(["-9", &pid.to_string()])
+            .status();
+    }
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("taskkill")
+            .args(["/F", "/PID", &pid.to_string()])
+            .creation_flags(CREATE_NO_WINDOW)
+            .status();
+    }
+}
+
+fn try_graceful_shutdown(addr_str: &str, api_key: &str) -> bool {
     // Mini-HTTP-Call ohne async runtime — wir sind in shutdown, kein tokio.
     // Nutze std::net::TcpStream + manuelles HTTP/1.0 (paar bytes, kein Risk).
-    let url = endpoint.url.replace("http://", "");
-    let addr = match url.parse::<std::net::SocketAddr>() {
+    let addr = match addr_str.parse::<std::net::SocketAddr>() {
         Ok(a) => a,
         Err(_) => return false,
     };
@@ -126,7 +246,7 @@ fn try_graceful_shutdown(endpoint: &SyncthingEndpoint) -> bool {
          X-API-Key: {}\r\n\
          Content-Length: 0\r\n\
          Connection: close\r\n\r\n",
-        endpoint.api_key
+        api_key
     );
     stream.write_all(req.as_bytes()).is_ok()
 }
