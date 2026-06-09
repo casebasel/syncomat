@@ -173,7 +173,8 @@ export function CodeShowModal({
         deviceID: acceptPrompt.deviceID,
         name: acceptPrompt.name || acceptPrompt.deviceID.slice(0, 7),
         addresses: ["dynamic"],
-        introducer: false,
+        // introducer: true -> Mesh statt Stern (siehe App.tsx onAcceptDevice)
+        introducer: true,
         autoAcceptFolders: false,
         paused: false,
       });

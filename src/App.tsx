@@ -5,6 +5,7 @@ import "./App.css";
 import {
   deletePendingDevice,
   putDevice,
+  patchDevice,
   putFolder,
   scanAllFolders,
   useAggregateStatus,
@@ -176,6 +177,34 @@ function App() {
     config.data?.devices.map((d) => d.deviceID).join(","),
   ]);
 
+  // Introducer-Migration: Syncomats Modell ist "alle meine Geräte = ein Mesh".
+  // Syncthing-Pairings sind aber NICHT transitiv — wurden B und C beide nur über
+  // A gepairt, kennen sie sich nicht (Stern statt Mesh). Wir markieren jedes
+  // Peer-Device als introducer, damit A seine Peers gegenseitig vorstellt und
+  // sich der Cluster bei jedem neuen Pairing selbst vervollständigt. Greift auch
+  // für Geräte die vor v0.8.4 mit introducer:false angelegt wurden. Idempotent:
+  // PATCH nur wenn introducer noch nicht gesetzt ist; der dep-key enthält das
+  // introducer-Flag, daher kein Loop nachdem es geflippt wurde.
+  useEffect(() => {
+    if (!endpoint || !ready || !config.data || !myID) return;
+    for (const d of config.data.devices) {
+      if (d.deviceID === myID || d.introducer) continue;
+      patchDevice(endpoint, d.deviceID, { introducer: true }).catch((e) => {
+        console.warn(
+          `[introducer-migration] failed for ${d.deviceID.slice(0, 7)}`,
+          e,
+        );
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    endpoint?.url,
+    endpoint?.api_key,
+    ready,
+    myID,
+    config.data?.devices.map((d) => `${d.deviceID}|${d.introducer}`).join(","),
+  ]);
+
   const connList = useMemo(
     () =>
       connections.data ? Object.entries(connections.data.connections) : [],
@@ -322,7 +351,10 @@ function App() {
       deviceID: pd.deviceID,
       name: pd.name || pd.deviceID.slice(0, 7),
       addresses: ["dynamic"],
-      introducer: false,
+      // introducer: true -> dieses Gerät stellt seine anderen Peers vor, sodass
+      // sich ein Mesh bildet statt eines Sterns. So wird "einmal pairen = ganzer
+      // Cluster verbindet sich" wahr (Resilio-Verhalten).
+      introducer: true,
       autoAcceptFolders: false,
       paused: false,
     });
