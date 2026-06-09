@@ -89,20 +89,10 @@ export function FolderSettingsModal({
     setBusy(true);
     setError(null);
     try {
-      // WICHTIG: deletion_requested IMMER auf false beim normalen Save —
-      // sonst bleibt ein altes Cluster-Delete-Signal aus früheren Tests
-      // im File und das deletion-Banner re-triggert nach jedem Save.
-      // Cluster-Delete wird ausschliesslich über remove() (mit clusterWide)
-      // gesetzt, nie hier.
-      const cleanedDefaults = {
-        ...defaults,
-        deletion_requested: false,
-        deletion_requested_by: null,
-      };
-      // 1. Write the shared defaults file (replicated via Syncthing)
-      await folderSettingsWrite(folder.path, myDeviceId, cleanedDefaults);
-      // 2. Apply to local Syncthing config immediately
-      await applyFolderDefaults(endpoint, folder, cleanedDefaults);
+      // Settings (ignore_hidden, trashcan, tags) in die gesyncte folder-defaults
+      // schreiben (configure once) + sofort lokal auf die Syncthing-Config anwenden.
+      await folderSettingsWrite(folder.path, myDeviceId, defaults);
+      await applyFolderDefaults(endpoint, folder, defaults);
       onSaved?.();
       onClose();
     } catch (e) {

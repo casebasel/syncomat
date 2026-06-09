@@ -19,10 +19,6 @@ export type FolderDefaults = {
   ignore_hidden: boolean;
   trashcan: boolean;
   trashcan_cleanout_days: number;
-  /** Cluster-Wide Deletion-Request. Wenn ein Peer das auf true setzt,
-   * sehen andere Syncomat-Instanzen einen "auch hier entfernen?" Banner. */
-  deletion_requested?: boolean;
-  deletion_requested_by?: string | null;
   /** User-definierte Tags zum Gruppieren / Filtern. Werden zwischen
    * Geräten geshared via folder-defaults.json. */
   tags?: string[];
@@ -39,8 +35,6 @@ export const DEFAULT_FOLDER_DEFAULTS: FolderDefaults = {
   ignore_hidden: false,
   trashcan: false,
   trashcan_cleanout_days: 0,
-  deletion_requested: false,
-  deletion_requested_by: null,
   tags: [],
 };
 
@@ -118,18 +112,11 @@ export async function applyFolderDefaults(
  * Wenn die File neuer ist als das was wir zuletzt applied haben UND nicht von
  * uns selbst kommt → applizier auf lokale Syncthing-Config.
  */
-export type DeletionSuggestion = {
-  folder: Folder;
-  by: string;
-  at: number;
-};
-
-// Persistente Tracking-Maps in localStorage. Verhindert dass useFolderSettings-
+// Persistente Tracking-Map in localStorage. Verhindert dass useFolderSettings-
 // Replication beim App-Start (frischer Ref-Cache) jeden peer-applied Setting
 // nochmal applied — was setFolderIgnores + putFolder triggert und einen Full-
 // Rescan auf jedem Unreal-Folder auslöst (50+ Min Initial-Hash).
 const APPLIED_LS_KEY = "syncomat.folderSettings.applied";
-const DELETION_LS_KEY = "syncomat.folderSettings.deletionNotified";
 
 function loadAppliedMap(): Map<FolderID, number> {
   try {
@@ -152,37 +139,14 @@ function saveAppliedMap(map: Map<FolderID, number>) {
   }
 }
 
-function loadDeletionNotified(): Set<string> {
-  try {
-    const raw = localStorage.getItem(DELETION_LS_KEY);
-    if (!raw) return new Set();
-    return new Set(JSON.parse(raw) as string[]);
-  } catch {
-    return new Set();
-  }
-}
-
-function saveDeletionNotified(set: Set<string>) {
-  try {
-    // Cap: max 100 entries (alte rauswerfen) — wächst sonst unbounded
-    const arr = Array.from(set);
-    const capped = arr.slice(-100);
-    localStorage.setItem(DELETION_LS_KEY, JSON.stringify(capped));
-  } catch (e) {
-    console.warn("[folder-settings] persist deletion-notified failed", e);
-  }
-}
-
 export function useFolderSettingsReplication(
   ep: Endpoint | null,
   ready: boolean,
   folders: Folder[],
   myDeviceId: string | null,
   intervalMs = 30_000,
-  onDeletionRequest?: (suggestion: DeletionSuggestion) => void,
 ): void {
   const appliedRef = useRef<Map<FolderID, number>>(loadAppliedMap());
-  const deletionNotifiedRef = useRef<Set<string>>(loadDeletionNotified());
 
   useEffect(() => {
     if (!ep || !ready || !myDeviceId) return;
@@ -204,42 +168,6 @@ export function useFolderSettingsReplication(
           // Wenn WIR sie geschrieben haben → nur als "seen" markieren, nicht applizieren.
           if (file.updated_by === myDeviceId) {
             appliedRef.current.set(f.id, file.updated_at);
-            continue;
-          }
-
-          // Cluster-Wide Deletion-Request? → einmalig pro Folder+Timestamp den
-          // Banner-Callback feuern. User entscheidet pro Gerät selbst.
-          if (file.settings.deletion_requested) {
-            // AUTH-CHECK: updated_by muss in folder.devices sein, sonst akzeptieren
-            // wir das Signal nicht (Audit-Finding: beliebiger Peer konnte Banner
-            // triggern). Sender selbst muss zu den gesharten Geräten zählen.
-            const peerAllowed = f.devices.some(
-              (d) => d.deviceID === file.updated_by,
-            );
-            if (!peerAllowed) {
-              console.warn(
-                `[folder-settings] deletion-request für ${f.id} ignoriert — ` +
-                  `updated_by ${file.updated_by} nicht in folder.devices`,
-              );
-              appliedRef.current.set(f.id, file.updated_at);
-              saveAppliedMap(appliedRef.current);
-              continue;
-            }
-            const key = `${f.id}|${file.updated_at}`;
-            if (!deletionNotifiedRef.current.has(key)) {
-              deletionNotifiedRef.current.add(key);
-              saveDeletionNotified(deletionNotifiedRef.current);
-              onDeletionRequest?.({
-                folder: f,
-                by: file.settings.deletion_requested_by ?? file.updated_by,
-                at: file.updated_at,
-              });
-            }
-            // Bei deletion-requested NICHT applyFolderDefaults aufrufen —
-            // sonst werden ignore_patterns/versioning auf den about-to-delete
-            // Folder geschrieben.
-            appliedRef.current.set(f.id, file.updated_at);
-            saveAppliedMap(appliedRef.current);
             continue;
           }
 
