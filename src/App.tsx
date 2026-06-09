@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 
 import {
@@ -148,13 +149,31 @@ function App() {
     updateState: updater.state,
   });
 
-  const isFirstRun =
+  const isEmpty =
     ready &&
     config.data !== null &&
     peers.length === 0 &&
     folders.length === 0 &&
     (pendingFolders.data?.length ?? 0) === 0 &&
     (pendingDevices.data?.length ?? 0) === 0;
+
+  // "Schon mal eingerichtet?"-Marker (app_data, übersteht einen Config-Wipe).
+  // Damit unterscheiden wir echten Erststart von einem Config-VERLUST und zeigen
+  // im Verlust-Fall einen ehrlichen Recovery-Hinweis statt dem fröhlichen Welcome
+  // (der so täte, als wäre alles normal — UX-Trust-Breaker #2).
+  const [everSeen, setEverSeen] = useState(false);
+  useEffect(() => {
+    invoke<boolean>("config_ever_seen").then(setEverSeen).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (folders.length > 0 || peers.length > 0) {
+      setEverSeen(true);
+      invoke("config_mark_seen").catch(() => {});
+    }
+  }, [folders.length, peers.length]);
+
+  const isFirstRun = isEmpty && !everSeen;
+  const isConfigLost = isEmpty && everSeen;
 
   // Selected folder für Inspector. Default: erster Folder wenn nichts gewählt.
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -305,6 +324,12 @@ function App() {
             onShowCode={() => setPanel({ kind: "code-show" })}
             onRedeemCode={() => setPanel({ kind: "code-redeem" })}
             onOpenSettings={() => setPanel({ kind: "settings" })}
+          />
+        ) : isConfigLost && !panel ? (
+          <RecoveryScreen
+            onRedeemCode={() => setPanel({ kind: "code-redeem" })}
+            onShowCode={() => setPanel({ kind: "code-show" })}
+            onCreateFolder={() => setPanel({ kind: "create-folder" })}
           />
         ) : (
           <>
@@ -572,6 +597,80 @@ function FirstRunWelcome({
           <span>Fenster schließen lässt den Sync im Tray weiterlaufen.</span>
           <button onClick={onOpenSettings} className="hover:text-neutral-900 dark:hover:text-neutral-100">
             Einstellungen →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RecoveryScreen({
+  onRedeemCode,
+  onShowCode,
+  onCreateFolder,
+}: {
+  onRedeemCode: () => void;
+  onShowCode: () => void;
+  onCreateFolder: () => void;
+}) {
+  return (
+    <div className="flex-1 flex items-center justify-center bg-white dark:bg-neutral-900 px-8 py-12">
+      <div className="max-w-md w-full">
+        <div className="size-10 rounded-md bg-amber-500 flex items-center justify-center text-white mb-4">
+          <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+            <path d="M12 9v4" />
+            <path d="M12 17h.01" />
+          </svg>
+        </div>
+        <h1
+          className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-2"
+          style={{ textWrap: "balance" } as React.CSSProperties}
+        >
+          Deine Konfiguration ist leer — das ist unerwartet.
+        </h1>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6 leading-relaxed">
+          Syncomat hatte schon Ordner oder Geräte, jetzt ist die Liste leer (z.B.
+          nach einem fehlgeschlagenen Update).{" "}
+          <span className="font-medium text-neutral-800 dark:text-neutral-200">
+            Deine Dateien auf der Platte sind sicher
+          </span>{" "}
+          — nur die Sync-Verknüpfungen fehlen. So baust du sie wieder auf:
+        </p>
+
+        <div className="space-y-2">
+          <button
+            onClick={onRedeemCode}
+            className="w-full text-left px-4 py-3 rounded-xl border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
+          >
+            <div className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+              Mit einem anderen Gerät verbinden
+            </div>
+            <div className="text-xs text-amber-700/80 dark:text-amber-300/80 mt-0.5">
+              Code einlösen — Ordner & Geräte kommen vom Cluster zurück.
+            </div>
+          </button>
+          <button
+            onClick={onShowCode}
+            className="w-full text-left px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          >
+            <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+              Code erzeugen
+            </div>
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+              Auf einem anderen Gerät einlösen, um neu zu koppeln.
+            </div>
+          </button>
+          <button
+            onClick={onCreateFolder}
+            className="w-full text-left px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          >
+            <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+              Ordner neu verknüpfen
+            </div>
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+              Lokalen Pfad wieder einbinden.
+            </div>
           </button>
         </div>
       </div>
