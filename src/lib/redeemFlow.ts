@@ -94,7 +94,9 @@ export async function* executeRedemption(
     deviceID: payload.iss,
     name: peerName,
     addresses,
-    introducer: false,
+    // introducer: true -> der Einlader stellt uns seine anderen Geräte vor,
+    // sodass wir dem ganzen Cluster beitreten, nicht nur dem einen Gerät.
+    introducer: true,
     autoAcceptFolders: false,
     paused: true,
   };

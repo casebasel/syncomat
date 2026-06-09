@@ -7,7 +7,15 @@ import {
   Play,
   Settings,
 } from "lucide-react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl, openPath } from "@tauri-apps/plugin-opener";
+
+// Plattform-abhängiger Name des Dateimanagers für Tooltips.
+const FILE_MANAGER =
+  typeof navigator !== "undefined" && /Mac/i.test(navigator.userAgent)
+    ? "Finder"
+    : typeof navigator !== "undefined" && /Win/i.test(navigator.userAgent)
+      ? "Explorer"
+      : "Dateimanager";
 import { SyncStatusBadge, computeStatusLabel, type SyncState } from "./SyncStatusBadge";
 import { TagChip } from "./TagChip";
 import { ActivityFeed } from "./ActivityFeed";
@@ -100,6 +108,17 @@ export function FolderInspector({
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() =>
+              openPath(folder.path).catch((e) =>
+                console.warn("openPath failed", e),
+              )
+            }
+            title={`Im ${FILE_MANAGER} öffnen`}
+            className="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          >
+            <FolderOpen className="size-4" />
+          </button>
           <button
             onClick={() => onPauseToggle(folder)}
             title={folder.paused ? "Fortsetzen" : "Pausieren"}

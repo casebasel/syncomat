@@ -97,7 +97,7 @@ Defensive Härtung — keine aktuellen Bugs:
 - **Platzhalter-Feature ("Files-on-Demand")** — riesiges Unterfangen (macOS FileProvider Framework / Windows Cloud Files API). Reden wir später drüber.
 - **Apple Codesigning** — braucht Apple Developer Account ($99/Jahr) + Notarization-Setup. Aktuell muss User beim ersten Start Rechtsklick → Öffnen → bestätigen.
 - **Windows Authenticode-Signing** — EV-Certificate ~$300/Jahr. Aktuell SmartScreen-Warning beim ersten Start, "Trotzdem ausführen" akzeptieren.
-- **Multi-User-Studio-Sharing** — aktuelles Modell ist "Marlons eigene Geräte unter sich". Mit Studio-Kollegen würde RW-Default → RO + Auto-Share-on-Pair komplett überdacht (siehe alter Adversarial-Review-Output).
+- **Multi-User-Studio-Sharing** — aktuelles Modell ist "Marlons eigene Geräte unter sich". Mit Studio-Kollegen würde RW-Default → RO + Auto-Share-on-Pair komplett überdacht (siehe alter Adversarial-Review-Output). **Auch `introducer` neu bewerten:** seit v0.8.4 ist jede Instanz Introducer für jede (voll symmetrisch, von Marlon bewusst so gewählt für eigene Geräte). Für Fremde ein Footgun — ein Gast-Code-Inhaber dürfte dann Geräte zum ganzen Cluster hinzufügen. Beim Studio-Modell: Introducer nur auf eigenen Knoten, oder Gäste als reine Leaf-Devices (introducer:false, kein auto-share-all).
 
 ## Blocker für mehr Verifikation
 

@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { PanelShell } from "./PanelShell";
 import { encodeInvite, isPrivateAddressHint } from "../lib/invite";
 import { publishInvite, QUICK_PAIR_ENABLED } from "../lib/rendezvous";
+import { armAutoAccept, autoAcceptActive } from "../lib/autoAccept";
 import {
   inviteCreate,
   inviteGetIssuerSecret,
@@ -76,8 +77,11 @@ export function CodeShowModal({
   // als "schon gesehen" markiert.
 
   // Neue Pending-Devices nach Code-Generierung → Prompt zeigen.
+  // ABER: ist das Auto-Accept-Fenster aktiv (nach generate() geschärft), greift
+  // der App-Ebene-Auto-Accept und das Gerät joint ohne Klick → kein Prompt.
   useEffect(() => {
     if (!pending.data || generated === null || acceptPrompt !== null) return;
+    if (autoAcceptActive()) return;
     if (seenDeviceIdsRef.current === null) return;
     for (const pd of pending.data) {
       if (!seenDeviceIdsRef.current.has(pd.deviceID)) {
@@ -144,6 +148,9 @@ export function CodeShowModal({
         const result = await publishInvite(code);
         quickCode = result.code;
       }
+      // Auto-Accept-Fenster für die Code-Gültigkeit schärfen: Geräte die diesen
+      // Code nutzen, verbinden sich automatisch — kein manuelles "Annehmen".
+      armAutoAccept(Date.now() + expSeconds * 1000);
       setGenerated({ raw: code, codeId, expiresAt, quickCode });
     } catch (e) {
       setError(String(e));
@@ -173,7 +180,8 @@ export function CodeShowModal({
         deviceID: acceptPrompt.deviceID,
         name: acceptPrompt.name || acceptPrompt.deviceID.slice(0, 7),
         addresses: ["dynamic"],
-        introducer: false,
+        // introducer: true -> Mesh statt Stern (siehe App.tsx onAcceptDevice)
+        introducer: true,
         autoAcceptFolders: false,
         paused: false,
       });
@@ -320,8 +328,8 @@ export function CodeShowModal({
             </button>
           </div>
           <p className="text-[11px] text-neutral-500 dark:text-neutral-400 text-center leading-relaxed">
-            Gilt nur 10 Minuten und kann einmal eingelöst werden. Sobald das
-            andere Gerät ihn eingibt, erscheint hier die Bestätigung.
+            Gilt nur 10 Minuten und kann einmal eingelöst werden. Das andere
+            Gerät verbindet sich dann <span className="font-medium text-neutral-700 dark:text-neutral-300">automatisch</span> — kein Bestätigen nötig.
           </p>
         </div>
       </PanelShell>
@@ -335,6 +343,9 @@ export function CodeShowModal({
           <p className="text-sm text-neutral-700 dark:text-neutral-300">
             Gib diesen Code an dein anderes Gerät weiter — z.B. via AirDrop oder Signal.
             Behandle ihn wie ein Passwort.
+          </p>
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+            Geräte mit diesem Code verbinden sich <span className="font-medium text-neutral-700 dark:text-neutral-300">automatisch</span>, solange er gültig ist — kein Bestätigen nötig.
           </p>
           {showQR ? (
             <div className="flex flex-col items-center gap-2 py-2">
