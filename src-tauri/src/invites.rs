@@ -1,4 +1,3 @@
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -39,7 +38,6 @@ pub struct ActiveInvite {
 #[derive(Serialize, Deserialize, Debug)]
 struct StoreFile {
     schema_version: u32,
-    issuer_secret: String,
     invites: Vec<ActiveInvite>,
     /// Code-IDs that this device has redeemed locally (replay protection on redeemer side).
     consumed_codes: Vec<String>,
@@ -55,7 +53,6 @@ impl Default for StoreFile {
     fn default() -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
-            issuer_secret: generate_secret_base64url(),
             invites: Vec::new(),
             consumed_codes: Vec::new(),
             consumed_at: std::collections::HashMap::new(),
@@ -169,13 +166,6 @@ fn set_perms_600(path: &Path) {
 
 #[cfg(not(unix))]
 fn set_perms_600(_: &Path) {}
-
-fn generate_secret_base64url() -> String {
-    let mut bytes = [0u8; 32];
-    bytes[..16].copy_from_slice(Uuid::new_v4().as_bytes());
-    bytes[16..].copy_from_slice(Uuid::new_v4().as_bytes());
-    URL_SAFE_NO_PAD.encode(bytes)
-}
 
 fn now_unix() -> i64 {
     SystemTime::now()
@@ -327,13 +317,6 @@ pub fn invite_revoke(state: tauri::State<'_, InviteStore>, id: String) -> Result
             invite.status = InviteStatus::Revoked { at: now_unix() };
             Ok(())
         })
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn invite_get_issuer_secret(state: tauri::State<'_, InviteStore>) -> Result<String, String> {
-    state
-        .with_read(|s| s.issuer_secret.clone())
         .map_err(|e| e.to_string())
 }
 

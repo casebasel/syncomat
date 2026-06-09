@@ -102,7 +102,6 @@ pub fn run() {
             invites::invite_find,
             invites::invite_mark_redeemed,
             invites::invite_revoke,
-            invites::invite_get_issuer_secret,
             invites::invite_consume_once,
             invites::invite_release_consumed,
             invites::invite_purge_expired,

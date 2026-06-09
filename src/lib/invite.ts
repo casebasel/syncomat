@@ -1,14 +1,17 @@
-// Einladungs-Code Format + Encoding/Decoding mit HMAC-SHA256.
-// Format: syncomat1.<issuerIdShort>.<bodyB64url>.<sigB64url>
-// Signed-Teil: `<issuerIdShort>.<bodyB64url>` (UTF-8)
-// HMAC-Key: das im Body enthaltene `s` (Issuer-Secret, 32 zufällige Bytes b64url-codiert).
-// `s` im Code mitzuführen ist bewusst: pragmatisches Trust-Model "Code IS der Token".
+// Einladungs-Code Format + Encoding/Decoding (Sprint #7: OHNE HMAC).
+// Format: syncomat1.<issuerIdShort>.<bodyB64url>   (3 Teile)
+//
+// Sicherheitsmodell: "der Code IST der Token". Wer den kurzlebigen, einmaligen
+// Code hat, darf pairen. Die echte Authentifizierung ist Syncthings TLS-Device-ID.
+// Eine eigene Signatur-Schicht davor war Theater — der Signatur-Key reiste im
+// selben Code mit (man verifizierte gegen den Key, den man gerade bekommen hat).
+// Integrität fällt aus base64url + JSON-Parse ab: ein korrupter Code wirft beim
+// Parsen -> "malformed". Replay-Schutz macht invite_consume_once im Redeem-Flow.
 
 export type InvitePayload = {
   v: 1;
   id: string; // UUID v4 (crypto.randomUUID)
   iss: string; // full DeviceID (56 chars, dash-separated)
-  s: string; // base64url(32 bytes) Issuer-Secret für HMAC
   rw: boolean;
   exp: number; // unix seconds
   n?: string; // optional note, max 40 chars
@@ -17,7 +20,6 @@ export type InvitePayload = {
 
 export type EncodeOptions = {
   myDeviceId: string;
-  myIssuerSecret: string; // base64url
   rw: boolean;
   expSeconds: number; // delta from now; max 30 days
   note?: string;
@@ -26,13 +28,11 @@ export type EncodeOptions = {
 
 export type DecodeReason =
   | "malformed"
-  | "truncated"
   | "wrong-charset"
   | "wrong-prefix"
   | "wrong-version"
   | "schema-invalid"
   | "self-pairing-blocked"
-  | "bad-signature"
   | "expired"
   | "already-consumed"
   | "bad-address-hint";
@@ -56,28 +56,6 @@ function b64urlDecode(s: string): Uint8Array {
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
-}
-
-// ── HMAC via Web Crypto ────────────────────────────────────────
-
-async function hmacSign(secretB64: string, message: string): Promise<Uint8Array> {
-  const secret = b64urlDecode(secretB64);
-  const key = await crypto.subtle.importKey(
-    "raw",
-    secret,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
-  return new Uint8Array(sig);
-}
-
-function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  let acc = 0;
-  for (let i = 0; i < a.length; i++) acc |= a[i]! ^ b[i]!;
-  return acc === 0;
 }
 
 // ── Address-Whitelist (Briefing + ZeroTier-Setup) ──────────────
@@ -123,7 +101,6 @@ export async function encodeInvite(opts: EncodeOptions): Promise<{
     v: 1,
     id,
     iss: opts.myDeviceId,
-    s: opts.myIssuerSecret,
     rw: opts.rw,
     exp: now + opts.expSeconds,
     ...(opts.note ? { n: opts.note } : {}),
@@ -132,10 +109,8 @@ export async function encodeInvite(opts: EncodeOptions): Promise<{
 
   const issuerIdShort = opts.myDeviceId.slice(0, 7);
   const bodyB64 = b64urlEncode(new TextEncoder().encode(JSON.stringify(payload)));
-  const signedPart = `${issuerIdShort}.${bodyB64}`;
-  const sig = await hmacSign(opts.myIssuerSecret, signedPart);
   return {
-    code: `syncomat1.${signedPart}.${b64urlEncode(sig)}`,
+    code: `syncomat1.${issuerIdShort}.${bodyB64}`,
     codeId: id,
     expiresAt: payload.exp,
   };
@@ -155,20 +130,17 @@ export async function decodeInvite(
   }
 
   const parts = code.split(".");
-  if (parts.length !== 4) {
-    return { ok: false, reason: "malformed", detail: `expected 4 parts, got ${parts.length}` };
+  if (parts.length !== 3) {
+    return { ok: false, reason: "malformed", detail: `expected 3 parts, got ${parts.length}` };
   }
-  const [, issuerIdShort, bodyB64, sigB64] = parts as [string, string, string, string];
+  const [, issuerIdShort, bodyB64] = parts as [string, string, string];
 
   const b64urlRegex = /^[A-Za-z0-9_-]+$/;
-  if (!b64urlRegex.test(issuerIdShort) || !b64urlRegex.test(bodyB64) || !b64urlRegex.test(sigB64)) {
+  if (!b64urlRegex.test(issuerIdShort) || !b64urlRegex.test(bodyB64)) {
     return { ok: false, reason: "wrong-charset" };
   }
   if (issuerIdShort.length !== 7) {
     return { ok: false, reason: "malformed", detail: "issuer-id-short length wrong" };
-  }
-  if (sigB64.length !== 43) {
-    return { ok: false, reason: "truncated", detail: "signature length wrong (expected 43 chars)" };
   }
 
   let bodyBytes: Uint8Array;
@@ -205,26 +177,12 @@ export async function decodeInvite(
   if (p.iss === myDeviceId) {
     return { ok: false, reason: "self-pairing-blocked" };
   }
-
-  let sigBytes: Uint8Array;
-  try {
-    sigBytes = b64urlDecode(sigB64);
-  } catch {
-    return { ok: false, reason: "malformed", detail: "sig not base64url" };
-  }
-  const signedPart = `${issuerIdShort}.${bodyB64}`;
-  const expected = await hmacSign(p.s, signedPart);
-  if (!constantTimeEqual(expected, sigBytes)) {
-    return { ok: false, reason: "bad-signature" };
-  }
-
   if (p.exp < Math.floor(Date.now() / 1000)) {
     return { ok: false, reason: "expired" };
   }
 
-  // Replay-check is done in the redemption flow via atomic invite_consume_once.
-  // Decode is pure (no I/O) so it can be called freely for live-preview.
-
+  // Replay-check passiert im Redeem-Flow via atomic invite_consume_once.
+  // Decode ist rein (kein I/O) — kann frei fürs Live-Preview aufgerufen werden.
   return { ok: true, payload: p };
 }
 
@@ -234,7 +192,6 @@ function validatePayloadV1(p: unknown): string | null {
   if (o.v !== 1) return "v must be 1";
   if (typeof o.id !== "string" || o.id.length < 16 || o.id.length > 64) return "id invalid";
   if (typeof o.iss !== "string" || o.iss.length < 16 || o.iss.length > 100) return "iss invalid";
-  if (typeof o.s !== "string" || o.s.length < 40 || o.s.length > 64) return "s invalid";
   if (typeof o.rw !== "boolean") return "rw must be boolean";
   if (typeof o.exp !== "number" || !Number.isFinite(o.exp) || o.exp < 0) return "exp invalid";
   if (o.n !== undefined && (typeof o.n !== "string" || o.n.length > 40)) return "n invalid";
@@ -257,9 +214,7 @@ export function shortDeviceIdFrom(payload: InvitePayload): string {
 export function reasonToHuman(r: DecodeReason): string {
   switch (r) {
     case "malformed":
-      return "Code ist kaputt oder unvollständig.";
-    case "truncated":
-      return "Code ist abgeschnitten — kopiere ihn nochmal komplett.";
+      return "Code ist kaputt oder unvollständig — kopiere ihn nochmal komplett.";
     case "wrong-charset":
       return "Ungültige Zeichen im Code — vom Kopieren her vermasselt?";
     case "wrong-prefix":
@@ -270,8 +225,6 @@ export function reasonToHuman(r: DecodeReason): string {
       return "Code-Inhalt ist ungültig.";
     case "self-pairing-blocked":
       return "Dieser Code wurde auf diesem Gerät erstellt — lös ihn auf einem anderen Gerät ein.";
-    case "bad-signature":
-      return "Code-Signatur stimmt nicht — er wurde manipuliert.";
     case "expired":
       return "Code ist abgelaufen — bitte einen neuen anfordern.";
     case "already-consumed":

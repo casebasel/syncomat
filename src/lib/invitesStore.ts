@@ -41,8 +41,6 @@ export const inviteMarkRedeemed = (id: string, peerDeviceId: string) =>
 
 export const inviteRevoke = (id: string) => invoke<void>("invite_revoke", { id });
 
-export const inviteGetIssuerSecret = () =>
-  invoke<string>("invite_get_issuer_secret");
 
 /** Atomic check-and-mark. Returns true if newly consumed, false if already. */
 export const inviteConsumeOnce = (id: string) =>

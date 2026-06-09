@@ -8,7 +8,6 @@ import { acceptDevice } from "../lib/pairing";
 import { armAutoAccept, autoAcceptActive } from "../lib/autoAccept";
 import {
   inviteCreate,
-  inviteGetIssuerSecret,
   inviteMarkRedeemed,
 } from "../lib/invitesStore";
 import {
@@ -117,17 +116,15 @@ export function CodeShowModal({
     setBusy(true);
     setError(null);
     try {
-      const secret = await inviteGetIssuerSecret();
       const { code, codeId, expiresAt } = await encodeInvite({
         myDeviceId: status.myID,
-        myIssuerSecret: secret,
         rw,
         expSeconds,
         note: note.trim() || undefined,
         addresses: addresses.length > 0 ? addresses : undefined,
       });
       // CRITICAL: dieselbe ID rüber an Rust, damit invite_mark_redeemed + invite_revoke
-      // auf demselben Record arbeiten wie der signierte Payload.
+      // auf demselben Record arbeiten wie der Code-Payload.
       await inviteCreate({
         id: codeId,
         options: {
