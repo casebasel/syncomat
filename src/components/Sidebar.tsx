@@ -255,11 +255,29 @@ export function Sidebar({
         </button>
       </div>
 
-      {/* Devices */}
+      {/* Devices — Header mit Icon-Actions (Gerät einladen + Code einlösen) */}
       <div className="px-3 pt-3 pb-1 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold">
           Geräte
         </span>
+        <div className="flex items-center gap-0.5 -mr-1">
+          <button
+            onClick={onShowCode}
+            title="Gerät einladen — Code erzeugen"
+            aria-label="Gerät einladen"
+            className="size-6 rounded-md flex items-center justify-center text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          >
+            <Plus className="size-4" />
+          </button>
+          <button
+            onClick={onRedeemCode}
+            title="Code einlösen"
+            aria-label="Code einlösen"
+            className="size-6 rounded-md flex items-center justify-center text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          >
+            <KeyRound className="size-3.5" />
+          </button>
+        </div>
       </div>
       <div className="px-1.5 pb-2 space-y-0.5">
         {myID && (
@@ -295,24 +313,6 @@ export function Sidebar({
             </button>
           );
         })}
-      </div>
-
-      {/* Code-Aktionen */}
-      <div className="px-1.5 py-2 border-t border-neutral-200 dark:border-neutral-800 mt-auto space-y-0.5">
-        <button
-          onClick={onShowCode}
-          className="w-full text-left px-2 py-1.5 rounded-md hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 flex items-center gap-1.5 text-neutral-700 dark:text-neutral-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-        >
-          <Plus className="size-3.5" />
-          <span className="text-[13px] font-medium">Gerät einladen</span>
-        </button>
-        <button
-          onClick={onRedeemCode}
-          className="w-full text-left px-2 py-1.5 rounded-md hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 flex items-center gap-1.5 text-neutral-700 dark:text-neutral-200 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-        >
-          <KeyRound className="size-3.5" />
-          <span className="text-[13px] font-medium">Code einlösen</span>
-        </button>
       </div>
     </aside>
   );
