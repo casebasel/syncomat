@@ -251,6 +251,11 @@ export const getFolderErrors = (ep: Endpoint, folderID: FolderID) =>
 export const getFolderIgnores = (ep: Endpoint, folderID: FolderID) =>
   api<FolderIgnores>(ep, `/rest/db/ignores?folder=${encodeURIComponent(folderID)}`);
 
+/** Verzeichnis-Browser eines (auch entfernten) Syncthing — für den Pfad-Picker
+ * beim Ordner-Annehmen auf dem NAS. Gibt Unterverzeichnisse von `current` zurück. */
+export const systemBrowse = (ep: Endpoint, current: string) =>
+  api<string[]>(ep, `/rest/system/browse?current=${encodeURIComponent(current)}`);
+
 export const setFolderIgnores = (
   ep: Endpoint,
   folderID: FolderID,

@@ -3,6 +3,7 @@ mod firstrun;
 mod folder_settings;
 mod folder_stats;
 mod invites;
+mod remotes;
 mod reveal;
 mod sidecar;
 
@@ -117,6 +118,9 @@ pub fn run() {
             reveal::reveal_in_file_manager,
             firstrun::config_ever_seen,
             firstrun::config_mark_seen,
+            remotes::remotes_list,
+            remotes::remotes_add,
+            remotes::remotes_remove,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
