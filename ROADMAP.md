@@ -12,8 +12,18 @@
 > folder-defaults-Kanal bleibt also; nur Lösch-Mechanik + stille Automatiken sind
 > weg. Schritte unten, die „Kanal/Tags löschen" sagen, sind dadurch überholt.
 >
-> **Ausgeliefert:** v0.8.6 (#1–#3) · v0.8.7 (Fixes: Ordner-öffnen, Gerätename) ·
-> v0.8.8 (#4b Lösch-Reste, #5 Blocklist).
+> **Kurskorrektur 2 (v0.9.2, nach x3950-Real-Test):** Marlons Kern-Modell ist
+> **„ein Gerät koppeln → ALLES im Umlauf bekommen"**. Dafür sind **Introducer +
+> Auto-Share + Auto-Accept ZURÜCK** (in #1 fälschlich entfernt). Die damaligen
+> „Überraschungen" waren **Bugs** (Config-Wipe, Geister-Delete/-Konflikte) — nicht
+> die Automatiken. Die Bugs sind seit v0.8.5–v0.9.1 gefixt, also laufen die
+> Automatiken jetzt sauber (mit x3950 bestätigt). **#1 ist überholt — Introducer/
+> Auto-Share NICHT wieder entfernen.** Künftig nur eingrenzen, wenn Multi-Person/
+> Fremd-Geräte dazukommen (dann Introducer auf eigene Geräte scopen).
+>
+> **Ausgeliefert:** v0.8.6 (#1–#3) · v0.8.7 (Fixes) · v0.8.8 (#4b, #5) ·
+> v0.8.9 (Config-Konflikt-Auto-Clean, Recovery-Screen, #6) · v0.9.0 (#7 Krypto
+> raus, Politur) · v0.9.1 (Bulk-Konflikt-Auflösung) · v0.9.2 (Auto-Mesh zurück).
 
 ---
 
