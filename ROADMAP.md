@@ -23,7 +23,43 @@
 >
 > **Ausgeliefert:** v0.8.6 (#1–#3) · v0.8.7 (Fixes) · v0.8.8 (#4b, #5) ·
 > v0.8.9 (Config-Konflikt-Auto-Clean, Recovery-Screen, #6) · v0.9.0 (#7 Krypto
-> raus, Politur) · v0.9.1 (Bulk-Konflikt-Auflösung) · v0.9.2 (Auto-Mesh zurück).
+> raus, Politur) · v0.9.1 (Bulk-Konflikt-Auflösung) · v0.9.2 (Auto-Mesh zurück) ·
+> v0.9.3 (Politur: pauseDates/selectedFolder) · v0.9.4 (Tag-Dashboard).
+
+---
+
+## 🌐 Netz & TrueNAS-Node — Erkenntnisse (v0.9.4+, real verifiziert)
+
+**Backup-Hub läuft:** vanilla Syncthing 2.1.1 in Docker (host-mode) auf TrueNAS, synct
+`receiveonly` in `tank/Syncthing`, Unreal-Caches ignoriert. Setup-Paket: `deploy/truenas-syncthing/`.
+Pairing + Ordner-Annehmen wurden „von Hand" über die NAS-REST-API gemacht (= Phase B manuell).
+
+**Netz-Topologie (an den Interface-Namen verifiziert, nicht angenommen):**
+- `192.168.100.x` (`br1`) = **10GbE-Live** — Windows-Render + NAS, schnell, **primär**.
+- `192.168.191.x` (`ztbtorevpj`) = **ZeroTier** — MacBook-Pfad + Fallback (nur der Mac ist drauf).
+- `10.35.253.1` (`incusbr0`) = **Incus-VM-Bridge — irrelevant**, gehört NIE in die Cluster-Config
+  (war kurzzeitig fälschlich als „ZeroTier" in `listenAddresses` — korrigiert).
+
+**Flapping-Bug + Fix:** host-mode-NAS mit `listenAddresses: default` (0.0.0.0) announced ALLE ~13
+Docker-Bridges + IPv6-ULAs → Peers liefen in Timeouts (90 % offline). **Fix:** `listenAddresses`
+NAS-seitig auf die 2 echten Pfade beschränken (`192.168.100.100` + `192.168.191.17` + relay). Damit
+bleiben Geräte-Adressen überall `dynamic` (Syncomat-Default) — **keine Pro-Gerät-Statics nötig.**
+
+**Speed-Erkenntnis (Syncthing-Quellcode UND Resilio-Doku verifiziert):** Syncthing kann 10GbE NICHT
+automatisch gegenüber ZeroTier bevorzugen — beide sind private Ranges → beide `tcp-lan`, gleiche
+Priorität → **„first-to-connect wins", kein Durchsatz-Vergleich.** Weder `connectionPriority*` noch
+Adress-Reihenfolge noch `alwaysLocalNet` ändern das. Resilio hat dasselbe Sticky-Cache-Verhalten
+(„peer expiration = 0" zum Lösen), bietet aber **„network interface per share"** als expliziten Knopf.
+
+**Entscheidung (bewusst, YAGNI):** Per-Gerät-„bevorzugte-schnelle-Adresse"-Feature **NICHT bauen.**
+Grund: Multi-Source-Pull mildert es (NAS zieht Gross-Daten parallel von den 10GbE-Peers), laufende
+Deltas sind klein, und der Knopf widerspricht „configure-once". → **Reaktivieren NUR**, wenn Gross-
+Transfers nachweislich regelmässig kriechen, weil Nodes auf ZeroTier kleben. Dann Resilio-Stil:
+„per-device fast address", die Syncomat **bewahrt** (statt sie mit `dynamic` zu überschreiben).
+
+**Offen:** Phase B (NAS-Verwaltung in Syncomat) liegt als BETA auf Branch `feat-nas-management`
+(ungetestet gegen Live-NAS; CORS-Frage Webview→Remote-API offen). ZFS-Snapshot-Task + Quota auf
+`tank/Syncthing` = Marlons TODO in der TrueNAS-UI (das ist die eigentliche Backup-Sicherung).
 
 ---
 

@@ -55,16 +55,32 @@ if [ -n "$APIKEY" ]; then
     -d "{\"user\":\"admin\",\"password\":\"$GUIPW\"}" >/dev/null 2>&1 || GUIPW="(automatisch fehlgeschlagen -> in der GUI setzen)"
 fi
 
+# Listen-Adressen NAS-seitig auf die zwei ECHTEN Cluster-Pfade beschraenken (best-effort):
+#   192.168.100.100 = Live-Netz, 192.168.191.17 = ZeroTier. Default waere 'default' (= 0.0.0.0) —
+#   dann announced der host-mode-Container ALLE ~13 Docker-Bridges + IPv6-ULAs und die Desktops
+#   flappen zwischen toten Adressen. Diese Whitelist loest das NAS-seitig, sodass die Geraete-
+#   Adressen ueberall schlicht 'dynamic' bleiben koennen (Syncomat-Default, kein Pro-Geraet-Static).
+#   Analog zum GUI-Passwort-PATCH oben. Schlaegt es fehl -> GUI: Settings > Connections.
+LADDR=""
+if [ -n "$APIKEY" ]; then
+  curl -fsS -X PATCH "http://localhost:8384/rest/config/options" \
+    -H "X-API-Key: $APIKEY" -H "Content-Type: application/json" \
+    -d '{"listenAddresses":["tcp://192.168.100.100:22000","quic://192.168.100.100:22000","tcp://192.168.191.17:22000","quic://192.168.191.17:22000","dynamic"]}' \
+    >/dev/null 2>&1 && LADDR="gesetzt: 100.100 (Live) + 192.168.191.17 (ZeroTier)" \
+    || LADDR="(automatisch fehlgeschlagen -> GUI: Settings > Connections)"
+fi
+
 echo
 echo "================ FERTIG ================"
-echo "GUI:  http://192.168.100.100:8384  (lokal)   |   http://10.35.253.1:8384  (ZeroTier, fuer den Mac remote)"
+echo "GUI:  http://192.168.100.100:8384  (lokal)   |   http://192.168.191.17:8384  (ZeroTier, fuer den Mac remote)"
 echo "GUI-Login:    admin / ${GUIPW:-<in der GUI setzen>}"
+echo "Listen-Adr.:  ${LADDR:-<in der GUI: Settings > Connections>}"
 echo "NAS Device-ID: ${DEVID:-<gleich: sudo grep 'device id' $APPDIR/config/config.xml>}"
 echo "API-Key (fuer Syncomat -> Server-Node):  ${APIKEY:-<gleich: sudo grep apikey $APPDIR/config/config.xml>}"
 echo
 echo "NAECHSTE SCHRITTE -> README.md:"
-echo "  1) NAS mit einem Desktop pairen (Device-ID oben). Statische Adressen am NAS-Device:"
-echo "       tcp://192.168.100.100:22000 (Live) + tcp://10.35.253.1:22000 (ZeroTier) + dynamic"
+echo "  1) NAS mit einem Desktop pairen (Device-ID oben). Geraete-Adressen = 'dynamic' lassen (Default) —"
+echo "     KEINE Pro-Geraet-Statics. Listen-Adressen sind oben schon NAS-seitig beschraenkt (s. 'Listen-Adr.')."
 echo "  2) Angebotene Ordner als 'Receive Only' annehmen, Pfad /var/syncthing/data/<Projekt>, .stignore."
 echo "     ODER bequem aus Syncomat: GERAETE -> Server-Icon -> NAS mit URL + API-Key oben verbinden."
 echo "  3) TrueNAS-UI: Periodic Snapshot Task auf tank/Syncthing + Quota."

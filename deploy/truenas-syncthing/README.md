@@ -4,8 +4,9 @@ Vanilla Syncthing-Daemon als always-on Cluster-Node, synct in `tank/Syncthing`,
 abgesichert über ZFS-Snapshots. **Kein Syncomat-GUI** auf der NAS — der Hub ist
 nur ein weiteres Syncthing-Gerät.
 
-> **Netz (wichtig):** Cluster + GUI laufen über **`192.168.100.100`** (Live-Netz, wo
-> Mac + Windows-Render leben). `192.168.191.17` ist nur SSH/Management.
+> **Netz (wichtig):** `192.168.100.x` = **10GbE-Live** (Windows-Render + NAS, schnell, primär).
+> `192.168.191.x` = **ZeroTier** (der MacBook-Pfad + Fallback; auch der SSH-Weg zur NAS).
+> `10.35.253.1` = Incus-VM-Bridge — gehört NICHT in die Cluster-Config.
 
 ## Deploy
 ```bash
@@ -19,16 +20,26 @@ kopiert die Compose nach `/mnt/Apps/syncthing/`, startet den Container, gibt die
 ## Nach dem Deploy (in dieser Reihenfolge)
 
 **1. GUI & Zugriff.** `setup.sh` setzt automatisch ein GUI-Passwort (Login `admin / <ausgegeben>`).
-Erreichbar **lokal** `http://192.168.100.100:8384` UND über **ZeroTier** `http://10.35.253.1:8384`
-(fürs entfernte MacBook — nur der Mac ist auf ZeroTier, die Windows-Render hängen lokal).
+Erreichbar **lokal (10GbE)** `http://192.168.100.100:8384` UND über **ZeroTier** `http://192.168.191.17:8384`
+(fürs entfernte MacBook — nur der Mac ist auf ZeroTier, die Windows-Render hängen am 10GbE-Live).
 **Kein Cloudflare-Tunnel** — ZeroTier ist der sichere Fern-Pfad, nichts public exponiert.
 Passwort ändern: GUI → Settings → GUI.
 
 **2. NAS pairen.** Auf einem Desktop (Syncomat) die NAS-Device-ID hinzufügen, ODER
-in der NAS-GUI ein Desktop-Gerät hinzufügen. Am NAS-Device **statische Adressen** setzen:
+in der NAS-GUI ein Desktop-Gerät hinzufügen. **Geräte-Adressen auf `dynamic` lassen**
+(Default) — Syncomat schreibt sie ohnehin immer als `dynamic` und überschreibt manuell
+gepflegte Pro-Gerät-Statics beim nächsten Re-Pair/Introducer. Der einzige nötige Hebel
+sitzt **NAS-seitig** und nur **einmalig**: `listenAddresses` explizit setzen (statt
+`default` = `0.0.0.0`), damit der host-mode-NAS nicht alle ~13 Docker-Bridges + IPv6-ULAs
+announced — genau das war die Wurzel des Connection-Flappings. NAS-GUI → Settings →
+Connections → „Sync Protocol Listen Addresses":
 ```
-tcp://192.168.100.100:22000, tcp://10.35.253.1:22000, dynamic
+tcp://192.168.100.100:22000, quic://192.168.100.100:22000, tcp://192.168.191.17:22000, quic://192.168.191.17:22000, dynamic
 ```
+(`192.168.100.100` = 10GbE-Live, `192.168.191.17` = ZeroTier — die zwei echten Cluster-Pfade.
+`10.35.253.1` (Incus-VM-Bridge) bleibt bewusst draußen: kein Cluster-Pfad.)
+> `setup.sh` setzt diese `listenAddresses` schon automatisch per REST — der manuelle GUI-Weg
+> hier ist nur das Fallback, falls der PATCH beim Deploy fehlschlug (siehe „Listen-Adr."-Zeile).
 Introducer + Auto-Share bieten dem NAS danach automatisch alle Ordner an.
 
 **3. Ordner annehmen — IMMER als `Receive Only`.** Pro angebotenem Ordner in der NAS-GUI:

@@ -131,9 +131,17 @@ ssh -t truenas 'sudo docker compose -f /mnt/Apps/syncthing/docker-compose.yml up
   `maxConflicts:10`, `rescanIntervalS`, `fsWatcher`) gilt am NAS **nicht** — manuell/Script
   nachbauen, sonst sammelt der Hub Konflikte unbegrenzt (`maxConflicts:-1`).
 - **Discovery:** Global + Local Discovery am NAS an. Den NAS **direkt** mit jedem Desktop per
-  Code koppeln (nicht nur via Introducer) und im „Erweitert: Netzwerk-Adressen" beide
-  statischen Adressen mitgeben (`tcp://192.168.191.17:22000` + ZeroTier-IP) — sonst lernt ein
-  introduced Desktop nur `addresses:["dynamic"]` und findet den NAS nur über Global Discovery.
+  Code koppeln (nicht nur via Introducer) — die **Geräte-Adressen aber auf `dynamic` lassen**
+  (Default). Syncomat schreibt sie ohnehin immer als `dynamic` (`src/lib/redeemFlow.ts` →
+  `[...hints, "dynamic"]`, `src/lib/pairing.ts` → `["dynamic"]`); manuell gepflegte Pro-Gerät-
+  Statics auf dem NAS werden beim Re-Pair/Introducer also wieder Richtung `dynamic` überschrieben
+  und kämpfen nur gegen dieses Modell. Der **eine** Hebel sitzt NAS-seitig: `listenAddresses`
+  explizit auf die zwei echten Cluster-Pfade beschränken (`tcp://192.168.100.100:22000`,
+  `quic://…:22000`, `tcp://192.168.191.17:22000`, `quic://…:22000`, `dynamic`) statt `default`
+  (= `0.0.0.0`). Sonst announced der host-mode-NAS **alle ~13 Docker-Bridges + IPv6-ULAs**, und
+  die introduced Desktops flappen zwischen toten Adressen — **das** war die Wurzel des
+  Connection-Flappings, nicht fehlende Pro-Gerät-Statics. Sauber announcender NAS + `dynamic` +
+  Global Discovery genügt desktop-seitig. (`setup.sh` setzt die `listenAddresses` automatisch.)
 
 ---
 
