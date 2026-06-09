@@ -187,6 +187,12 @@ function App() {
     return r;
   }, [connList]);
 
+  // Device-IDs der aktuell verbundenen Peers — für zuverlässiges Cluster-Delete.
+  const connectedPeerIds = useMemo(
+    () => connList.filter(([, c]) => c.connected).map(([id]) => id),
+    [connList],
+  );
+
   // Memoized: peers + peersConnected werden bei jeder Event-Tick (ItemFinished
   // im Background-Aggregate) neu berechnet wenn man's nicht memoiziert. Audit-
   // Finding: high-frequency re-render. Devices.length ist stabil über Session.
@@ -475,6 +481,7 @@ function App() {
                 folder={panel.folder}
                 myDeviceId={myID}
                 tagSuggestions={allTagSuggestions}
+                connectedPeerIds={connectedPeerIds}
                 onClose={() => setPanel(null)}
                 onRemoved={() => {
                   ignored.refresh();

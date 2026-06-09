@@ -25,29 +25,21 @@ Was als nächstes ansteht. Strikt sortiert: oben = bald, unten = vielleicht/spä
   beiden OS. Windows behält Standard-Titelleiste (kein Ampel-Äquivalent).
 - Feinschliff Spacing falls nach Nutzung noch Stellen zu eng wirken.
 
-## Bekannte Bugs (zuerst fixen)
+## Bekannte Bugs
 
-### Remote-Folder-Löschen (Cluster-Delete) greift nicht
-**Gemeldet:** 2026-06-09 (Marlon). Beim Versuch einen Ordner Cluster-weit zu
-entfernen (FolderSettings → "Verknüpfung entfernen" → "Auch auf allen anderen
-Geräten vorschlagen") kommt auf dem anderen Gerät kein Banner / der Folder
-verschwindet dort nicht.
+### ✅ Remote-Folder-Löschen (Cluster-Delete) — GEFIXT in v0.8.1
+**War:** Sender schrieb `deletion_requested`-Marker, wartete blind 1s, löschte
+dann den Folder lokal via `deleteFolder`. Damit war der Folder aus Syncthing
+raus BEVOR der winzige Marker-File zum Peer propagiert war (besonders mit
+Unreal-Tuning `fsWatcherDelayS` 10-30s) — der Marker erreichte das andere
+Gerät nie.
 
-**Wahrscheinliche Ursachen (zu prüfen):**
-- `deletion_requested` wird in `.syncomat/folder-defaults.json` geschrieben,
-  aber das File wird durch den lokalen `deleteFolder` evtl. nicht mehr synct
-  (Folder ist aus Syncthing-Config raus BEVOR Sync den Marker propagiert hat).
-  Das 1s-`setTimeout` in `FolderSettingsModal.remove()` reicht vielleicht nicht.
-- `useFolderSettingsReplication` AUTH-Check: `updated_by` muss in
-  `folder.devices` sein — wenn der löschende Peer sich selbst schon entfernt
-  hat, schlägt der Check fehl und der Banner kommt nie.
-- Reihenfolge: erst Marker schreiben + warten bis Peer ihn GELESEN hat, DANN
-  lokal löschen. Aktuell zu optimistisch.
-
-**Fix-Idee:** Marker schreiben → NICHT sofort lokal löschen, sondern auf
-Bestätigung vom Peer warten (oder Marker länger leben lassen). Alternativ
-über einen dedizierten Rust-Command der den Marker schreibt + erst nach
-Sync-Roundtrip den lokalen Folder kappt.
+**Fix (v0.8.1):** Cluster-Delete macht jetzt: Marker schreiben → forcierter
+`scanFolder` (Syncthing nimmt den File SOFORT auf statt nach fsWatcherDelayS)
+→ 10s Grace-Countdown (genug fürs Index-Exchange + Pull des JSON auf LAN) →
+erst dann lokal entfernen. Plus Guard: ist KEIN Peer verbunden, wird nicht
+blind gelöscht (Signal ginge verloren) — stattdessen Hinweis + Fallback
+"Nur hier entfernen". Braucht `connectedPeerIds` von App.tsx.
 
 ## Geplant
 
