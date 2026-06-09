@@ -7,6 +7,9 @@
 #   Cluster/GUI laufen ueber 192.168.100.100 (Live-Netz, wo Mac + Windows-Render leben).
 #   192.168.191.17 ist nur der SSH-/Management-Pfad.
 set -euo pipefail
+# PATH haerten: zfs/docker liegen in /sbin + /usr/sbin — unter restriktivem
+# sudo secure_path sonst evtl. nicht gefunden.
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
 
 DATASET="tank/Syncthing"
 DATA="/mnt/tank/Syncthing"
