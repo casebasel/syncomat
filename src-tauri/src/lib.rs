@@ -1,3 +1,4 @@
+mod autostart;
 mod conflicts;
 mod firstrun;
 mod folder_settings;
@@ -62,6 +63,9 @@ pub fn run() {
             let separator = PredefinedMenuItem::separator(app)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &autostart_item, &separator, &quit])?;
+            // Tray-Haken als State halten -> der Settings-Toggle kann ihn über
+            // autostart::apply() synchron halten (beide zeigen denselben Zustand).
+            app.manage(autostart::AutostartMenu(autostart_item.clone()));
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -75,13 +79,10 @@ pub fn run() {
                         }
                     }
                     "autostart" => {
-                        let mgr = app.autolaunch();
-                        let enabled = mgr.is_enabled().unwrap_or(false);
-                        if enabled {
-                            let _ = mgr.disable();
-                        } else {
-                            let _ = mgr.enable();
-                        }
+                        // Über apply() umschalten -> hält auch den Tray-Haken
+                        // (und den Settings-Toggle beim nächsten Öffnen) korrekt.
+                        let enabled = app.autolaunch().is_enabled().unwrap_or(false);
+                        let _ = autostart::apply(app, !enabled);
                     }
                     "quit" => app.exit(0),
                     _ => {}
@@ -121,6 +122,8 @@ pub fn run() {
             remotes::remotes_list,
             remotes::remotes_add,
             remotes::remotes_remove,
+            autostart::autostart_get,
+            autostart::autostart_set,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

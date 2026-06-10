@@ -9,6 +9,7 @@ import {
   ExternalLink,
   Info,
   Loader2,
+  Power,
   RefreshCw,
 } from "lucide-react";
 import type { Endpoint, SystemStatus } from "../lib/syncthing";
@@ -30,6 +31,8 @@ export function SettingsPanel({
   onInstallUpdate,
   notificationsEnabled,
   onSetNotificationsEnabled,
+  autostartEnabled,
+  onSetAutostartEnabled,
   onBack,
 }: {
   endpoint: Endpoint | null;
@@ -40,6 +43,8 @@ export function SettingsPanel({
   onInstallUpdate: () => void;
   notificationsEnabled: boolean;
   onSetNotificationsEnabled: (v: boolean) => void;
+  autostartEnabled: boolean;
+  onSetAutostartEnabled: (v: boolean) => void;
   onBack: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("general");
@@ -94,7 +99,14 @@ export function SettingsPanel({
         {/* Tab-Inhalt — luftig, max-Breite damit Zeilen nicht zu breit werden */}
         <div className="flex-1 px-8 py-7 overflow-y-auto">
           <div className="max-w-xl">
-            {tab === "general" && <GeneralTab status={status} version={version} />}
+            {tab === "general" && (
+              <GeneralTab
+                status={status}
+                version={version}
+                autostartEnabled={autostartEnabled}
+                onSetAutostartEnabled={onSetAutostartEnabled}
+              />
+            )}
             {tab === "updates" && (
               <UpdatesTab
                 updateState={updateState}
@@ -164,9 +176,13 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 function GeneralTab({
   status,
   version,
+  autostartEnabled,
+  onSetAutostartEnabled,
 }: {
   status: SystemStatus | null;
   version: string | null;
+  autostartEnabled: boolean;
+  onSetAutostartEnabled: (v: boolean) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const copy = async (val: string) => {
@@ -181,6 +197,33 @@ function GeneralTab({
 
   return (
     <div className="space-y-4">
+      <section>
+        <SectionHeading>Verhalten</SectionHeading>
+        <label className="flex items-start gap-3 cursor-pointer select-none px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40">
+          <div className="size-9 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 dark:text-neutral-400 shrink-0">
+            <Power className="size-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+              Bei Anmeldung starten
+            </div>
+            <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+              Syncomat läuft ab dem Login automatisch im Hintergrund (Tray) und
+              synchronisiert weiter, ohne dass du die App manuell öffnen musst.
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={autostartEnabled}
+            onChange={(e) => onSetAutostartEnabled(e.target.checked)}
+            className="mt-0.5 size-4 accent-blue-600"
+          />
+        </label>
+        <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+          Gleicher Schalter wie der Haken „Bei Login starten" im Tray-Menü.
+        </p>
+      </section>
+
       <section>
         <SectionHeading>Dieses Gerät</SectionHeading>
         {status ? (

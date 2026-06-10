@@ -30,6 +30,7 @@ import {
   useNotificationTriggers,
   useNotificationsEnabled,
 } from "./lib/notifications";
+import { useAutostart } from "./lib/autostart";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { ServerNodeModal } from "./components/ServerNodeModal";
 import { CodeShowModal } from "./components/CodeShowModal";
@@ -217,6 +218,7 @@ function App() {
     [devices.map((d) => d.deviceID).join(","), myID],
   );
   const notifications = useNotificationsEnabled();
+  const autostart = useAutostart();
   useNotificationTriggers({
     enabled: notifications.enabled,
     connections: connectionsByID,
@@ -443,6 +445,8 @@ function App() {
                 onInstallUpdate={updater.installAndRestart}
                 notificationsEnabled={notifications.enabled}
                 onSetNotificationsEnabled={notifications.setEnabled}
+                autostartEnabled={autostart.enabled}
+                onSetAutostartEnabled={autostart.setEnabled}
                 onBack={() => setPanel(null)}
               />
             ) : panel?.kind === "server-node" ? (
