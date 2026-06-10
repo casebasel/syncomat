@@ -5,7 +5,6 @@ import {
   ChevronRight,
   KeyRound,
   Plus,
-  Server,
   RefreshCw,
 } from "lucide-react";
 import { SyncStatusBadge, computeStatusLabel, type SyncState } from "./SyncStatusBadge";
@@ -60,7 +59,6 @@ export function Sidebar({
   onAddFolder,
   onShowCode,
   onRedeemCode,
-  onShowServerNode,
   onSelectDevice,
 }: {
   folders: Folder[];
@@ -79,7 +77,6 @@ export function Sidebar({
   onAddFolder: () => void;
   onShowCode: () => void;
   onRedeemCode: () => void;
-  onShowServerNode: () => void;
   /** Klick auf Geraet-Item öffnet Device-Detail-Modal. self device wird nicht durchgereicht. */
   onSelectDevice: (d: Device) => void;
 }) {
@@ -274,14 +271,6 @@ export function Sidebar({
             className="size-6 rounded-md flex items-center justify-center text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
           >
             <KeyRound className="size-3.5" />
-          </button>
-          <button
-            onClick={onShowServerNode}
-            title="Server-Node (NAS) verwalten"
-            aria-label="Server-Node verwalten"
-            className="size-6 rounded-md flex items-center justify-center text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-          >
-            <Server className="size-3.5" />
           </button>
         </div>
       </div>

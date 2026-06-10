@@ -32,7 +32,6 @@ import {
 } from "./lib/notifications";
 import { useAutostart } from "./lib/autostart";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
-import { ServerNodeModal } from "./components/ServerNodeModal";
 import { CodeShowModal } from "./components/CodeShowModal";
 import { CreateFolderModal } from "./components/CreateFolderModal";
 import { ConflictResolverModal } from "./components/ConflictResolverModal";
@@ -70,8 +69,7 @@ type Panel =
   | { kind: "folder-conflicts"; folder: Folder }
   | { kind: "folder-errors"; folder: Folder }
   | { kind: "device-detail"; deviceID: string }
-  | { kind: "link"; pending: PendingFolder }
-  | { kind: "server-node" };
+  | { kind: "link"; pending: PendingFolder };
 
 function App() {
   // WebView2-Default-Shortcuts (Find/Print/Reload) blockieren — sonst
@@ -429,7 +427,6 @@ function App() {
               onAddFolder={() => setPanel({ kind: "create-folder" })}
               onShowCode={() => setPanel({ kind: "code-show" })}
               onRedeemCode={() => setPanel({ kind: "code-redeem" })}
-              onShowServerNode={() => setPanel({ kind: "server-node" })}
               onSelectDevice={(d) =>
                 setPanel({ kind: "device-detail", deviceID: d.deviceID })
               }
@@ -449,8 +446,6 @@ function App() {
                 onSetAutostartEnabled={autostart.setEnabled}
                 onBack={() => setPanel(null)}
               />
-            ) : panel?.kind === "server-node" ? (
-              <ServerNodeModal onClose={() => setPanel(null)} />
             ) : panel?.kind === "create-folder" ? (
               <CreateFolderModal
                 endpoint={endpoint}
