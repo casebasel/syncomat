@@ -12,8 +12,13 @@ import {
 import { notifyTagsChanged } from "./tags";
 
 /** Pattern die WIR setzen wenn ignore_hidden=true. Wird beim toggle-off
- * gezielt rausgefiltert; user-erstellte Patterns bleiben unberührt. */
-const HIDDEN_PATTERNS = [".*", ".DS_Store", "Thumbs.db", "desktop.ini"];
+ * gezielt rausgefiltert; user-erstellte Patterns bleiben unberührt.
+ * (?d)-Prefix: erlaubt Syncthing, diese Hidden-Files zu löschen wenn sie ein
+ * Ordner-Löschen blockieren würden (sonst "delete dir: contains ignored files"). */
+const HIDDEN_PATTERNS = ["(?d).*", "(?d).DS_Store", "(?d)Thumbs.db", "(?d)desktop.ini"];
+/** Alte un-prefixed Varianten (Folders von vor dem (?d)-Fix) — beim toggle-off
+ * mit rausfiltern, damit nichts liegen bleibt. */
+const HIDDEN_PATTERNS_LEGACY = [".*", ".DS_Store", "Thumbs.db", "desktop.ini"];
 
 export type FolderDefaults = {
   ignore_hidden: boolean;
@@ -75,9 +80,8 @@ export async function applyFolderDefaults(
     ignore: null,
     expanded: null,
   }));
-  const userPatterns = (current.ignore ?? []).filter(
-    (p) => !HIDDEN_PATTERNS.includes(p),
-  );
+  const managed = new Set([...HIDDEN_PATTERNS, ...HIDDEN_PATTERNS_LEGACY]);
+  const userPatterns = (current.ignore ?? []).filter((p) => !managed.has(p));
   const nextIgnores = defaults.ignore_hidden
     ? [...HIDDEN_PATTERNS, ...userPatterns]
     : userPatterns;

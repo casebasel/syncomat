@@ -160,15 +160,38 @@ export const NODE_STIGNORE: string[] = [
   ".parcel-cache",
 ];
 
-export function pickStignoreForWorkload(kind: WorkloadDetection["kind"]): string[] {
-  switch (kind) {
-    case "unreal":
-      return UNREAL_STIGNORE;
-    case "node":
-      return NODE_STIGNORE;
-    default:
-      return GENERIC_STIGNORE;
+// Syncthing-interne Marker bleiben unangetastet — sie liegen im Folder-Root und
+// blockieren eh keine Subfolder-Löschung; (?d) drauf wäre nur unnötiges Risiko.
+const NEVER_DELETABLE = new Set([".stfolder", ".stignore", ".stversions"]);
+
+/**
+ * Prefix `(?d)` auf ein Ignore-Pattern: erlaubt Syncthing, die ignorierte
+ * Datei/Ordner zu löschen WENN sie das Einzige ist, das ein Ordner-Löschen
+ * blockiert. Ohne das bleibt z.B. ein unsichtbares `.DS_Store` hängen und wirft
+ * "delete dir: directory has been deleted on a remote device but contains
+ * ignored files". Kommentare, Leerzeilen, Negationen (`!`) und Syncthing-Marker
+ * bleiben unverändert.
+ */
+export function deletableIgnore(pattern: string): string {
+  const t = pattern.trimStart();
+  if (
+    t === "" ||
+    t.startsWith("//") ||
+    t.startsWith("!") ||
+    t.startsWith("(?d)") ||
+    NEVER_DELETABLE.has(t)
+  ) {
+    return pattern;
   }
+  return "(?d)" + pattern;
+}
+
+export function pickStignoreForWorkload(kind: WorkloadDetection["kind"]): string[] {
+  const preset =
+    kind === "unreal" ? UNREAL_STIGNORE : kind === "node" ? NODE_STIGNORE : GENERIC_STIGNORE;
+  // (?d)-Prefix auf jedes echte Pattern -> OS-Müll & regenerierbare Caches
+  // blockieren keine Remote-Löschungen mehr (sonst "contains ignored files").
+  return preset.map(deletableIgnore);
 }
 
 /** UI-Label für Workload-Kind. uprojectCount erweitert für Multi-Projekt-Workspaces. */
