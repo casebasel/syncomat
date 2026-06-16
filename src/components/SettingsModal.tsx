@@ -21,7 +21,7 @@ import type {
   SystemStatus,
 } from "../lib/syncthing";
 import type { UpdateState } from "../lib/updater";
-import { classifyPath, getLearnedFastAddrs } from "../lib/network";
+import { classifyPath, type NetPath } from "../lib/network";
 
 type Tab = "general" | "network" | "updates" | "notifications" | "power-user";
 
@@ -47,6 +47,9 @@ export function SettingsPanel({
   onSetFastSubnet,
   peers,
   connections,
+  hints,
+  manual,
+  onSetManual,
   onBack,
 }: {
   endpoint: Endpoint | null;
@@ -65,6 +68,9 @@ export function SettingsPanel({
   onSetFastSubnet: (v: string) => void;
   peers: Device[];
   connections: Record<DeviceID, Connection>;
+  hints: Record<string, string>;
+  manual: Record<string, string>;
+  onSetManual: (deviceID: string, addr: string) => void;
   onBack: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("general");
@@ -141,6 +147,9 @@ export function SettingsPanel({
                 onSetFastSubnet={onSetFastSubnet}
                 peers={peers}
                 connections={connections}
+                hints={hints}
+                manual={manual}
+                onSetManual={onSetManual}
               />
             )}
             {tab === "updates" && (
@@ -450,6 +459,16 @@ function NotificationsTab({
   );
 }
 
+function netBadge(path: NetPath): { label: string; cls: string } | null {
+  if (path === "fast")
+    return { label: "10GbE", cls: "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300" };
+  if (path === "local")
+    return { label: "lokal", cls: "bg-sky-100 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300" };
+  if (path === "slow")
+    return { label: "langsam", cls: "bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300" };
+  return null;
+}
+
 function NetworkTab({
   prefer10gbe,
   onSetPrefer10gbe,
@@ -457,6 +476,9 @@ function NetworkTab({
   onSetFastSubnet,
   peers,
   connections,
+  hints,
+  manual,
+  onSetManual,
 }: {
   prefer10gbe: boolean;
   onSetPrefer10gbe: (v: boolean) => void;
@@ -464,8 +486,10 @@ function NetworkTab({
   onSetFastSubnet: (v: string) => void;
   peers: Device[];
   connections: Record<DeviceID, Connection>;
+  hints: Record<string, string>;
+  manual: Record<string, string>;
+  onSetManual: (deviceID: string, addr: string) => void;
 }) {
-  const learned = getLearnedFastAddrs();
   return (
     <div className="space-y-5">
       <section>
@@ -479,9 +503,9 @@ function NetworkTab({
               Schnelles Subnetz bevorzugen
             </div>
             <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-              Hinterlegt die schnelle Adresse jedes Geräts fest, sobald sie
-              einmal gesehen wurde — wird dann beim Verbinden bevorzugt.
-              ZeroTier bleibt als Fallback.
+              Merkt die schnelle Adresse jedes Geräts, teilt sie clusterweit und
+              hinterlegt sie fest — wird beim Verbinden bevorzugt. ZeroTier
+              bleibt als Fallback.
             </p>
           </div>
           <input
@@ -510,8 +534,8 @@ function NetworkTab({
         />
         <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
           Adressen mit diesem Präfix gelten als „schnell" (10GbE). ZeroTier
-          (<span className="font-mono">192.168.191.</span>) zählt als langsamer
-          Pfad.
+          (<span className="font-mono">192.168.191.</span>) = langsam,
+          IPv6-Link-Local (<span className="font-mono">fe80::</span>) = lokal.
         </p>
       </section>
 
@@ -526,12 +550,12 @@ function NetworkTab({
             {peers.map((d) => {
               const c = connections[d.deviceID];
               const online = !!c?.connected;
-              const fast = online && classifyPath(c?.address, fastSubnet) === "fast";
-              const learnedAddr = learned[d.deviceID];
+              const badge = online ? netBadge(classifyPath(c?.address, fastSubnet)) : null;
+              const knownFast = hints[d.deviceID]?.replace(/^tcp:\/\//, "");
               return (
-                <div key={d.deviceID} className="px-3 py-2 text-[11px]">
+                <div key={d.deviceID} className="px-3 py-2.5 text-[11px] space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="flex-1 truncate text-neutral-800 dark:text-neutral-200">
+                    <span className="flex-1 truncate font-medium text-neutral-800 dark:text-neutral-200">
                       {d.name || d.deviceID.slice(0, 7)}
                     </span>
                     {!online ? (
@@ -540,35 +564,39 @@ function NetworkTab({
                       </span>
                     ) : (
                       <>
-                        <span className="font-mono text-neutral-400 dark:text-neutral-500 truncate max-w-[150px]">
+                        <span className="font-mono text-neutral-400 dark:text-neutral-500 truncate max-w-[140px]">
                           {c?.address}
                         </span>
-                        <span
-                          className={`font-semibold px-1.5 py-0.5 rounded text-[10px] ${
-                            fast
-                              ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300"
-                              : "bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300"
-                          }`}
-                        >
-                          {fast ? "10GbE" : "langsam"}
-                        </span>
+                        {badge && (
+                          <span className={`font-semibold px-1.5 py-0.5 rounded text-[10px] ${badge.cls}`}>
+                            {badge.label}
+                          </span>
+                        )}
                       </>
                     )}
                   </div>
-                  {learnedAddr && (
-                    <div className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono mt-0.5">
-                      gemerkte 10GbE-Adresse: {learnedAddr.replace(/^tcp:\/\//, "")}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutral-400 dark:text-neutral-500 shrink-0">
+                      10GbE:
+                    </span>
+                    <input
+                      type="text"
+                      value={manual[d.deviceID] ?? ""}
+                      onChange={(e) => onSetManual(d.deviceID, e.target.value)}
+                      spellCheck={false}
+                      placeholder={knownFast || "z.B. 192.168.100.50:22000"}
+                      className="flex-1 font-mono text-[10px] px-2 py-1 rounded border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-200 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:border-blue-500 focus-visible:outline-none"
+                    />
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
         <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
-          Läuft ein Gerät über „langsam" obwohl es im 10GbE-Netz hängt: kurz
-          pausieren/neu verbinden — dann wird die gemerkte schnelle Adresse
-          bevorzugt.
+          Adressen werden auto-gelernt + clusterweit geteilt. Für Geräte, die
+          kein Node je auf 10GbE gesehen hat (z.B. NAS), die Adresse hier manuell
+          eintragen. Platzhalter (grau) = bereits bekannter Wert.
         </p>
       </section>
     </div>

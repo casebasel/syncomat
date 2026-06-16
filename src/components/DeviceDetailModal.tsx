@@ -298,21 +298,30 @@ export function DeviceDetailModal({
 
 function PathBadge({ path }: { path: NetPath }) {
   if (path === "none") return null;
-  const fast = path === "fast";
+  const map = {
+    fast: {
+      label: "10GbE",
+      cls: "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300",
+      title: "Verbunden über das schnelle 10GbE-Subnetz",
+    },
+    local: {
+      label: "lokal",
+      cls: "bg-sky-100 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300",
+      title: "Verbunden über IPv6-Link-Local (lokales Netz, evtl. 10GbE über IPv6)",
+    },
+    slow: {
+      label: "langsam",
+      cls: "bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300",
+      title: "Verbunden über einen langsameren Pfad (ZeroTier / Relais / WAN)",
+    },
+  } as const;
+  const m = map[path];
   return (
     <span
-      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-        fast
-          ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300"
-          : "bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300"
-      }`}
-      title={
-        fast
-          ? "Verbunden über das schnelle 10GbE-Subnetz"
-          : "Verbunden über einen langsameren Pfad (ZeroTier / Relais / WAN)"
-      }
+      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${m.cls}`}
+      title={m.title}
     >
-      {fast ? "10GbE" : "langsam"}
+      {m.label}
     </span>
   );
 }

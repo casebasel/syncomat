@@ -23,6 +23,8 @@ import {
 } from "./lib/syncthing";
 import {
   useFastSubnet,
+  useNetworkHints,
+  useNetworkManual,
   usePrefer10GbE,
   usePrefer10GbE_apply,
 } from "./lib/network";
@@ -226,15 +228,21 @@ function App() {
   const rate = useTransferRate(endpoint, ready);
   const prefer10 = usePrefer10GbE();
   const fastSubnet = useFastSubnet();
-  // Lernt schnelle (10GbE) Adressen + pinnt sie wenn aktiviert; Fallback bleibt.
-  usePrefer10GbE_apply(
+  const netManual = useNetworkManual();
+  // Beobachtet schnelle Adressen, synct sie cluster-weit (wenn aktiv) und liefert
+  // die gemergte Karte (selbst gesehen ∪ manuell ∪ von Peers).
+  const netHints = useNetworkHints(
     endpoint,
     ready,
+    folders,
+    myID,
     connectionsByID,
-    devices,
+    netManual.manual,
     prefer10.enabled,
     fastSubnet.subnet,
   );
+  // Pinnt die schnellen Adressen aus der gemergten Karte (wenn aktiv); Fallback bleibt.
+  usePrefer10GbE_apply(endpoint, ready, devices, prefer10.enabled, netHints);
   useNotificationTriggers({
     enabled: notifications.enabled,
     connections: connectionsByID,
@@ -468,6 +476,9 @@ function App() {
                 onSetFastSubnet={fastSubnet.setSubnet}
                 peers={peers}
                 connections={connectionsByID}
+                hints={netHints}
+                manual={netManual.manual}
+                onSetManual={netManual.setManual}
                 onBack={() => setPanel(null)}
               />
             ) : panel?.kind === "create-folder" ? (

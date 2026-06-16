@@ -4,6 +4,7 @@ mod firstrun;
 mod folder_settings;
 mod folder_stats;
 mod invites;
+mod network_hints;
 mod reveal;
 mod sidecar;
 
@@ -120,6 +121,8 @@ pub fn run() {
             firstrun::config_mark_seen,
             autostart::autostart_get,
             autostart::autostart_set,
+            network_hints::network_hints_write,
+            network_hints::network_hints_read_all,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
