@@ -9,13 +9,21 @@ import {
   ExternalLink,
   Info,
   Loader2,
+  Network,
   Power,
   RefreshCw,
 } from "lucide-react";
-import type { Endpoint, SystemStatus } from "../lib/syncthing";
+import type {
+  Connection,
+  Device,
+  DeviceID,
+  Endpoint,
+  SystemStatus,
+} from "../lib/syncthing";
 import type { UpdateState } from "../lib/updater";
+import { classifyPath, getLearnedFastAddrs } from "../lib/network";
 
-type Tab = "general" | "updates" | "notifications" | "power-user";
+type Tab = "general" | "network" | "updates" | "notifications" | "power-user";
 
 /**
  * Einstellungen als INLINE-Ansicht im Hauptbereich (kein Overlay-Modal mehr).
@@ -33,6 +41,12 @@ export function SettingsPanel({
   onSetNotificationsEnabled,
   autostartEnabled,
   onSetAutostartEnabled,
+  prefer10gbe,
+  onSetPrefer10gbe,
+  fastSubnet,
+  onSetFastSubnet,
+  peers,
+  connections,
   onBack,
 }: {
   endpoint: Endpoint | null;
@@ -45,6 +59,12 @@ export function SettingsPanel({
   onSetNotificationsEnabled: (v: boolean) => void;
   autostartEnabled: boolean;
   onSetAutostartEnabled: (v: boolean) => void;
+  prefer10gbe: boolean;
+  onSetPrefer10gbe: (v: boolean) => void;
+  fastSubnet: string;
+  onSetFastSubnet: (v: string) => void;
+  peers: Device[];
+  connections: Record<DeviceID, Connection>;
   onBack: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("general");
@@ -76,6 +96,12 @@ export function SettingsPanel({
             onClick={() => setTab("general")}
           />
           <TabButton
+            label="Netzwerk"
+            icon={<Network className="size-[15px]" />}
+            active={tab === "network"}
+            onClick={() => setTab("network")}
+          />
+          <TabButton
             label="Aktualisierung"
             icon={<RefreshCw className="size-[15px]" />}
             active={tab === "updates"}
@@ -105,6 +131,16 @@ export function SettingsPanel({
                 version={version}
                 autostartEnabled={autostartEnabled}
                 onSetAutostartEnabled={onSetAutostartEnabled}
+              />
+            )}
+            {tab === "network" && (
+              <NetworkTab
+                prefer10gbe={prefer10gbe}
+                onSetPrefer10gbe={onSetPrefer10gbe}
+                fastSubnet={fastSubnet}
+                onSetFastSubnet={onSetFastSubnet}
+                peers={peers}
+                connections={connections}
               />
             )}
             {tab === "updates" && (
@@ -410,6 +446,131 @@ function NotificationsTab({
         Beim ersten Mal fragt das System nach Erlaubnis. Lehnst du ab, kann
         die App keine Benachrichtigungen schicken — Toggle bleibt aus.
       </p>
+    </div>
+  );
+}
+
+function NetworkTab({
+  prefer10gbe,
+  onSetPrefer10gbe,
+  fastSubnet,
+  onSetFastSubnet,
+  peers,
+  connections,
+}: {
+  prefer10gbe: boolean;
+  onSetPrefer10gbe: (v: boolean) => void;
+  fastSubnet: string;
+  onSetFastSubnet: (v: string) => void;
+  peers: Device[];
+  connections: Record<DeviceID, Connection>;
+}) {
+  const learned = getLearnedFastAddrs();
+  return (
+    <div className="space-y-5">
+      <section>
+        <SectionHeading>10GbE bevorzugen</SectionHeading>
+        <label className="flex items-start gap-3 cursor-pointer select-none px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40">
+          <div className="size-9 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 dark:text-neutral-400 shrink-0">
+            <Network className="size-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+              Schnelles Subnetz bevorzugen
+            </div>
+            <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+              Hinterlegt die schnelle Adresse jedes Geräts fest, sobald sie
+              einmal gesehen wurde — wird dann beim Verbinden bevorzugt.
+              ZeroTier bleibt als Fallback.
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={prefer10gbe}
+            onChange={(e) => onSetPrefer10gbe(e.target.checked)}
+            className="mt-0.5 size-4 accent-blue-600"
+          />
+        </label>
+        <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+          „Weich": Syncthing behält die Verbindung, die zuerst steht. Die feste
+          Adresse gewinnt im schnellen LAN meist das Connect-Rennen, aber nicht
+          garantiert. Aus = zurück zu reinem Auto (dynamic).
+        </p>
+      </section>
+
+      <section>
+        <SectionHeading>Schnelles Subnetz (Präfix)</SectionHeading>
+        <input
+          type="text"
+          value={fastSubnet}
+          onChange={(e) => onSetFastSubnet(e.target.value)}
+          spellCheck={false}
+          className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 text-neutral-900 dark:text-neutral-100 focus:border-blue-500 focus-visible:outline-none"
+          placeholder="192.168.100."
+        />
+        <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+          Adressen mit diesem Präfix gelten als „schnell" (10GbE). ZeroTier
+          (<span className="font-mono">192.168.191.</span>) zählt als langsamer
+          Pfad.
+        </p>
+      </section>
+
+      <section>
+        <SectionHeading>Geräte-Pfade</SectionHeading>
+        {peers.length === 0 ? (
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            Keine Geräte.
+          </p>
+        ) : (
+          <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-800">
+            {peers.map((d) => {
+              const c = connections[d.deviceID];
+              const online = !!c?.connected;
+              const fast = online && classifyPath(c?.address, fastSubnet) === "fast";
+              const learnedAddr = learned[d.deviceID];
+              return (
+                <div key={d.deviceID} className="px-3 py-2 text-[11px]">
+                  <div className="flex items-center gap-2">
+                    <span className="flex-1 truncate text-neutral-800 dark:text-neutral-200">
+                      {d.name || d.deviceID.slice(0, 7)}
+                    </span>
+                    {!online ? (
+                      <span className="text-neutral-400 dark:text-neutral-500">
+                        offline
+                      </span>
+                    ) : (
+                      <>
+                        <span className="font-mono text-neutral-400 dark:text-neutral-500 truncate max-w-[150px]">
+                          {c?.address}
+                        </span>
+                        <span
+                          className={`font-semibold px-1.5 py-0.5 rounded text-[10px] ${
+                            fast
+                              ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300"
+                              : "bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300"
+                          }`}
+                        >
+                          {fast ? "10GbE" : "langsam"}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  {learnedAddr && (
+                    <div className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono mt-0.5">
+                      gemerkte 10GbE-Adresse: {learnedAddr.replace(/^tcp:\/\//, "")}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+          Läuft ein Gerät über „langsam" obwohl es im 10GbE-Netz hängt: kurz
+          pausieren/neu verbinden — dann wird die gemerkte schnelle Adresse
+          bevorzugt.
+        </p>
+      </section>
     </div>
   );
 }

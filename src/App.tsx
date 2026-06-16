@@ -16,10 +16,16 @@ import {
   usePendingFolders,
   useStatus,
   useSyncthingReady,
+  useTransferRate,
   type Folder,
   type PendingDevice,
   type PendingFolder,
 } from "./lib/syncthing";
+import {
+  useFastSubnet,
+  usePrefer10GbE,
+  usePrefer10GbE_apply,
+} from "./lib/network";
 
 import { invitePurgeExpired } from "./lib/invitesStore";
 import { autoAcceptActive } from "./lib/autoAccept";
@@ -217,6 +223,18 @@ function App() {
   );
   const notifications = useNotificationsEnabled();
   const autostart = useAutostart();
+  const rate = useTransferRate(endpoint, ready);
+  const prefer10 = usePrefer10GbE();
+  const fastSubnet = useFastSubnet();
+  // Lernt schnelle (10GbE) Adressen + pinnt sie wenn aktiviert; Fallback bleibt.
+  usePrefer10GbE_apply(
+    endpoint,
+    ready,
+    connectionsByID,
+    devices,
+    prefer10.enabled,
+    fastSubnet.subnet,
+  );
   useNotificationTriggers({
     enabled: notifications.enabled,
     connections: connectionsByID,
@@ -444,6 +462,12 @@ function App() {
                 onSetNotificationsEnabled={notifications.setEnabled}
                 autostartEnabled={autostart.enabled}
                 onSetAutostartEnabled={autostart.setEnabled}
+                prefer10gbe={prefer10.enabled}
+                onSetPrefer10gbe={prefer10.setEnabled}
+                fastSubnet={fastSubnet.subnet}
+                onSetFastSubnet={fastSubnet.setSubnet}
+                peers={peers}
+                connections={connectionsByID}
                 onBack={() => setPanel(null)}
               />
             ) : panel?.kind === "create-folder" ? (
@@ -567,6 +591,8 @@ function App() {
             localFiles={aggregate.localFiles}
             localBytes={aggregate.localBytes}
             version={version}
+            inBps={rate.inBps}
+            outBps={rate.outBps}
           />
         </div>
         <button

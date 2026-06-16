@@ -1,5 +1,6 @@
 import type { FolderStatus } from "../lib/syncthing";
 import { estimateIndexRamMB } from "../lib/unreal";
+import { fmtSpeed } from "../lib/network";
 
 export type AggregateState = "idle" | "syncing" | "error";
 
@@ -50,6 +51,8 @@ export function Statusbar({
   version,
   localFiles,
   localBytes,
+  inBps,
+  outBps,
 }: {
   ready: boolean;
   aggregateState: AggregateState;
@@ -59,7 +62,14 @@ export function Statusbar({
   version: string | null;
   localFiles?: number;
   localBytes?: number;
+  inBps?: number;
+  outBps?: number;
 }) {
+  // Live-Übertragungsrate nur zeigen wenn wirklich was fließt (> 1 KB/s) —
+  // sonst flackert "0 B/s" im Idle.
+  const dn = inBps ?? 0;
+  const up = outBps ?? 0;
+  const transferActive = dn + up > 1024;
   // Beim Boot NICHT grün „Alle Ordner synchron" lügen — erst wenn der Sync-Dienst
   // wirklich verbunden ist (sonst wirkt ein leerer/ladender Zustand wie „alles ok").
   let left = ready ? "Alle Ordner synchron" : "Sync-Dienst startet…";
@@ -85,6 +95,17 @@ export function Statusbar({
     <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[11px]">
       <span className={leftCls}>{left}</span>
       <span className="text-neutral-400 dark:text-neutral-500 flex items-center gap-1.5">
+        {transferActive && (
+          <>
+            <span
+              className="text-blue-500 dark:text-blue-400 tabular-nums font-medium"
+              title="Live-Übertragungsrate (gesamt über alle Geräte)"
+            >
+              ↓ {fmtSpeed(dn)} ↑ {fmtSpeed(up)}
+            </span>
+            <span className="text-neutral-300 dark:text-neutral-700">·</span>
+          </>
+        )}
         {ramMB > 0 && (
           <>
             <span className={ramTone} title="Geschätzter Sync-Engine RAM-Verbrauch für den Index">

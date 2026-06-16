@@ -11,6 +11,7 @@ import {
   type Endpoint,
   type Folder,
 } from "../lib/syncthing";
+import { classifyPath, type NetPath } from "../lib/network";
 
 export function DeviceDetailModal({
   device,
@@ -105,6 +106,9 @@ export function DeviceDetailModal({
             variant="pill"
             size="sm"
           />
+          {online && connection?.address && (
+            <PathBadge path={classifyPath(connection.address)} />
+          )}
           {connection && online && (
             <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
               {formatTransfer(connection)}
@@ -289,6 +293,27 @@ export function DeviceDetailModal({
         )}
       </div>
     </PanelShell>
+  );
+}
+
+function PathBadge({ path }: { path: NetPath }) {
+  if (path === "none") return null;
+  const fast = path === "fast";
+  return (
+    <span
+      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+        fast
+          ? "bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300"
+          : "bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300"
+      }`}
+      title={
+        fast
+          ? "Verbunden über das schnelle 10GbE-Subnetz"
+          : "Verbunden über einen langsameren Pfad (ZeroTier / Relais / WAN)"
+      }
+    >
+      {fast ? "10GbE" : "langsam"}
+    </span>
   );
 }
 
