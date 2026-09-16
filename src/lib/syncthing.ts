@@ -70,9 +70,21 @@ export type Device = {
   introducer: boolean;
   autoAcceptFolders: boolean;
   paused: boolean;
+  /** Ordner-Angebote dieses Geräts, die wir dauerhaft abgelehnt haben —
+   * Syncthing zeigt sie dann nicht mehr als "pending" (auch wenn Auto-Share
+   * sie weiter teilt). */
+  ignoredFolders?: { id: FolderID; label: string; time: string }[];
 };
 
 export type Config = { folders: Folder[]; devices: Device[] };
+
+/** Ausschnitt der globalen Syncthing-Optionen, den wir anfassen. */
+export type Options = {
+  /** true = Syncthing senkt seine eigene Prozess-Priorität (Default). Auf
+   * dedizierten Sync-Workstations bremst das Hashen + Ziehen spürbar. */
+  setLowPriority?: boolean;
+  maxFolderConcurrency?: number;
+};
 
 export type PendingFolder = {
   folderID: FolderID;
@@ -149,6 +161,42 @@ export const getPing = (ep: Endpoint) =>
 export const getConnections = (ep: Endpoint) =>
   api<Connections>(ep, "/rest/system/connections");
 export const getConfig = (ep: Endpoint) => api<Config>(ep, "/rest/config");
+
+export const getOptions = (ep: Endpoint) => api<Options>(ep, "/rest/config/options");
+
+/** Teil-Update der globalen Optionen (PATCH merged, Rest bleibt). */
+export const patchOptions = (ep: Endpoint, partial: Options) =>
+  api<void>(ep, "/rest/config/options", {
+    method: "PATCH",
+    body: JSON.stringify(partial),
+    headers: { "Content-Type": "application/json" },
+  });
+
+/**
+ * Ein angebotenes Folder dauerhaft ablehnen: auf jedem anbietenden Gerät in
+ * `ignoredFolders` eintragen. Syncthing nimmt es damit aus der Pending-Liste
+ * und bietet es nicht erneut an — selbst wenn Auto-Share es weiter teilt.
+ * (Gegenstück zum Verknüpfen; ohne das poppt ein entfernter Ordner ewig
+ * wieder als "Verfügbar" auf.)
+ */
+export async function ignorePendingFolder(
+  ep: Endpoint,
+  folderID: FolderID,
+  label: string,
+  offeredBy: DeviceID[],
+): Promise<void> {
+  const config = await getConfig(ep);
+  const time = new Date().toISOString();
+  for (const did of offeredBy) {
+    const dev = config.devices.find((d) => d.deviceID === did);
+    if (!dev) continue;
+    const ignored = dev.ignoredFolders ?? [];
+    if (ignored.some((f) => f.id === folderID)) continue;
+    await patchDevice(ep, did, {
+      ignoredFolders: [...ignored, { id: folderID, label, time }],
+    });
+  }
+}
 
 type PendingFoldersRaw = Record<FolderID, { offeredBy: PendingFolder["offeredBy"] }>;
 export async function getPendingFolders(ep: Endpoint): Promise<PendingFolder[]> {
@@ -301,11 +349,11 @@ export function tuneFolderForSize(
   } else if (gb >= 1) {
     rescanIntervalS = 300;
     fsWatcherDelayS = 5;
-    maxConflicts = 25;
+    maxConflicts = 10;
   } else {
     rescanIntervalS = 60;
     fsWatcherDelayS = 2;
-    maxConflicts = 25;
+    maxConflicts = 10;
   }
   return {
     ...folder,
@@ -316,7 +364,14 @@ export function tuneFolderForSize(
     hashers,
     maxConflicts,
     scanProgressIntervalS: 5,
-    weakHashThresholdPct: isUnreal || files > 50_000 ? 0 : 25,
+    // Rechte-Bits NICHT syncen: im Mac/Windows/NAS-Mix erzeugen sie sonst
+    // Dauer-Churn ("geändert", obwohl nur der Mode-Bit anders ist) und auf
+    // receive-only-Ordnern der NAS "lokal geänderte Elemente".
+    ignorePerms: true,
+    // Weak-Hash (Rolling-Hash) findet VERSCHOBENE Blöcke — nützt bei
+    // Text/Logs, nicht bei Unreal-Binärassets, die komplett neu geschrieben
+    // werden, und bei 50k+ kleinen Dateien kostet er nur CPU je Scan → aus (101).
+    weakHashThresholdPct: isUnreal || files > 50_000 ? 101 : 25,
     blockPullOrder: isUnreal ? "inOrder" : "standard",
     // caseSensitiveFS NICHT setzen — auto-detect lassen
   };

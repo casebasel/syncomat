@@ -21,6 +21,7 @@ export type LinkConfirmOptions = {
 export function LinkFolderModal({
   pending,
   onConfirm,
+  onDecline,
   onClose,
 }: {
   pending: PendingFolder;
@@ -29,6 +30,9 @@ export function LinkFolderModal({
     localPath: string,
     options: LinkConfirmOptions,
   ) => Promise<void>;
+  /** Angebot dauerhaft ablehnen — der Ordner taucht nicht mehr als
+   * "Verfügbar" auf, auch wenn Auto-Share ihn weiter teilt. */
+  onDecline?: () => Promise<void>;
   onClose: () => void;
 }) {
   const firstOfferer = Object.values(pending.offeredBy)[0];
@@ -37,6 +41,20 @@ export function LinkFolderModal({
   const [label, setLabel] = useState(defaultLabel);
   const [path, setPath] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [declining, setDeclining] = useState(false);
+
+  const decline = async () => {
+    if (!onDecline || busy || declining) return;
+    setDeclining(true);
+    setError(null);
+    try {
+      await onDecline();
+      onClose();
+    } catch (e) {
+      setError(String(e));
+      setDeclining(false);
+    }
+  };
   const [error, setError] = useState<string | null>(null);
   const [estimating, setEstimating] = useState(false);
   const [estimate, setEstimate] = useState<FolderEstimate | null>(null);
@@ -222,7 +240,17 @@ export function LinkFolderModal({
           <p className="text-xs text-rose-500 dark:text-rose-400 break-words">{error}</p>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex items-center gap-2 pt-2">
+          {onDecline && (
+            <button
+              onClick={decline}
+              disabled={busy || declining}
+              title={'Dieses Angebot dauerhaft ausblenden — es wird nicht mehr unter „Verfügbar“ gelistet'}
+              className="text-xs px-3 py-1.5 rounded-lg text-neutral-500 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-50 mr-auto"
+            >
+              {declining ? "Blende aus…" : "Nicht mehr anbieten"}
+            </button>
+          )}
           <button
             onClick={onClose}
             disabled={busy}

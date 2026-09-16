@@ -65,10 +65,15 @@ pub fn network_hints_read_all(folder_path: String) -> Result<Vec<String>, String
     let mut out = Vec::new();
     for entry in entries.flatten() {
         let p = entry.path();
-        // .json (aber keine .json.tmp Halbschreibungen + keine sync-conflict-Reste)
         let name = entry.file_name();
         let name = name.to_string_lossy();
-        if !name.ends_with(".json") || name.contains(".sync-conflict-") {
+        // Reste still wegräumen: sync-conflict-Varianten (pro Node eine Datei,
+        // Konflikte sind hier nie gewollt) und liegengebliebene .tmp-Halbschreibungen.
+        if name.contains(".sync-conflict-") || name.ends_with(".json.tmp") {
+            let _ = fs::remove_file(&p);
+            continue;
+        }
+        if !name.ends_with(".json") {
             continue;
         }
         if let Ok(s) = fs::read_to_string(&p) {

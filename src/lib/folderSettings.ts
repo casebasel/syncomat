@@ -76,16 +76,27 @@ export async function applyFolderDefaults(
 ): Promise<void> {
   // ─ ignore patterns ─
   // Merge: existing user patterns minus HIDDEN_PATTERNS, dann ggf. HIDDEN_PATTERNS rein.
+  //
+  // WICHTIG: Ignores NUR schreiben, wenn sie sich wirklich ändern. Jedes
+  // setFolderIgnores löst in Syncthing einen Rescan aus — bei 26-GB-Unreal-
+  // Ordnern Minuten CPU auf JEDEM Gerät, und die Replikation läuft bei jeder
+  // Tag-Änderung. Vorher wurde hier bedingungslos geschrieben (Rescan-Sturm).
   const current = await getFolderIgnores(ep, folder.id).catch(() => ({
     ignore: null,
     expanded: null,
   }));
-  const managed = new Set([...HIDDEN_PATTERNS, ...HIDDEN_PATTERNS_LEGACY]);
-  const userPatterns = (current.ignore ?? []).filter((p) => !managed.has(p));
-  const nextIgnores = defaults.ignore_hidden
-    ? [...HIDDEN_PATTERNS, ...userPatterns]
-    : userPatterns;
-  await setFolderIgnores(ep, folder.id, nextIgnores);
+  if (current.ignore !== null) {
+    // Bei API-Aussetzer (ignore === null) KEINESFALLS schreiben — sonst würde
+    // die .stignore geleert und z.B. DerivedDataCache plötzlich mitsyncen.
+    const managed = new Set([...HIDDEN_PATTERNS, ...HIDDEN_PATTERNS_LEGACY]);
+    const userPatterns = current.ignore.filter((p) => !managed.has(p));
+    const nextIgnores = defaults.ignore_hidden
+      ? [...HIDDEN_PATTERNS, ...userPatterns]
+      : userPatterns;
+    if (nextIgnores.join("\n") !== current.ignore.join("\n")) {
+      await setFolderIgnores(ep, folder.id, nextIgnores);
+    }
+  }
 
   // ─ versioning ─
   // Fresh folder fetch um stale-reference (z.B. devices[] vom Replication-Hook) zu vermeiden.
@@ -95,13 +106,23 @@ export async function applyFolderDefaults(
     throw new Error(`folder ${folder.id} not found in syncthing config`);
   }
 
+  // Auch hier: PUT nur bei echter Änderung (Folder-PUT startet den Ordner in
+  // Syncthing neu → erneuter Scan).
+  const wantType = defaults.trashcan ? "trashcan" : "";
+  const wantDays = String(defaults.trashcan_cleanout_days);
+  const haveType = currentFolder.versioning?.type ?? "";
+  const haveDays = currentFolder.versioning?.params?.cleanoutDays;
+  const unchanged =
+    haveType === wantType && (wantType !== "trashcan" || haveDays === wantDays);
+  if (unchanged) return;
+
   const updatedFolder: Folder = {
     ...currentFolder,
     versioning: defaults.trashcan
       ? {
           type: "trashcan",
           params: {
-            cleanoutDays: String(defaults.trashcan_cleanout_days),
+            cleanoutDays: wantDays,
           },
         }
       : { type: "" },

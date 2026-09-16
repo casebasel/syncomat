@@ -5,6 +5,7 @@ import "./App.css";
 
 import {
   deletePendingDevice,
+  ignorePendingFolder,
   patchDevice,
   putFolder,
   scanAllFolders,
@@ -39,6 +40,7 @@ import {
   useNotificationsEnabled,
 } from "./lib/notifications";
 import { useAutostart } from "./lib/autostart";
+import { useSyncMaintenance } from "./lib/maintenance";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { CodeShowModal } from "./components/CodeShowModal";
 import { CreateFolderModal } from "./components/CreateFolderModal";
@@ -99,6 +101,8 @@ function App() {
 
   const aggregate = useAggregateStatus(endpoint, ready, folders);
   useFolderSettingsReplication(endpoint, ready, folders, myID);
+  // Einmalige Wartung: setLowPriority aus, (?d)-Migration, ignorePerms, weakHash.
+  useSyncMaintenance(endpoint, ready, folders);
   const tags = useFolderTags(folders);
   const tagsByFolderID = tags.byID;
   // Alle existierenden Tags für Autocomplete im TagEditor
@@ -535,6 +539,19 @@ function App() {
                 pending={panel.pending}
                 onConfirm={(label, path, options) =>
                   onLinkConfirm(panel.pending, label, path, options)
+                }
+                onDecline={
+                  endpoint
+                    ? async () => {
+                        const first = Object.values(panel.pending.offeredBy)[0];
+                        await ignorePendingFolder(
+                          endpoint,
+                          panel.pending.folderID,
+                          first?.label || panel.pending.folderID,
+                          Object.keys(panel.pending.offeredBy),
+                        );
+                      }
+                    : undefined
                 }
                 onClose={() => setPanel(null)}
               />

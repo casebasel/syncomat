@@ -63,17 +63,29 @@ export function useNotificationTriggers({
   updateState: UpdateState;
 }) {
   const prevConnectedRef = useRef<Set<DeviceID> | null>(null);
-  const prevPendingDeviceCountRef = useRef<number | null>(null);
-  const prevPendingFolderCountRef = useRef<number | null>(null);
+  /** Wann ein Gerät offline ging — Reconnects nach kurzem Flackern (IPv6↔IPv4-
+   * Re-Dial, 10GbE-Pin, WLAN-Wackler) sollen NICHT jedes Mal melden. */
+  const offlineSinceRef = useRef<Map<DeviceID, number>>(new Map());
+  const mountedAtRef = useRef<number>(Date.now());
+  /** Bereits gemeldete Anfragen/Angebote — pro ID, nicht pro Zähler: ein
+   * wiederangebotener Ordner (Auto-Share) darf nicht x-mal "neu" heissen. */
+  const seenPendingDevicesRef = useRef<Set<DeviceID> | null>(null);
+  const seenPendingFoldersRef = useRef<Set<string> | null>(null);
   const prevUpdateKindRef = useRef<UpdateState["kind"] | null>(null);
+
+  // Nach dem Start trudeln die Geräte über 10–60 s ein — das ist kein Ereignis.
+  const STARTUP_GRACE_MS = 90_000;
+  // Ein Gerät gilt erst nach so langer Abwesenheit wieder als "neu online".
+  const MIN_OFFLINE_MS = 60_000;
 
   const labelFor = (id: DeviceID): string => {
     const dev = devices.find((d) => d.deviceID === id);
     return dev?.name?.trim() || id.slice(0, 7);
   };
 
-  // ── Connections: neuer Peer ist online → "Verbunden mit Mac-Marlon" ──
+  // ── Connections: Peer ist (nach echter Abwesenheit) wieder online ──
   useEffect(() => {
+    const now = Date.now();
     const nowConnected = new Set<DeviceID>(
       Object.entries(connections)
         .filter(([, c]) => c.connected)
@@ -84,52 +96,60 @@ export function useNotificationTriggers({
       prevConnectedRef.current = nowConnected;
       return; // First mount: nicht notifien
     }
-    if (!enabled) {
-      prevConnectedRef.current = nowConnected;
-      return;
+    const offlineSince = offlineSinceRef.current;
+    for (const id of prev) {
+      if (!nowConnected.has(id) && !offlineSince.has(id)) offlineSince.set(id, now);
     }
+    const inGrace = now - mountedAtRef.current < STARTUP_GRACE_MS;
     for (const id of nowConnected) {
-      if (!prev.has(id)) {
-        void notify("Syncomat", `${labelFor(id)} ist online`);
-      }
+      if (prev.has(id)) continue;
+      const since = offlineSince.get(id);
+      offlineSince.delete(id);
+      if (!enabled || inGrace) continue;
+      // Unbekannte Abwesenheit (offline seit vor unserem Tracking) zählt als lang.
+      if (since !== undefined && now - since < MIN_OFFLINE_MS) continue;
+      void notify("Syncomat", `${labelFor(id)} ist online`);
     }
     prevConnectedRef.current = nowConnected;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Object.entries(connections).map(([id, c]) => `${id}:${c.connected ? 1 : 0}`).join(","), enabled]);
 
-  // ── Pending-Devices: neuer Code eingelöst → "Neue Verbindungs-Anfrage" ──
+  // ── Pending-Devices: neue Verbindungs-Anfrage (einmal pro Gerät) ──
   useEffect(() => {
-    const count = pendingDevices.length;
-    const prev = prevPendingDeviceCountRef.current;
-    if (prev === null) {
-      prevPendingDeviceCountRef.current = count;
+    const ids = pendingDevices.map((d) => d.deviceID);
+    const seen = seenPendingDevicesRef.current;
+    if (seen === null) {
+      seenPendingDevicesRef.current = new Set(ids);
       return;
     }
-    if (enabled && count > prev) {
-      const latest = pendingDevices[pendingDevices.length - 1];
-      const who = latest?.name?.trim() || latest?.deviceID.slice(0, 7) || "unbekannt";
+    for (const pd of pendingDevices) {
+      if (seen.has(pd.deviceID)) continue;
+      seen.add(pd.deviceID);
+      if (!enabled) continue;
+      const who = pd.name?.trim() || pd.deviceID.slice(0, 7) || "unbekannt";
       void notify("Neue Verbindungs-Anfrage", `${who} möchte sich verbinden`);
     }
-    prevPendingDeviceCountRef.current = count;
-  }, [pendingDevices.length, enabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingDevices.map((d) => d.deviceID).join(","), enabled]);
 
-  // ── Pending-Folders: neuer Ordner verfügbar → "Ordner Foo verfügbar" ──
+  // ── Pending-Folders: neuer Ordner verfügbar (einmal pro Ordner-ID) ──
   useEffect(() => {
-    const count = pendingFolders.length;
-    const prev = prevPendingFolderCountRef.current;
-    if (prev === null) {
-      prevPendingFolderCountRef.current = count;
+    const seen = seenPendingFoldersRef.current;
+    if (seen === null) {
+      seenPendingFoldersRef.current = new Set(pendingFolders.map((p) => p.folderID));
       return;
     }
-    if (enabled && count > prev) {
-      const latest = pendingFolders[pendingFolders.length - 1];
+    for (const pf of pendingFolders) {
+      if (seen.has(pf.folderID)) continue;
+      seen.add(pf.folderID);
+      if (!enabled) continue;
       // PendingFolder.label liegt in offeredBy[firstPeer].label
-      const firstOffered = latest ? Object.values(latest.offeredBy)[0] : undefined;
-      const label = firstOffered?.label || latest?.folderID || "Neuer Ordner";
+      const firstOffered = Object.values(pf.offeredBy)[0];
+      const label = firstOffered?.label || pf.folderID || "Neuer Ordner";
       void notify("Neuer Ordner verfügbar", `„${label}" wartet auf Verknüpfung`);
     }
-    prevPendingFolderCountRef.current = count;
-  }, [pendingFolders.length, enabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingFolders.map((p) => p.folderID).join(","), enabled]);
 
   // ── Updater state change → "Update v0.1.x verfügbar" ──
   useEffect(() => {
