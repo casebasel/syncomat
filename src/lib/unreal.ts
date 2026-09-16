@@ -127,6 +127,9 @@ export const UNREAL_STIGNORE: string[] = [
   ".stfolder",
   ".stignore",
   "",
+  "// === Resilio-Sync-Reste (Archiv gelöschter Dateien, reiner Ballast) ===",
+  ".sync",
+  "",
   "// === Bewusst NICHT ignoriert (Negation gegen Saved-Wildcard) ===",
   "// Saved/Config = Team-Editor-Einstellungen, auch in Subfolders behalten",
   "!**/Saved/Config",
@@ -142,6 +145,7 @@ export const GENERIC_STIGNORE: string[] = [
   ".Trashes",
   ".fseventsd",
   "._*",
+  ".sync", // Resilio-Sync-Reste (Archiv gelöschter Dateien)
   "*.tmp",
   "*.swp",
   "*~",

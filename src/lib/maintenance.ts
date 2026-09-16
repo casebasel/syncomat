@@ -35,9 +35,16 @@ import {
 //       (Rechte-Churn, "lokal geändert" auf receive-only-Ordnern).
 //    c) `weakHashThresholdPct 0 → 101` — Rolling-Hash bringt bei komplett
 //       neu geschriebenen Binärassets nichts, kostet nur CPU je Scan.
+//    d) (v2) `(?d).sync` anhängen — Resilio-Sync-Reste (Archiv gelöschter
+//       Dateien) sind reiner Ballast. Nur bei Listen, die erkennbar von einem
+//       Syncomat-Preset stammen (mind. eine bekannte Preset-Zeile).
+//
+// Marker-Version hochzählen, wenn ein neuer Schritt dazukommt — alle Schritte
+// sind idempotent, ein erneuter Lauf schreibt nur, was wirklich fehlt.
 
-const MARK_PREFIX = "syncomat.maintenance.v1:";
+const MARK_PREFIX = "syncomat.maintenance.v2:";
 const STAGGER_MS = 1500; // Ordner nacheinander, nicht alle gleichzeitig neu starten
+const RESILIO_PATTERN = "(?d).sync";
 
 /** Alle "echten" Preset-Zeilen — ohne Kommentare, Leerzeilen, Negationen. */
 const KNOWN_PRESET_LINES = new Set(
@@ -47,8 +54,22 @@ const KNOWN_PRESET_LINES = new Set(
   }),
 );
 
+const stripD = (l: string) => l.replace(/^\(\?d\)/, "");
+
 function migrateIgnores(lines: string[]): string[] {
   return lines.map((l) => (KNOWN_PRESET_LINES.has(l) ? deletableIgnore(l) : l));
+}
+
+/** Stammt die Liste erkennbar von einem Syncomat-Preset? (Handgeschriebene
+ * Listen fassen wir nicht an.) */
+function isPresetManaged(lines: string[]): boolean {
+  return lines.some((l) => KNOWN_PRESET_LINES.has(stripD(l)));
+}
+
+function ensureResilioIgnored(lines: string[]): string[] {
+  if (!isPresetManaged(lines)) return lines;
+  if (lines.some((l) => stripD(l.trim()) === ".sync")) return lines;
+  return [...lines, RESILIO_PATTERN];
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -91,10 +112,10 @@ export function useSyncMaintenance(
           }));
           // ignore === null = API-Aussetzer → nichts schreiben (sonst Leerung).
           if (cur.ignore !== null) {
-            const next = migrateIgnores(cur.ignore);
+            const next = ensureResilioIgnored(migrateIgnores(cur.ignore));
             if (next.join("\n") !== cur.ignore.join("\n")) {
               await setFolderIgnores(ep, f.id, next);
-              console.log(`[maintenance] ${f.id}: .stignore (?d)-Migration`);
+              console.log(`[maintenance] ${f.id}: .stignore aktualisiert ((?d) / .sync)`);
             }
           }
 
