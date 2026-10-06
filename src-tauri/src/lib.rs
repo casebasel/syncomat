@@ -39,9 +39,19 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
+            Some(vec![autostart::MINIMIZED_ARG]),
         ))
         .setup(|app| {
+            // Fenster startet unsichtbar (tauri.conf.json: visible=false) und
+            // wird hier gezeigt — beim Autostart nur minimiert in der Taskleiste.
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                if autostart::launched_minimized() {
+                    let _ = window.minimize();
+                }
+            }
+            autostart::migrate_registration(app.handle());
+
             let handle = app.handle().clone();
             let state = sidecar::spawn(&handle)?;
             app.manage(state);
@@ -75,6 +85,7 @@ pub fn run() {
                     "open" => {
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.show();
+                            let _ = window.unminimize();
                             let _ = window.set_focus();
                         }
                     }

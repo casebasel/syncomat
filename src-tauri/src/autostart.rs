@@ -7,6 +7,24 @@ use tauri::menu::CheckMenuItem;
 use tauri::{Manager, Wry};
 use tauri_plugin_autostart::ManagerExt;
 
+/// Startargument des Autostart-Eintrags: App startet minimiert in der Taskleiste
+/// (macOS: im Dock) statt mit offenem Fenster.
+pub const MINIMIZED_ARG: &str = "--minimized";
+
+/// Wurde die App über den Autostart (mit `--minimized`) gestartet?
+pub fn launched_minimized() -> bool {
+    std::env::args().any(|a| a == MINIMIZED_ARG)
+}
+
+/// Bestehende Autostart-Einträge (vor v0.9.11 ohne `--minimized` angelegt)
+/// neu schreiben, damit sie das Startargument bekommen. Idempotent.
+pub fn migrate_registration(app: &tauri::AppHandle) {
+    let mgr = app.autolaunch();
+    if mgr.is_enabled().unwrap_or(false) {
+        let _ = mgr.enable();
+    }
+}
+
 /// Hält den Tray-Haken als managed State, damit `apply()` ihn synchron halten
 /// kann. Konkreter Runtime `Wry` (gleicher Runtime wie der Rest der App), weil
 /// `CheckMenuItem` keinen Default-Generic hat.

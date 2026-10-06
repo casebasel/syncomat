@@ -253,7 +253,7 @@ function GeneralTab({
               Bei Anmeldung starten
             </div>
             <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-              Syncomat läuft ab dem Login automatisch im Hintergrund (Tray) und
+              Syncomat startet ab dem Login minimiert in der Taskleiste und
               synchronisiert weiter, ohne dass du die App manuell öffnen musst.
             </p>
           </div>
