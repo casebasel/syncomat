@@ -6,7 +6,7 @@ export type SyncState =
   | "scanning" // local rescan läuft
   | "waiting-peer" // wir sind ok, aber peer offline → wartet
   | "waiting-data" // peer online, aber needBytes > 0 (queued)
-  | "error" // FolderErrors / pullErrors
+  | "error" // FolderErrors
   | "conflicts" // sync-conflict-Files vorhanden
   | "paused" // user-paused
   | "local-only"; // nur 1 device (self) im folder

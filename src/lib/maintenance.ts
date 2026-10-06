@@ -1,12 +1,15 @@
 import { useEffect, useRef } from "react";
 import {
   getConfig,
+  getFolderIgnores,
   getOptions,
   patchOptions,
   putFolder,
+  setFolderIgnores,
   type Endpoint,
   type Folder,
 } from "./syncthing";
+import { SYNCOMAT_DIR_EXCEPTION } from "./folderSettings";
 
 // ── Einmalige Sync-Wartung beim Start ─────────────────────────────
 //
@@ -26,16 +29,35 @@ import {
 //    c) (v3) `maxConflicts=0` — Konflikte still lösen wie Resilio: die Datei
 //       mit dem neueren Änderungsdatum gewinnt, die ältere wird verworfen
 //       (keine `.sync-conflict-`-Kopien mehr).
+//    d) (v4) `!/.syncomat` vor das Hidden-Muster `.*` setzen — sonst ignoriert
+//       "versteckte Dateien ignorieren" auch `.syncomat/`, und Tags, Papierkorb,
+//       geteilte Ignore-Liste und Netzwerk-Hinweise syncen nicht mehr.
 //
 // Die .stignore-Bereinigung ((?d), .sync, veraltete Preset-Zeilen) läuft seit
 // v3 nicht mehr hier, sondern beim Abgleich der geteilten Ignore-Liste
-// (folderSettings.ts → seedSharedIgnores), damit sich beide nicht in die
-// Quere kommen.
+// (folderSettings.ts → useFolderSettingsReplication / mergeLocalInto).
 //
 // Marker-Version hochzählen, wenn ein neuer Schritt dazukommt — alle Schritte
 // sind idempotent, ein erneuter Lauf schreibt nur, was wirklich fehlt.
-const MARK_PREFIX = "syncomat.maintenance.v3:";
+const MARK_PREFIX = "syncomat.maintenance.v4:";
 const STAGGER_MS = 1500; // Ordner nacheinander, nicht alle gleichzeitig neu starten
+
+// localStorage kann werfen (gesperrt/voll) — dann läuft die Wartung beim
+// nächsten Start erneut, statt hier abzubrechen.
+const lsGet = (k: string) => {
+  try {
+    return localStorage.getItem(k);
+  } catch {
+    return null;
+  }
+};
+const lsSet = (k: string, v: string) => {
+  try {
+    localStorage.setItem(k, v);
+  } catch {
+    /* nächster Start versucht es erneut */
+  }
+};
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -69,8 +91,19 @@ export function useSyncMaintenance(
       for (const f of folders) {
         if (cancelled) return;
         const mark = MARK_PREFIX + f.id;
-        if (localStorage.getItem(mark)) continue;
+        if (lsGet(mark)) continue;
         try {
+          const cur = await getFolderIgnores(ep, f.id).catch(() => ({ ignore: null }));
+          // ignore === null = API-Aussetzer → nichts schreiben (sonst Leerung).
+          if (
+            cur.ignore !== null &&
+            (cur.ignore.includes("(?d).*") || cur.ignore.includes(".*")) &&
+            !cur.ignore.includes(SYNCOMAT_DIR_EXCEPTION)
+          ) {
+            await setFolderIgnores(ep, f.id, [SYNCOMAT_DIR_EXCEPTION, ...cur.ignore]);
+            console.log(`[maintenance] ${f.id}: .syncomat vom Hidden-Muster ausgenommen`);
+          }
+
           const fresh = (await getConfig(ep)).folders.find((x) => x.id === f.id);
           if (fresh) {
             const patch: Partial<Folder> = {};
@@ -82,7 +115,7 @@ export function useSyncMaintenance(
               console.log(`[maintenance] ${f.id}: folder`, patch);
             }
           }
-          localStorage.setItem(mark, String(Date.now()));
+          lsSet(mark, String(Date.now()));
         } catch (e) {
           console.warn(`[maintenance] ${f.id} failed`, e);
         }

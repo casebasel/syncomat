@@ -63,7 +63,7 @@ export function FolderInspector({
   const state = deriveSyncState(folder, status, peerOnline, others.length, conflictCount);
   const [copied, setCopied] = useState(false);
 
-  const errorCount = (status?.errors ?? 0) + (status?.pullErrors ?? 0);
+  const errorCount = status?.errors ?? 0;
   // Erstes offline-peer für "Wartet auf X" Label
   const offlinePeerName = (() => {
     const first = others.find((id) => !connections[id]?.connected);
@@ -269,7 +269,7 @@ function deriveSyncState(
   conflictCount: number,
 ): SyncState {
   if (folder.paused) return "paused";
-  if (status && (status.errors > 0 || status.pullErrors > 0)) return "error";
+  if (status && status.errors > 0) return "error";
   if (conflictCount > 0) return "conflicts";
   if (peersConfigured === 0) return "local-only";
   if (status?.state === "syncing") return "syncing";

@@ -396,7 +396,7 @@ const FolderItem = memo(function FolderItem({
     needBytes: status?.needBytes,
     globalBytes: status?.globalBytes,
     conflictCount,
-    errorCount: (status?.errors ?? 0) + (status?.pullErrors ?? 0),
+    errorCount: status?.errors ?? 0,
   });
 
   return (
@@ -464,7 +464,7 @@ function deriveSyncState(
   conflictCount: number,
 ): SyncState {
   if (folder.paused) return "paused";
-  if (status && (status.errors > 0 || status.pullErrors > 0)) return "error";
+  if (status && status.errors > 0) return "error";
   if (conflictCount > 0) return "conflicts";
   if (peersConfigured === 0) return "local-only";
   if (status?.state === "syncing") return "syncing";

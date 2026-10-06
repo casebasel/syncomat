@@ -265,7 +265,7 @@ function GeneralTab({
           />
         </label>
         <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
-          Gleicher Schalter wie der Haken „Bei Login starten" im Tray-Menü.
+          Gleicher Schalter wie der Haken „Bei Anmeldung starten" im Tray-Menü.
         </p>
       </section>
 

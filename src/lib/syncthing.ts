@@ -107,6 +107,8 @@ export type FolderStatus = {
   localBytes: number;
   needBytes: number;
   errors: number;
+  /** Veralteter Doppelname von `errors` (gleicher Wert) — NICHT addieren,
+   * sonst erscheint jede Fehlerzahl doppelt (bis v0.9.12). */
   pullErrors: number;
   localFiles: number;
   globalFiles: number;
@@ -463,6 +465,14 @@ class EventBus {
     this.abort = null;
   }
 
+  /** Nach einem Neustart von Syncthing beginnen die Event-IDs wieder bei 1 —
+   * mit dem alten `since` würde der Long-Poll nur noch leer zurückkommen. */
+  restart() {
+    if (this.listeners.size === 0) return;
+    this.stop();
+    this.start();
+  }
+
   private async loop(ep: Endpoint, signal: AbortSignal) {
     let since = 0;
     let backoff = 1000;
@@ -523,10 +533,25 @@ export function useEndpoint(): Endpoint | null {
 
 export function useSyncthingReady(ep: Endpoint | null): boolean {
   const [ready, setReady] = useState(false);
+  // Zählt unerwartete Syncthing-Neustarts (Rust-Supervisor startet neu) —
+  // jeder Neustart setzt "bereit" zurück, damit die UI nicht weiter "aktuell"
+  // zeigt, während nichts synchronisiert, und alle Hooks danach frisch laden.
+  const [restarts, setRestarts] = useState(0);
+
+  useEffect(() => {
+    const unlistenP = listen("syncthing://terminated", () => {
+      console.warn("[syncthing] Sync-Dienst unerwartet beendet — wird neu gestartet");
+      setRestarts((n) => n + 1);
+    });
+    return () => {
+      unlistenP.then((fn) => fn());
+    };
+  }, []);
 
   useEffect(() => {
     if (!ep) return;
     setReady(false);
+    if (restarts > 0) bus.restart();
 
     let cancelled = false;
     const unlistenP = listen("syncthing://ready", () => {
@@ -550,7 +575,7 @@ export function useSyncthingReady(ep: Endpoint | null): boolean {
       cancelled = true;
       unlistenP.then((fn) => fn());
     };
-  }, [ep?.url, ep?.api_key]);
+  }, [ep?.url, ep?.api_key, restarts]);
 
   return ready;
 }
@@ -845,7 +870,7 @@ export function useAggregateStatus(
       let localBytes = 0;
       for (const s of results) {
         if (!s) continue;
-        errorCount += (s.errors || 0) + (s.pullErrors || 0);
+        errorCount += s.errors || 0;
         needBytes += s.needBytes || 0;
         localFiles += s.localFiles || 0;
         localBytes += s.localBytes || 0;

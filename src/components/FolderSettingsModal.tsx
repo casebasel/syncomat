@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, EyeOff, Loader2, Sparkles, Trash2, XCircle } from "lucide-react";
 import { PanelShell } from "./PanelShell";
 import {
   applyFolderDefaults,
   folderSettingsRead,
   folderSettingsWrite,
-  writeSharedIgnores,
+  applyPresetEverywhere,
+  defaultsFromLocal,
   DEFAULT_FOLDER_DEFAULTS,
   type FolderDefaults,
 } from "../lib/folderSettings";
@@ -13,7 +14,7 @@ import {
   deleteFolder,
   getConfig,
   putFolder,
-  setFolderIgnores,
+  getFolderIgnores,
   tuneFolderForSize,
   type Endpoint,
   type Folder,
@@ -49,6 +50,8 @@ export function FolderSettingsModal({
   onSaved?: () => void;
 }) {
   const [defaults, setDefaults] = useState<FolderDefaults>(DEFAULT_FOLDER_DEFAULTS);
+  /** Stand beim Öffnen — zum Erkennen, welche Felder geändert wurden. */
+  const initialRef = useRef<FolderDefaults | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,11 +69,21 @@ export function FolderSettingsModal({
   useEffect(() => {
     let cancelled = false;
     folderSettingsRead(folder.path)
-      .then((file) => {
+      .then(async (file) => {
         if (cancelled) return;
         if (file) {
           setDefaults(file.settings);
+          initialRef.current = file.settings;
           setMeta({ updatedAt: file.updated_at, updatedBy: file.updated_by });
+        } else {
+          // Noch keine geteilte Datei: Ist-Zustand zeigen (z.B. vorhandenen
+          // Papierkorb), nicht die Standardwerte — sonst schaltet ein Speichern
+          // nur für einen Tag den Papierkorb ab.
+          const cur = await getFolderIgnores(endpoint, folder.id).catch(() => ({ ignore: null }));
+          if (cancelled) return;
+          const local = defaultsFromLocal(folder, cur.ignore);
+          setDefaults(local);
+          initialRef.current = local;
         }
         setLoaded(true);
       })
@@ -91,14 +104,18 @@ export function FolderSettingsModal({
     try {
       // Settings (ignore_hidden, trashcan, tags) in die gesyncte folder-defaults
       // schreiben (configure once) + sofort lokal auf die Syncthing-Config anwenden.
-      // Die geteilte Ignore-Liste NICHT aus dem Stand beim Öffnen übernehmen —
-      // "Optimieren" oder ein anderes Gerät kann sie inzwischen geändert haben.
+      // Nur die Felder schreiben, die hier wirklich geändert wurden — auf den
+      // NEUESTEN Stand der Datei. Sonst überschreibt der Stand beim Öffnen,
+      // was ein anderes Gerät (oder "Optimieren") inzwischen geändert hat.
       const latest = await folderSettingsRead(folder.path);
-      const next: FolderDefaults = {
-        ...defaults,
-        ignores: latest?.settings.ignores,
-        ignores_seed: latest?.settings.ignores_seed,
-      };
+      const initial = initialRef.current ?? defaults;
+      const changed: Partial<FolderDefaults> = {};
+      for (const k of ["ignore_hidden", "trashcan", "trashcan_cleanout_days", "tags"] as const) {
+        if (JSON.stringify(defaults[k]) !== JSON.stringify(initial[k])) {
+          (changed as Record<string, unknown>)[k] = defaults[k];
+        }
+      }
+      const next: FolderDefaults = { ...(latest?.settings ?? initial), ...changed };
       await folderSettingsWrite(folder.path, myDeviceId, next);
       await applyFolderDefaults(endpoint, folder, next);
       onSaved?.();
@@ -139,9 +156,9 @@ export function FolderSettingsModal({
         const patterns = pickStignoreForWorkload(est.workload.kind);
         if (patterns.length > 0) {
           try {
-            await setFolderIgnores(endpoint, folder.id, patterns);
-            // Geteilt ablegen → alle Geräte übernehmen exakt dieses Preset.
-            await writeSharedIgnores(folder.path, myDeviceId, patterns);
+            // Geteilt ablegen + lokal anwenden → alle Geräte übernehmen exakt
+            // dieses Preset.
+            await applyPresetEverywhere(endpoint, tuned, myDeviceId, patterns);
           } catch (e) {
             console.warn("tune: setFolderIgnores failed", e);
           }

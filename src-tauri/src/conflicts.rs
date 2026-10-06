@@ -341,13 +341,24 @@ fn conflicts_resolve_all_blocking(folder_path: &str, mode: &str) -> Result<usize
     if !root.exists() {
         return Err("folder not found".into());
     }
+    // Gleiche Grenzen + Namensprüfung wie conflicts_list: "Alle lösen" darf nur
+    // anfassen, was die Liste auch angezeigt hätte. Vorher (bis v0.9.12) ohne
+    // same_file_system/max_depth/Cap und nur per Substring — im Modus
+    // keep_local wurde JEDE Datei mit ".sync-conflict-" im Namen gelöscht.
     let walker = WalkDir::new(root)
         .follow_links(false)
+        .same_file_system(true)
+        .max_depth(30)
         .into_iter()
         .filter_entry(|e| !is_pruned(e));
 
     let mut resolved = 0usize;
+    let mut scanned: usize = 0;
     for entry in walker.filter_map(|e| e.ok()) {
+        scanned += 1;
+        if scanned >= MAX_SCAN_ENTRIES {
+            break;
+        }
         if !entry.file_type().is_file() {
             continue;
         }
@@ -355,15 +366,13 @@ fn conflicts_resolve_all_blocking(folder_path: &str, mode: &str) -> Result<usize
             Some(n) => n,
             None => continue,
         };
-        let marker_pos = match file_name.find(CONFLICT_MARKER) {
-            Some(p) => p,
+        if !file_name.contains(CONFLICT_MARKER) {
+            continue;
+        }
+        let original_name = match parse_conflict_filename(file_name) {
+            Some((original, _, _)) => original,
             None => continue,
         };
-        // Original-Name rekonstruieren: <before><ext> (wie conflicts_keep_both).
-        let before = &file_name[..marker_pos];
-        let after = &file_name[marker_pos + CONFLICT_MARKER.len()..];
-        let ext = after.rfind('.').map(|p| &after[p..]).unwrap_or("");
-        let original_name = format!("{before}{ext}");
 
         let conflict_path = entry.path().to_path_buf();
         let original_path = conflict_path.with_file_name(&original_name);

@@ -59,19 +59,19 @@ pub fn run() {
             let invite_store = invites::setup(&handle)?;
             app.manage(invite_store);
 
-            // Tray-Menü: Öffnen · Bei-Login-starten (Toggle) · ── · Quit
+            // Tray-Menü: Öffnen · Bei Anmeldung starten (Toggle) · ── · Beenden
             let open = MenuItem::with_id(app, "open", "Öffnen", true, None::<&str>)?;
             let autostart_enabled = app.autolaunch().is_enabled().unwrap_or(false);
             let autostart_item = CheckMenuItem::with_id(
                 app,
                 "autostart",
-                "Bei Login starten",
+                "Bei Anmeldung starten",
                 true,
                 autostart_enabled,
                 None::<&str>,
             )?;
             let separator = PredefinedMenuItem::separator(app)?;
-            let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Beenden", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &autostart_item, &separator, &quit])?;
             // Tray-Haken als State halten -> der Settings-Toggle kann ihn über
             // autostart::apply() synchron halten (beide zeigen denselben Zustand).

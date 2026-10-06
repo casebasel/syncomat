@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import {
   getConfig,
   getFolderIgnores,
+  getFolderStatus,
   putFolder,
   setFolderIgnores,
   type Endpoint,
@@ -15,8 +16,20 @@ import { normalizeIgnores } from "./unreal";
 /** Pattern die WIR setzen wenn ignore_hidden=true. Wird beim toggle-off
  * gezielt rausgefiltert; user-erstellte Patterns bleiben unberührt.
  * (?d)-Prefix: erlaubt Syncthing, diese Hidden-Files zu löschen wenn sie ein
- * Ordner-Löschen blockieren würden (sonst "delete dir: contains ignored files"). */
-const HIDDEN_PATTERNS = ["(?d).*", "(?d).DS_Store", "(?d)Thumbs.db", "(?d)desktop.ini"];
+ * Ordner-Löschen blockieren würden (sonst "delete dir: contains ignored files").
+ *
+ * `!/.syncomat` MUSS vorne stehen (Syncthing: erstes passendes Muster gewinnt):
+ * `(?d).*` trifft sonst auch `.syncomat/` — dann syncen Tags, Papierkorb,
+ * geteilte Ignore-Liste und Netzwerk-Hinweise für diesen Ordner nicht mehr
+ * (bis v0.9.12, Audit 06.10.2026). */
+export const SYNCOMAT_DIR_EXCEPTION = "!/.syncomat";
+const HIDDEN_PATTERNS = [
+  SYNCOMAT_DIR_EXCEPTION,
+  "(?d).*",
+  "(?d).DS_Store",
+  "(?d)Thumbs.db",
+  "(?d)desktop.ini",
+];
 /** Alte un-prefixed Varianten (Folders von vor dem (?d)-Fix) — beim toggle-off
  * mit rausfiltern, damit nichts liegen bleibt. */
 const HIDDEN_PATTERNS_LEGACY = [".*", ".DS_Store", "Thumbs.db", "desktop.ini"];
@@ -50,6 +63,20 @@ export const DEFAULT_FOLDER_DEFAULTS: FolderDefaults = {
   trashcan_cleanout_days: 0,
   tags: [],
 };
+
+/** Einstellungen aus dem lokalen Ist-Zustand ableiten — als Ausgangswert, wenn
+ * noch keine folder-defaults.json existiert. NICHT einfach DEFAULT_FOLDER_DEFAULTS
+ * nehmen: das würde einen vorhandenen Papierkorb clusterweit abschalten. */
+export function defaultsFromLocal(folder: Folder, localIgnores: string[] | null): FolderDefaults {
+  const v = folder.versioning;
+  const ign = localIgnores ?? [];
+  return {
+    ...DEFAULT_FOLDER_DEFAULTS,
+    trashcan: v?.type === "trashcan",
+    trashcan_cleanout_days: Number(v?.params?.cleanoutDays ?? 0) || 0,
+    ignore_hidden: ign.includes("(?d).*") || ign.includes(".*"),
+  };
+}
 
 // ── Tauri-Command-Wrapper ──────────────────────────────────────
 
@@ -178,12 +205,36 @@ function withoutHidden(lines: string[]): string[] {
   return lines.filter((p) => !managed.has(p));
 }
 
+const stripD = (l: string) => l.trim().replace(/^\(\?d\)/, "");
+
+/** Vereinigung zweier Ignore-Listen. Nur echte Muster (keine Kommentare/
+ * Leerzeilen), Duplikate auch über `(?d)` hinweg erkannt. Neue Negationen
+ * (`!…`) kommen nach VORNE — in Syncthing gewinnt das erste passende Muster,
+ * hinten angehängt wären sie wirkungslos. */
 function union(a: string[], b: string[]): string[] {
-  const seen = new Set(a);
-  return [...a, ...b.filter((l) => !seen.has(l))];
+  const seen = new Set(a.map(stripD));
+  const extra = b.filter((l) => {
+    const t = l.trim();
+    return t !== "" && !t.startsWith("//") && !seen.has(stripD(l));
+  });
+  const negs = extra.filter((l) => l.trim().startsWith("!"));
+  const rest = extra.filter((l) => !l.trim().startsWith("!"));
+  return [...negs, ...a, ...rest];
 }
 
 const sameList = (a: string[], b: string[]) => a.join("\n") === b.join("\n");
+
+/** Ordner vollständig synchron? Nur dann darf der Erst-Abgleich eine neue
+ * folder-defaults.json anlegen — sonst ist die Datei der anderen Geräte evtl.
+ * nur noch nicht angekommen und würde als "neuere" überschrieben. */
+async function isFullySynced(ep: Endpoint, f: Folder): Promise<boolean> {
+  const st = await getFolderStatus(ep, f.id).catch(() => null);
+  return !!st && st.state === "idle" && st.needBytes === 0;
+}
+
+/** Eindeutige Kennung einer Dateiversion — statt Zeitstempel über Geräte
+ * hinweg zu vergleichen (Uhren weichen ab, gleiche Sekunde möglich). */
+const fileVersionKey = (file: FolderDefaultsFile) => `${file.updated_by}:${file.updated_at}`;
 
 /**
  * Ignore-Liste geteilt ablegen (übrige Einstellungen bleiben erhalten).
@@ -195,14 +246,45 @@ export async function writeSharedIgnores(
   myDeviceId: string,
   ignores: string[],
   seed = false,
+  /** Ausgangswerte, falls noch keine Datei existiert (siehe defaultsFromLocal). */
+  fallback: FolderDefaults = DEFAULT_FOLDER_DEFAULTS,
 ): Promise<FolderDefaultsFile> {
   const file = await folderSettingsRead(folderPath);
   const settings: FolderDefaults = {
-    ...(file?.settings ?? DEFAULT_FOLDER_DEFAULTS),
+    ...(file?.settings ?? fallback),
     ignores: withoutHidden(ignores),
     ignores_seed: seed,
   };
   return folderSettingsWrite(folderPath, myDeviceId, settings);
+}
+
+/**
+ * Preset bewusst für alle Geräte setzen ("Anlegen" mit Preset, "Optimieren"):
+ * geteilt ablegen und lokal über applyFolderDefaults anwenden — NICHT roh per
+ * setFolderIgnores, sonst fehlen lokal die Hidden-Muster (ignore_hidden) und
+ * das Gerät weicht von den anderen ab. Fällt das Schreiben der Datei aus,
+ * wenigstens lokal setzen.
+ */
+export async function applyPresetEverywhere(
+  ep: Endpoint,
+  folder: Folder,
+  myDeviceId: string,
+  patterns: string[],
+): Promise<void> {
+  try {
+    const cur = await getFolderIgnores(ep, folder.id).catch(() => ({ ignore: null }));
+    const file = await writeSharedIgnores(
+      folder.path,
+      myDeviceId,
+      patterns,
+      false,
+      defaultsFromLocal(folder, cur.ignore),
+    );
+    await applyFolderDefaults(ep, folder, file.settings);
+  } catch (e) {
+    console.warn("[shared-ignores] geteilte Liste nicht geschrieben, nur lokal", e);
+    await setFolderIgnores(ep, folder.id, patterns);
+  }
 }
 
 /** Lokale Liste mit einer geteilten Abgleich-Liste vereinigen (ohne geteilte
@@ -221,7 +303,13 @@ async function mergeLocalInto(
   const sharedNorm = shared ? normalizeIgnores(shared) : null;
   const merged = sharedNorm ? union(sharedNorm, local) : local;
   if (shared && sameList(merged, shared)) return "unchanged";
-  return writeSharedIgnores(f.path, myDeviceId, merged, true);
+  return writeSharedIgnores(
+    f.path,
+    myDeviceId,
+    merged,
+    true,
+    defaultsFromLocal(f, cur.ignore),
+  );
 }
 
 // ── Replication-Hook ──────────────────────────────────────────
@@ -237,22 +325,23 @@ async function mergeLocalInto(
 // Rescan auf jedem Unreal-Folder auslöst (50+ Min Initial-Hash).
 const APPLIED_LS_KEY = "syncomat.folderSettings.applied";
 
-function loadAppliedMap(): Map<FolderID, number> {
+/** Folder-ID → Kennung der zuletzt angewendeten Dateiversion (fileVersionKey).
+ * Alte Einträge (Zahlen, bis v0.9.12) passen nie → einmal neu anwenden, was
+ * dank diff-only-Schreiben folgenlos ist. */
+function loadAppliedMap(): Map<FolderID, string> {
   try {
     const raw = localStorage.getItem(APPLIED_LS_KEY);
     if (!raw) return new Map();
-    const obj = JSON.parse(raw) as Record<string, number>;
-    return new Map(Object.entries(obj));
+    const obj = JSON.parse(raw) as Record<string, unknown>;
+    return new Map(Object.entries(obj).map(([k, v]) => [k, String(v)]));
   } catch {
     return new Map();
   }
 }
 
-function saveAppliedMap(map: Map<FolderID, number>) {
+function saveAppliedMap(map: Map<FolderID, string>) {
   try {
-    const obj: Record<string, number> = {};
-    for (const [k, v] of map) obj[k] = v;
-    localStorage.setItem(APPLIED_LS_KEY, JSON.stringify(obj));
+    localStorage.setItem(APPLIED_LS_KEY, JSON.stringify(Object.fromEntries(map)));
   } catch (e) {
     console.warn("[folder-settings] persist applied-map failed", e);
   }
@@ -265,85 +354,96 @@ export function useFolderSettingsReplication(
   myDeviceId: string | null,
   intervalMs = 30_000,
 ): void {
-  const appliedRef = useRef<Map<FolderID, number>>(loadAppliedMap());
+  const appliedRef = useRef<Map<FolderID, string>>(loadAppliedMap());
+  // Kein zweiter Durchlauf, solange der vorige noch läuft (viele Ordner,
+  // Syncthing beim Hashen langsam) — sonst doppelte Schreib-/Rescan-Vorgänge.
+  const runningRef = useRef(false);
 
   useEffect(() => {
     if (!ep || !ready || !myDeviceId) return;
     let cancelled = false;
 
-    const checkAll = async () => {
-      let sawTagUpdate = false;
-      for (const f of folders) {
-        if (cancelled) return;
-        try {
-          let file = await folderSettingsRead(f.path);
+    const markApplied = (id: FolderID, file: FolderDefaultsFile) => {
+      appliedRef.current.set(id, fileVersionKey(file));
+      saveAppliedMap(appliedRef.current);
+    };
 
-          // Einmalige Umstellung auf die geteilte Ignore-Liste. Läuft VOR
-          // jedem Übernehmen fremder Listen, sonst wäre die eigene Liste schon
-          // überschrieben, bevor sie in die Vereinigung eingeht.
-          if (!isSeeded(f.id)) {
-            const shared = file?.settings.ignores;
-            if (Array.isArray(shared) && file?.settings.ignores_seed === false) {
-              // Bewusst gesetzte Liste existiert schon → einfach übernehmen.
-              markIgnoresSeeded(f.id);
-            } else {
-              const res = await mergeLocalInto(
-                ep,
-                f,
-                myDeviceId,
-                Array.isArray(shared) ? shared : null,
-              );
-              if (res === null) continue; // API-Aussetzer → nächste Runde
-              markIgnoresSeeded(f.id);
-              if (res !== "unchanged") {
-                await applyFolderDefaults(ep, f, res.settings);
-                appliedRef.current.set(f.id, res.updated_at);
-                saveAppliedMap(appliedRef.current);
-                console.log(`[shared-ignores] ${f.id}: Liste abgeglichen`);
-                continue;
-              }
-            }
-            // "unchanged": die geteilte Liste fremder Geräte unten normal
-            // übernehmen (lastApplied ist noch nicht gesetzt).
-            appliedRef.current.delete(f.id);
-          }
+    const checkFolder = async (f: Folder): Promise<boolean> => {
+      let file = await folderSettingsRead(f.path);
+      if (cancelled) return false;
 
-          if (!file) continue;
-          // Tag-Detection: jeder file-Read mit Tags ist ein Signal an useFolderTags
-          // dass die UI refreshed werden sollte (auch wenn updated_by=self, weil
-          // wir den Tag dann eben gerade geschrieben haben).
-          if (file.settings.tags && file.settings.tags.length > 0) {
-            sawTagUpdate = true;
-          }
-          // Wenn WIR sie geschrieben haben → nur als "seen" markieren, nicht applizieren.
-          if (file.updated_by === myDeviceId) {
-            appliedRef.current.set(f.id, file.updated_at);
-            continue;
-          }
-
-          const lastApplied = appliedRef.current.get(f.id) ?? 0;
-          if (file.updated_at <= lastApplied) continue;
-          // Abgleich-Liste eines anderen Geräts: eigene Einträge ergänzen,
-          // falls etwas fehlt (Vereinigung → alle landen beim selben Stand).
-          if (file.settings.ignores_seed && Array.isArray(file.settings.ignores)) {
-            const res = await mergeLocalInto(ep, f, myDeviceId, file.settings.ignores);
-            if (res === null) continue;
-            if (res !== "unchanged") file = res;
-          }
-          // Neuer als zuletzt gesehen → applizieren.
-          await applyFolderDefaults(ep, f, file.settings);
-          appliedRef.current.set(f.id, file.updated_at);
-          saveAppliedMap(appliedRef.current);
-          console.log(
-            `[folder-settings] applied ${f.id} from ${file.updated_by} (${file.updated_at})`,
+      // Umstellung auf die geteilte Ignore-Liste. Läuft VOR jedem Übernehmen
+      // fremder Listen, sonst wäre die eigene Liste schon überschrieben, bevor
+      // sie in die Vereinigung eingeht. Erneut nötig, wenn eine ältere Version
+      // die Datei ohne `ignores` zurückgeschrieben hat.
+      const lostShared = file !== null && !Array.isArray(file.settings.ignores);
+      if (!isSeeded(f.id) || lostShared) {
+        const shared = file?.settings.ignores;
+        if (Array.isArray(shared) && file?.settings.ignores_seed === false) {
+          // Bewusst gesetzte Liste existiert schon → unten normal übernehmen.
+          markIgnoresSeeded(f.id);
+        } else {
+          // Ohne Datei nur bei vollständig synchronem Ordner anlegen — sonst
+          // ist die der anderen Geräte evtl. nur noch nicht angekommen.
+          if (file === null && !(await isFullySynced(ep, f))) return false;
+          const res = await mergeLocalInto(
+            ep,
+            f,
+            myDeviceId,
+            Array.isArray(shared) ? shared : null,
           );
-        } catch (e) {
-          console.warn(`[folder-settings] check ${f.id} failed:`, e);
+          if (res === null || cancelled) return false; // API-Aussetzer → nächste Runde
+          markIgnoresSeeded(f.id);
+          if (res !== "unchanged") {
+            await applyFolderDefaults(ep, f, res.settings);
+            markApplied(f.id, res);
+            console.log(`[shared-ignores] ${f.id}: Liste abgeglichen`);
+            return (res.settings.tags?.length ?? 0) > 0;
+          }
         }
       }
-      // Nach dem Loop: wenn wir irgendwo Tags gesehen haben (peer-update oder
-      // self), useFolderTags benachrichtigen — der pollt sonst nur alle 15s.
-      if (sawTagUpdate) notifyTagsChanged();
+
+      if (!file) return false;
+      const sawTags = (file.settings.tags?.length ?? 0) > 0;
+      // Selbst geschrieben → nur als gesehen merken, nicht anwenden.
+      if (file.updated_by === myDeviceId) {
+        if (appliedRef.current.get(f.id) !== fileVersionKey(file)) markApplied(f.id, file);
+        return false;
+      }
+      if (appliedRef.current.get(f.id) === fileVersionKey(file)) return false;
+
+      // Abgleich-Liste eines anderen Geräts: eigene Einträge ergänzen, falls
+      // etwas fehlt (Vereinigung → alle landen beim selben Stand).
+      if (file.settings.ignores_seed && Array.isArray(file.settings.ignores)) {
+        const res = await mergeLocalInto(ep, f, myDeviceId, file.settings.ignores);
+        if (res === null || cancelled) return false;
+        if (res !== "unchanged") file = res;
+      }
+      await applyFolderDefaults(ep, f, file.settings);
+      markApplied(f.id, file);
+      console.log(`[folder-settings] applied ${f.id} from ${file.updated_by} (${file.updated_at})`);
+      // Nur bei einer echten Änderung von außen die Tag-Anzeige neu laden.
+      return sawTags;
+    };
+
+    const checkAll = async () => {
+      if (runningRef.current) return;
+      runningRef.current = true;
+      let tagsChanged = false;
+      try {
+        for (const f of folders) {
+          if (cancelled) return;
+          try {
+            if (await checkFolder(f)) tagsChanged = true;
+          } catch (e) {
+            console.warn(`[folder-settings] check ${f.id} failed:`, e);
+          }
+        }
+      } finally {
+        runningRef.current = false;
+      }
+      // useFolderTags pollt sonst nur alle 15s.
+      if (tagsChanged && !cancelled) notifyTagsChanged();
     };
 
     void checkAll();

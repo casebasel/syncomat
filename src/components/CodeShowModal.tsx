@@ -144,8 +144,9 @@ export function CodeShowModal({
         const result = await publishInvite(code);
         quickCode = result.code;
       }
-      // Auto-Accept-Fenster für die Code-Gültigkeit schärfen: Geräte die diesen
-      // Code nutzen, verbinden sich automatisch — kein manuelles "Annehmen".
+      // Auto-Accept-Fenster schärfen: das erste Gerät, das sich meldet, wird
+      // automatisch angenommen — höchstens 15 min lang (lib/autoAccept.ts).
+      // Wird der Code später eingelöst, erscheint das Gerät im Banner zum Bestätigen.
       armAutoAccept(Date.now() + expSeconds * 1000);
       setGenerated({ raw: code, codeId, expiresAt, quickCode });
     } catch (e) {
@@ -403,6 +404,13 @@ export function CodeShowModal({
               <Zap className="size-3 shrink-0 mt-0.5" />
               Statt des langen Codes bekommst du 4 Ziffern zum Abtippen — gültig
               10 Minuten, einmal einlösbar.
+            </p>
+          )}
+          {expSeconds > 15 * 60 && (
+            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1.5">
+              Automatisch aufgenommen wird nur in den ersten 15 Minuten. Wird der
+              Code später eingelöst, erscheint das Gerät zum Bestätigen
+              („Akzeptieren“).
             </p>
           )}
         </div>

@@ -31,7 +31,7 @@ import {
 } from "./lib/network";
 
 import { invitePurgeExpired } from "./lib/invitesStore";
-import { autoAcceptActive } from "./lib/autoAccept";
+import { autoAcceptActive, disarmAutoAccept } from "./lib/autoAccept";
 import { acceptDevice } from "./lib/pairing";
 import { useFolderTags } from "./lib/tags";
 import { useBlockBrowserShortcuts } from "./lib/keyboardShortcuts";
@@ -186,19 +186,26 @@ function App() {
   ]);
 
   // 3) Auto-Accept nach Code: hat dieses Gerät kürzlich einen Einladungs-Code
-  // erzeugt (autoAcceptActive = innerhalb der Code-Gültigkeit), werden eingehende
-  // Pending-Geräte automatisch akzeptiert — inkl. Ordner-Share + Mesh via
-  // acceptDevice. Kein manuelles "Annehmen". Läuft auf App-Ebene, auch wenn das
-  // Code-Panel schon zu ist.
+  // erzeugt (autoAcceptActive = höchstens 15 min, bis zum ersten Gerät), wird
+  // ein eingehendes Pending-Gerät automatisch akzeptiert — inkl. Ordner-Share +
+  // Mesh via acceptDevice. Läuft auf App-Ebene, auch wenn das Code-Panel schon
+  // zu ist. Details + Begründung: lib/autoAccept.ts.
   useEffect(() => {
     if (!endpoint || !ready) return;
     const pds = pendingDevices.data;
     if (!pds || pds.length === 0 || !autoAcceptActive()) return;
-    for (const pd of pds) {
-      acceptDevice(endpoint, pd, folders).catch((e) =>
-        console.warn(`[auto-accept] ${pd.deviceID.slice(0, 7)} failed`, e),
-      );
+    // Nur bei genau EINEM anklopfenden Gerät automatisch annehmen — bei
+    // mehreren ist unklar, welches den Code hat (Banner bleibt manuell).
+    if (pds.length > 1) {
+      console.warn("[auto-accept] mehrere Geräte gleichzeitig — nichts automatisch angenommen");
+      return;
     }
+    const pd = pds[0];
+    // Fenster sofort schließen: ein Code = ein Gerät.
+    disarmAutoAccept();
+    acceptDevice(endpoint, pd, folders).catch((e) =>
+      console.warn(`[auto-accept] ${pd.deviceID.slice(0, 7)} failed`, e),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     endpoint?.url,

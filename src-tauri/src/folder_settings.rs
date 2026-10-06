@@ -39,6 +39,12 @@ pub struct FolderDefaults {
     /// bewusst gesetzt (Preset beim Anlegen/Optimieren) und gilt exakt.
     #[serde(default)]
     pub ignores_seed: bool,
+    /// Felder, die diese Version nicht kennt (von neueren Versionen). Werden
+    /// beim Zurückschreiben unverändert mitgenommen statt verworfen — genau so
+    /// ging bis v0.9.12 die geteilte Ignore-Liste verloren, wenn ein älteres
+    /// Gerät die Datei speicherte.
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -96,18 +102,13 @@ pub fn folder_settings_read(folder_path: String) -> Result<Option<FolderDefaults
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(format!("read: {e}")),
     };
-    // Korrupte JSON (partial write von concurrent Syncthing-Sync) → graceful None
-    // statt 30s-Spam von parse-errors im Replication-Hook.
-    match serde_json::from_str::<FolderDefaultsFile>(&raw) {
-        Ok(parsed) => Ok(Some(parsed)),
-        Err(e) => {
-            eprintln!(
-                "[folder_settings] {} unparseable ({e}), treating as missing",
-                path.display()
-            );
-            Ok(None)
-        }
-    }
+    // Unlesbare Datei ist ein FEHLER, nicht "fehlt": als None behandelt hat der
+    // Abgleich daraufhin Standardwerte geschrieben und als neuere Version
+    // clusterweit verteilt (Tags/Papierkorb weg, Audit 06.10.2026). Mit Err
+    // überspringt das Frontend den Ordner, bis die Datei wieder lesbar ist.
+    serde_json::from_str::<FolderDefaultsFile>(&raw)
+        .map(Some)
+        .map_err(|e| format!("{} unlesbar: {e}", path.display()))
 }
 
 #[tauri::command]

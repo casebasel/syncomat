@@ -43,3 +43,6 @@ wiki-snapshot.md
 # Generated icon sub-dirs für Mobile-Targets — wir bauen nur Desktop, brauchen die nicht
 src-tauri/icons/android/
 src-tauri/icons/ios/
+
+# Lokale Claude-Code-Rechte (pro Rechner) — nicht ins Repo
+.claude/settings.local.json

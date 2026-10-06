@@ -4,7 +4,6 @@ import { AlertTriangle, FolderOpen, Loader2 } from "lucide-react";
 import { PanelShell } from "./PanelShell";
 import {
   putFolder,
-  setFolderIgnores,
   tuneFolderForSize,
   type Endpoint,
   type Folder,
@@ -18,7 +17,7 @@ import {
   type FolderEstimate,
   type WorkloadDetection,
 } from "../lib/unreal";
-import { markIgnoresSeeded, writeSharedIgnores } from "../lib/folderSettings";
+import { applyPresetEverywhere, markIgnoresSeeded } from "../lib/folderSettings";
 
 export function CreateFolderModal({
   endpoint,
@@ -132,9 +131,9 @@ export function CreateFolderModal({
         const patterns = pickStignoreForWorkload(effectivePreset);
         if (patterns.length > 0) {
           try {
-            await setFolderIgnores(endpoint, folder.id, patterns);
-            // Geteilt ablegen → alle Geräte übernehmen exakt dieses Preset.
-            await writeSharedIgnores(path, myDeviceId, patterns);
+            // Geteilt ablegen + lokal anwenden → alle Geräte übernehmen exakt
+            // dieses Preset.
+            await applyPresetEverywhere(endpoint, folder, myDeviceId, patterns);
             markIgnoresSeeded(folder.id);
           } catch (e) {
             // Preset-Fail blockt nicht den Folder-Create; nur warnen

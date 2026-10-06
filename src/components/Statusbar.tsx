@@ -16,7 +16,7 @@ export function aggregate(statuses: FolderStatus[]): {
   let localFiles = 0;
   let localBytes = 0;
   for (const s of statuses) {
-    errorCount += (s.errors || 0) + (s.pullErrors || 0);
+    errorCount += s.errors || 0;
     needBytes += s.needBytes || 0;
     localFiles += s.localFiles || 0;
     localBytes += s.localBytes || 0;

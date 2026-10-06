@@ -1,5 +1,14 @@
 use serde::Serialize;
-use std::{fs, net::TcpListener, path::Path, sync::Mutex};
+use std::{
+    fs,
+    net::TcpListener,
+    path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex,
+    },
+    time::Duration,
+};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::{
     process::{CommandChild, CommandEvent},
@@ -25,6 +34,56 @@ pub struct SyncthingState {
     child: Mutex<Option<CommandChild>>,
 }
 
+/// Gesetzt, sobald die App beendet wird — dann ist ein beendetes Syncthing
+/// gewollt und wird NICHT neu gestartet.
+static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
+
+/// Wartezeiten zwischen Neustart-Versuchen nach einem Absturz (Sekunden).
+/// Der letzte Wert gilt für alle weiteren Versuche.
+const RESTART_BACKOFF_S: [u64; 5] = [2, 5, 15, 30, 60];
+
+/// Startet den Syncthing-Prozess. Ausgelagert, damit der Supervisor ihn nach
+/// einem Absturz mit identischem Port + API-Key neu starten kann (das Frontend
+/// behält so seinen Endpoint).
+fn launch(
+    app: &AppHandle,
+    home: &Path,
+    url: &str,
+    api_key: &str,
+) -> Result<(tauri::async_runtime::Receiver<CommandEvent>, CommandChild), String> {
+    // SECURITY (Audit): API-Key + GUI-Address kommen über ENV statt argv.
+    // Auf Unix/macOS sind argv via `ps aux` / /proc/<pid>/cmdline für andere
+    // User des Systems lesbar — ENV-Vars sind privater (auch wenn nicht
+    // perfekt geschützt). Plus: matched what Syncthing's docs recommend.
+    let (rx, child) = app
+        .shell()
+        .sidecar("syncthing")
+        .map_err(|e| e.to_string())?
+        .args([
+            "serve".to_string(),
+            format!("--home={}", home.to_string_lossy()),
+            "--no-browser".to_string(),
+            "--no-restart".to_string(),
+            "--no-upgrade".to_string(),
+        ])
+        .env("STMONITORED", "yes")
+        .env("STGUIAPIKEY", api_key)
+        .env("STGUIADDRESS", url)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok((rx, child))
+}
+
+fn write_runtime_file(app_data: &Path, pid: u32, port: u16) {
+    // Laufzeit-Info (pid + port) persistieren, damit der NÄCHSTE App-Start einen
+    // evtl. verwaisten syncthing gezielt graceful beenden kann. Wird in cleanup()
+    // bei sauberem Beenden wieder gelöscht.
+    let _ = fs::write(
+        app_data.join("syncthing-runtime.json"),
+        format!("{{\"pid\":{pid},\"port\":{port}}}"),
+    );
+}
+
 pub fn spawn(app: &AppHandle) -> Result<SyncthingState, Box<dyn std::error::Error>> {
     let app_data = app.path().app_data_dir()?;
     let home = app_data.join("syncthing-home");
@@ -43,51 +102,17 @@ pub fn spawn(app: &AppHandle) -> Result<SyncthingState, Box<dyn std::error::Erro
     let port = pick_free_port()?;
     let url = format!("http://127.0.0.1:{port}");
 
-    // SECURITY (Audit): API-Key + GUI-Address kommen über ENV statt argv.
-    // Auf Unix/macOS sind argv via `ps aux` / /proc/<pid>/cmdline für andere
-    // User des Systems lesbar — ENV-Vars sind privater (auch wenn nicht
-    // perfekt geschützt). Plus: matched what Syncthing's docs recommend.
-    let (mut rx, child) = app
-        .shell()
-        .sidecar("syncthing")?
-        .args([
-            "serve".to_string(),
-            format!("--home={}", home.to_string_lossy()),
-            "--no-browser".to_string(),
-            "--no-restart".to_string(),
-            "--no-upgrade".to_string(),
-        ])
-        .env("STMONITORED", "yes")
-        .env("STGUIAPIKEY", &api_key)
-        .env("STGUIADDRESS", &url)
-        .spawn()?;
+    let (rx, child) = launch(app, &home, &url, &api_key)?;
+    write_runtime_file(&app_data, child.pid(), port);
 
-    // Laufzeit-Info (pid + port) persistieren, damit der NÄCHSTE App-Start einen
-    // evtl. verwaisten syncthing gezielt graceful beenden kann. Wird in cleanup()
-    // bei sauberem Beenden wieder gelöscht.
-    let _ = fs::write(
-        app_data.join("syncthing-runtime.json"),
-        format!("{{\"pid\":{},\"port\":{}}}", child.pid(), port),
-    );
-
+    // Supervisor: liest die Ausgabe und startet Syncthing nach einem Absturz neu.
+    // Vorher (bis v0.9.12) wurde ein beendetes Syncthing nur geloggt — die App
+    // zeigte weiter "aktuell", obwohl nichts mehr synchronisierte (--no-restart
+    // verhindert den eigenen Neustart von Syncthing).
     let handle = app.clone();
+    let (home2, url2, key2) = (home.clone(), url.clone(), api_key.clone());
     tauri::async_runtime::spawn(async move {
-        let mut ready_emitted = false;
-        while let Some(event) = rx.recv().await {
-            match event {
-                CommandEvent::Stdout(bytes) | CommandEvent::Stderr(bytes) => {
-                    let line = String::from_utf8_lossy(&bytes);
-                    print!("[syncthing] {line}");
-                    if !ready_emitted && line.contains("GUI and API listening") {
-                        let _ = handle.emit("syncthing://ready", ());
-                        ready_emitted = true;
-                    }
-                }
-                CommandEvent::Error(e) => eprintln!("[syncthing-spawn-error] {e}"),
-                CommandEvent::Terminated(p) => println!("[syncthing] terminated {p:?}"),
-                _ => {}
-            }
-        }
+        supervise(handle, rx, app_data, home2, url2, key2, port).await;
     });
 
     Ok(SyncthingState {
@@ -96,7 +121,74 @@ pub fn spawn(app: &AppHandle) -> Result<SyncthingState, Box<dyn std::error::Erro
     })
 }
 
+async fn supervise(
+    app: AppHandle,
+    mut rx: tauri::async_runtime::Receiver<CommandEvent>,
+    app_data: PathBuf,
+    home: PathBuf,
+    url: String,
+    api_key: String,
+    port: u16,
+) {
+    let mut attempt: usize = 0;
+    loop {
+        let mut ready_emitted = false;
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stdout(bytes) | CommandEvent::Stderr(bytes) => {
+                    let line = String::from_utf8_lossy(&bytes);
+                    print!("[syncthing] {line}");
+                    if !ready_emitted && line.contains("GUI and API listening") {
+                        let _ = app.emit("syncthing://ready", ());
+                        ready_emitted = true;
+                        attempt = 0; // läuft wieder stabil -> Backoff zurücksetzen
+                    }
+                }
+                CommandEvent::Error(e) => eprintln!("[syncthing-spawn-error] {e}"),
+                CommandEvent::Terminated(p) => {
+                    println!("[syncthing] terminated {p:?}");
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        if SHUTTING_DOWN.load(Ordering::SeqCst) {
+            return;
+        }
+        // Unerwartet beendet -> Frontend informieren (setzt "bereit" zurück und
+        // zeigt "Sync-Dienst startet"), dann mit Backoff neu starten, bis es klappt.
+        let _ = app.emit("syncthing://terminated", ());
+        loop {
+            let wait = RESTART_BACKOFF_S[attempt.min(RESTART_BACKOFF_S.len() - 1)];
+            attempt += 1;
+            eprintln!("[syncthing] unerwartet beendet — Neustart in {wait}s (Versuch {attempt})");
+            let _ = tauri::async_runtime::spawn_blocking(move || {
+                std::thread::sleep(Duration::from_secs(wait))
+            })
+            .await;
+            if SHUTTING_DOWN.load(Ordering::SeqCst) {
+                return;
+            }
+            match launch(&app, &home, &url, &api_key) {
+                Ok((new_rx, child)) => {
+                    write_runtime_file(&app_data, child.pid(), port);
+                    if let Some(state) = app.try_state::<SyncthingState>() {
+                        if let Ok(mut guard) = state.child.lock() {
+                            *guard = Some(child);
+                        }
+                    }
+                    rx = new_rx;
+                    break;
+                }
+                Err(e) => eprintln!("[syncthing] Neustart fehlgeschlagen: {e}"),
+            }
+        }
+    }
+}
+
 pub fn cleanup(app: &AppHandle) {
+    SHUTTING_DOWN.store(true, Ordering::SeqCst);
     let Some(state) = app.try_state::<SyncthingState>() else { return };
     let endpoint = state.endpoint.clone();
     let Ok(mut guard) = state.child.lock() else { return };
@@ -111,12 +203,16 @@ pub fn cleanup(app: &AppHandle) {
         if shutdown_ok {
             println!("[syncthing] graceful shutdown sent, waiting up to 8s");
             // Give Syncthing up to 8s to flush its leveldb + exit
+            // Sobald der API-Port keine Verbindung mehr annimmt, ist Syncthing
+            // beendet -> nicht unnötig die vollen 8s warten (jeder Quit/Update hing).
+            let addr = endpoint.url.replace("http://", "").parse::<std::net::SocketAddr>().ok();
             for _ in 0..80 {
-                std::thread::sleep(std::time::Duration::from_millis(100));
-                // Probe: nach erfolgreichem shutdown sollte unser child schon down sein.
-                // Wir können hier nicht try_wait nutzen (CommandChild hat keine).
-                // Stattdessen: bei graceful shutdown verlassen wir uns drauf dass
-                // Syncthing innerhalb 8s den Prozess beendet — wenn nicht, fallback.
+                std::thread::sleep(Duration::from_millis(100));
+                if let Some(a) = addr {
+                    if std::net::TcpStream::connect_timeout(&a, Duration::from_millis(200)).is_err() {
+                        break;
+                    }
+                }
             }
         }
         // Final fallback: hard kill falls graceful nicht ging oder Syncthing hängt

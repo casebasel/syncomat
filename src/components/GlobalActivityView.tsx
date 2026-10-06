@@ -63,7 +63,7 @@ function aggOf(
     files += s.localFiles || 0;
     needBytes += s.needBytes || 0;
     if ((s.needBytes || 0) > 0) syncing++;
-    if ((s.errors || 0) + (s.pullErrors || 0) > 0) errors++;
+    if ((s.errors || 0) > 0) errors++;
   }
   return { bytes, files, syncing, errors, needBytes };
 }
@@ -71,7 +71,7 @@ function aggOf(
 type RowState = "paused" | "error" | "syncing" | "synced";
 function rowState(folder: Folder, s: FolderStatus | null): RowState {
   if (folder.paused) return "paused";
-  if (((s?.errors ?? 0) + (s?.pullErrors ?? 0)) > 0) return "error";
+  if ((s?.errors ?? 0) > 0) return "error";
   if ((s?.needBytes ?? 0) > 0) return "syncing";
   return "synced";
 }
@@ -293,7 +293,7 @@ function FolderStatRow({
 }) {
   const state = rowState(folder, status);
   const needBytes = status?.needBytes ?? 0;
-  const errors = (status?.errors ?? 0) + (status?.pullErrors ?? 0);
+  const errors = status?.errors ?? 0;
   const dot =
     state === "error"
       ? "bg-rose-500"
