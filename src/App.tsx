@@ -51,6 +51,7 @@ import { FolderSettingsModal } from "./components/FolderSettingsModal";
 import { SettingsPanel } from "./components/SettingsModal";
 import { UpdateBanner } from "./components/UpdateBanner";
 import {
+  markIgnoresSeeded,
   useFolderSettingsReplication,
 } from "./lib/folderSettings";
 import { useUpdater } from "./lib/updater";
@@ -345,6 +346,8 @@ function App() {
       // caseSensitiveFS bewusst NICHT setzen — Syncthing auto-detected pro
       // folder.path. Hardcoded:true bricht silent den Sync mit Windows-Peers
       // (NTFS = case-insensitive), siehe Audit-Finding.
+      // Konflikte still lösen: neueres Änderungsdatum gewinnt.
+      maxConflicts: 0,
     };
     // Wenn der Empfänger ein Preset gewählt hat: tune Folder + setze .stignore
     // VOR dem putFolder, damit Syncthing nicht erst die ganzen Ignore-Files
@@ -359,6 +362,9 @@ function App() {
       );
     }
     await putFolder(endpoint, folder);
+    // Die geteilte Ignore-Liste kommt per Sync von den anderen Geräten — keine
+    // eigene schreiben, die würde sie als "neuere" überschreiben.
+    markIgnoresSeeded(folder.id);
     if (options.applyPreset) {
       const patterns = pickStignoreForWorkload(options.preset);
       if (patterns.length > 0) {

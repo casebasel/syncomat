@@ -5,6 +5,7 @@ import {
   applyFolderDefaults,
   folderSettingsRead,
   folderSettingsWrite,
+  writeSharedIgnores,
   DEFAULT_FOLDER_DEFAULTS,
   type FolderDefaults,
 } from "../lib/folderSettings";
@@ -90,8 +91,16 @@ export function FolderSettingsModal({
     try {
       // Settings (ignore_hidden, trashcan, tags) in die gesyncte folder-defaults
       // schreiben (configure once) + sofort lokal auf die Syncthing-Config anwenden.
-      await folderSettingsWrite(folder.path, myDeviceId, defaults);
-      await applyFolderDefaults(endpoint, folder, defaults);
+      // Die geteilte Ignore-Liste NICHT aus dem Stand beim Öffnen übernehmen —
+      // "Optimieren" oder ein anderes Gerät kann sie inzwischen geändert haben.
+      const latest = await folderSettingsRead(folder.path);
+      const next: FolderDefaults = {
+        ...defaults,
+        ignores: latest?.settings.ignores,
+        ignores_seed: latest?.settings.ignores_seed,
+      };
+      await folderSettingsWrite(folder.path, myDeviceId, next);
+      await applyFolderDefaults(endpoint, folder, next);
       onSaved?.();
       onClose();
     } catch (e) {
@@ -131,6 +140,8 @@ export function FolderSettingsModal({
         if (patterns.length > 0) {
           try {
             await setFolderIgnores(endpoint, folder.id, patterns);
+            // Geteilt ablegen → alle Geräte übernehmen exakt dieses Preset.
+            await writeSharedIgnores(folder.path, myDeviceId, patterns);
           } catch (e) {
             console.warn("tune: setFolderIgnores failed", e);
           }

@@ -333,27 +333,22 @@ export function tuneFolderForSize(
   let fsWatcherDelayS: number;
   let copiers: number | undefined;
   let hashers: number | undefined;
-  let maxConflicts: number;
   if (gb >= 50) {
     rescanIntervalS = 7200;
     fsWatcherDelayS = isUnreal ? 30 : 15;
     copiers = 2;
     hashers = 4;
-    maxConflicts = 10;
   } else if (gb >= 10) {
     rescanIntervalS = 3600;
     fsWatcherDelayS = isUnreal ? 15 : 10;
     copiers = 2;
     hashers = 4;
-    maxConflicts = 10;
   } else if (gb >= 1) {
     rescanIntervalS = 300;
     fsWatcherDelayS = 5;
-    maxConflicts = 10;
   } else {
     rescanIntervalS = 60;
     fsWatcherDelayS = 2;
-    maxConflicts = 10;
   }
   return {
     ...folder,
@@ -362,7 +357,9 @@ export function tuneFolderForSize(
     rescanIntervalS,
     copiers,
     hashers,
-    maxConflicts,
+    // Konflikte still lösen wie Resilio: neueres Änderungsdatum gewinnt, die
+    // ältere Version wird verworfen statt als .sync-conflict-Kopie zu bleiben.
+    maxConflicts: 0,
     scanProgressIntervalS: 5,
     // Rechte-Bits NICHT syncen: im Mac/Windows/NAS-Mix erzeugen sie sonst
     // Dauer-Churn ("geändert", obwohl nur der Mode-Bit anders ist) und auf

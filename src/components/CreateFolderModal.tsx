@@ -18,6 +18,7 @@ import {
   type FolderEstimate,
   type WorkloadDetection,
 } from "../lib/unreal";
+import { markIgnoresSeeded, writeSharedIgnores } from "../lib/folderSettings";
 
 export function CreateFolderModal({
   endpoint,
@@ -113,6 +114,8 @@ export function CreateFolderModal({
         ],
         // caseSensitiveFS NICHT setzen — Syncthing auto-detected pro path.
         // Hardcoded:true bricht Windows-Peer-Sync silent (NTFS = case-insensitive).
+        // Konflikte still lösen: neueres Änderungsdatum gewinnt.
+        maxConflicts: 0,
       };
       // Tuning anhand Estimate — fsWatcher, rescanInterval, copiers, etc.
       if (estimate) {
@@ -130,6 +133,9 @@ export function CreateFolderModal({
         if (patterns.length > 0) {
           try {
             await setFolderIgnores(endpoint, folder.id, patterns);
+            // Geteilt ablegen → alle Geräte übernehmen exakt dieses Preset.
+            await writeSharedIgnores(path, myDeviceId, patterns);
+            markIgnoresSeeded(folder.id);
           } catch (e) {
             // Preset-Fail blockt nicht den Folder-Create; nur warnen
             console.warn("setFolderIgnores failed", e);

@@ -47,8 +47,9 @@ Introducer + Auto-Share bieten dem NAS danach automatisch alle Ordner an.
 - Path → `/var/syncthing/data/<Projekt>` (landet in `tank/Syncthing`).
 - **`.stignore` setzen** (Ignore Patterns, identisch zu den Desktops, siehe unten) —
   sonst meldet Receive-Only die nicht-übertragenen Caches als „out of sync".
-- (Optional) `maxConflicts` niedrig halten — die NAS-GUI hat das nicht im UI; per
-  REST: `PATCH /rest/config/folders/<id> {"maxConflicts":10}`.
+- (Optional) `maxConflicts` wie die Desktops auf `0` (neueres Änderungsdatum gewinnt,
+  keine Konfliktkopien) — die NAS-GUI hat das nicht im UI; per
+  REST: `PATCH /rest/config/folders/<id> {"maxConflicts":0}`.
 
 **4. ZFS-Snapshots = das eigentliche Backup.** TrueNAS-UI → Data Protection →
 Periodic Snapshot Task auf `tank/Syncthing`: z.B. stündlich (24 h) + täglich (14–30 d)
@@ -76,7 +77,9 @@ Saved
 *.obj
 ```
 > Cache/Build-Artefakte sind pro Maschine regenerierbar — gehören NICHT ins Backup.
-> Identisch zu Syncomats Preset (`src/lib/unreal.ts`).
+> Identisch zu Syncomats Preset (`src/lib/unreal.ts`). Die Desktops gleichen ihre Liste seit
+> v0.9.12 über `.syncomat/folder-defaults.json` (`ignores`) untereinander ab — der Hub hat kein
+> Syncomat und übernimmt sie NICHT automatisch; bei Änderungen hier von Hand nachziehen.
 
 ## Wartung
 - **Version:** Image ist auf `syncthing/syncthing:2.1.1` gepinnt = Syncomat-Sidecar-Version.

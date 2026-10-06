@@ -29,6 +29,16 @@ pub struct FolderDefaults {
     /// #[serde(default)] (Backwards-compat mit alten Files ohne tags).
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Geteilte .stignore-Liste (ohne die ignore_hidden-Muster). Jedes Gerät
+    /// übernimmt sie in seine lokale .stignore, damit alle dieselben Dateien
+    /// sehen. `None` = noch keine geteilte Liste (Datei von vor v0.9.12).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ignores: Option<Vec<String>>,
+    /// `true` = Liste stammt aus dem automatischen Abgleich (Vereinigung der
+    /// bisherigen Gerätelisten) und darf weiter ergänzt werden. `false` =
+    /// bewusst gesetzt (Preset beim Anlegen/Optimieren) und gilt exakt.
+    #[serde(default)]
+    pub ignores_seed: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

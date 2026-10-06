@@ -77,15 +77,14 @@ export const UNREAL_STIGNORE: string[] = [
   "**/Plugins/*/DerivedDataCache",
   "",
   "// === Build-Output / kompilierte Binaries (regenerierbar) ===",
+  "// KEIN *.lib / *.so / *.dylib / *.exe: Plugins bringen unter ThirdParty/",
+  "// vorkompilierte Bibliotheken mit (DLSS, dlib, Substance …), die sich NICHT",
+  "// neu erzeugen lassen. Eigener Build-Output liegt eh in Binaries/Intermediate.",
   "Binaries",
   "*.pdb",
   "*.obj",
-  "*.lib",
   "*.exp",
-  "*.exe",
   "*.app",
-  "*.dylib",
-  "*.so",
   "",
   "// === IDE / Tool-Metadaten ===",
   ".vs",
@@ -227,4 +226,52 @@ export function estimateIndexRamMB(files: number, bytes: number): number {
   const fileMeta = files * 1024;
   const blockHashes = (bytes / (128 * 1024)) * 32;
   return Math.round((fileMeta + blockHashes) / (1024 * 1024));
+}
+
+// ── Ignore-Listen bereinigen ─────────────────────────────────────
+
+/** Preset-Zeilen, die frühere Versionen gesetzt haben und die raus müssen:
+ * `*.lib`/`*.so`/`*.dylib`/`*.exe` haben vorkompilierte ThirdParty-Bibliotheken
+ * von Plugins weggefiltert (bis v0.9.11) — auf den Geräten fehlten sie dann,
+ * und Ordner-Löschungen scheiterten mit "deleted on a remote device but is not
+ * empty". */
+const OBSOLETE_PRESET_LINES = new Set(["*.lib", "*.so", "*.dylib", "*.exe"]);
+
+/** Alle "echten" Preset-Zeilen — ohne Kommentare, Leerzeilen, Negationen. */
+const KNOWN_PRESET_LINES = new Set(
+  [...UNREAL_STIGNORE, ...GENERIC_STIGNORE, ...NODE_STIGNORE, ...OBSOLETE_PRESET_LINES].filter(
+    (l) => {
+      const t = l.trim();
+      return t !== "" && !t.startsWith("//") && !t.startsWith("!");
+    },
+  ),
+);
+
+const stripD = (l: string) => l.replace(/^\(\?d\)/, "");
+const RESILIO_PATTERN = "(?d).sync";
+
+/** Stammt die Liste erkennbar von einem Syncomat-Preset? (Handgeschriebene
+ * Listen fassen wir nicht an.) */
+function isPresetManaged(lines: string[]): boolean {
+  return lines.some((l) => {
+    const t = stripD(l);
+    return KNOWN_PRESET_LINES.has(t) && !OBSOLETE_PRESET_LINES.has(t);
+  });
+}
+
+/**
+ * Bringt eine .stignore-Liste auf den aktuellen Preset-Stand. Idempotent:
+ * - bekannte Preset-Zeilen ohne `(?d)` bekommen das Präfix (Ordner vor v0.9.6)
+ * - veraltete Preset-Zeilen (`*.lib` …) fliegen raus
+ * - `(?d).sync` (Resilio-Reste) wird ergänzt
+ * Nur bei Listen, die erkennbar von einem Preset stammen; handgeschriebene
+ * Listen bleiben unverändert.
+ */
+export function normalizeIgnores(lines: string[]): string[] {
+  if (!isPresetManaged(lines)) return lines;
+  const out = lines
+    .filter((l) => !OBSOLETE_PRESET_LINES.has(stripD(l.trim())))
+    .map((l) => (KNOWN_PRESET_LINES.has(l) ? deletableIgnore(l) : l));
+  if (!out.some((l) => stripD(l.trim()) === ".sync")) out.push(RESILIO_PATTERN);
+  return out;
 }

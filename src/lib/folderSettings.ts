@@ -10,6 +10,7 @@ import {
   type FolderID,
 } from "./syncthing";
 import { notifyTagsChanged } from "./tags";
+import { normalizeIgnores } from "./unreal";
 
 /** Pattern die WIR setzen wenn ignore_hidden=true. Wird beim toggle-off
  * gezielt rausgefiltert; user-erstellte Patterns bleiben unberührt.
@@ -27,6 +28,13 @@ export type FolderDefaults = {
   /** User-definierte Tags zum Gruppieren / Filtern. Werden zwischen
    * Geräten geshared via folder-defaults.json. */
   tags?: string[];
+  /** Geteilte .stignore-Liste (ohne die ignore_hidden-Muster) — alle Geräte
+   * übernehmen sie, damit überall dieselben Dateien ignoriert werden.
+   * Fehlt sie, bleibt die lokale .stignore wie sie ist. */
+  ignores?: string[] | null;
+  /** true = aus dem automatischen Abgleich (Vereinigung der Gerätelisten),
+   * darf ergänzt werden. false = bewusst gesetzt, gilt exakt. */
+  ignores_seed?: boolean;
 };
 
 export type FolderDefaultsFile = {
@@ -88,8 +96,9 @@ export async function applyFolderDefaults(
   if (current.ignore !== null) {
     // Bei API-Aussetzer (ignore === null) KEINESFALLS schreiben — sonst würde
     // die .stignore geleert und z.B. DerivedDataCache plötzlich mitsyncen.
-    const managed = new Set([...HIDDEN_PATTERNS, ...HIDDEN_PATTERNS_LEGACY]);
-    const userPatterns = current.ignore.filter((p) => !managed.has(p));
+    // Geteilte Liste (falls vorhanden) ist die Wahrheit, sonst die lokale.
+    const base = Array.isArray(defaults.ignores) ? defaults.ignores : current.ignore;
+    const userPatterns = withoutHidden(normalizeIgnores(base));
     const nextIgnores = defaults.ignore_hidden
       ? [...HIDDEN_PATTERNS, ...userPatterns]
       : userPatterns;
@@ -128,6 +137,91 @@ export async function applyFolderDefaults(
       : { type: "" },
   };
   await putFolder(ep, updatedFolder);
+}
+
+// ── Geteilte Ignore-Liste ──────────────────────────────────────
+//
+// Die .stignore ist in Syncthing pro Gerät und synct nicht mit. Unterschiedliche
+// Listen auf den Geräten führen zu Fehlern wie "directory has been deleted on a
+// remote device but is not empty" (Gerät A ignoriert *.lib, löscht den für es
+// leeren Ordner, Gerät B hat darin Dateien). Deshalb liegt die Liste geteilt in
+// .syncomat/folder-defaults.json (`ignores`) und jedes Gerät übernimmt sie.
+//
+// Umstellung bestehender Ordner (jedes Gerät genau einmal pro Ordner): die
+// eigene Liste wird mit der geteilten VEREINIGT. Vereinigung ist reihenfolge-
+// unabhängig, also landen alle Geräte beim selben Ergebnis, und nichts, was
+// bisher irgendwo ignoriert war (z.B. DerivedDataCache), wird plötzlich gesynct.
+
+const SEEDED_LS_PREFIX = "syncomat.sharedIgnores.v1:";
+
+const isSeeded = (id: FolderID) => {
+  try {
+    return localStorage.getItem(SEEDED_LS_PREFIX + id) !== null;
+  } catch {
+    return false;
+  }
+};
+
+/** Ordner gilt auf diesem Gerät als umgestellt — kein eigener Abgleich mehr.
+ * Beim Verknüpfen eines angebotenen Ordners setzen: dort kommt die geteilte
+ * Liste per Sync, eine eigene würde sie sonst als "neuere" überschreiben. */
+export function markIgnoresSeeded(id: FolderID): void {
+  try {
+    localStorage.setItem(SEEDED_LS_PREFIX + id, String(Date.now()));
+  } catch {
+    // ohne Storage läuft der Abgleich beim nächsten Start erneut — harmlos
+  }
+}
+
+function withoutHidden(lines: string[]): string[] {
+  const managed = new Set([...HIDDEN_PATTERNS, ...HIDDEN_PATTERNS_LEGACY]);
+  return lines.filter((p) => !managed.has(p));
+}
+
+function union(a: string[], b: string[]): string[] {
+  const seen = new Set(a);
+  return [...a, ...b.filter((l) => !seen.has(l))];
+}
+
+const sameList = (a: string[], b: string[]) => a.join("\n") === b.join("\n");
+
+/**
+ * Ignore-Liste geteilt ablegen (übrige Einstellungen bleiben erhalten).
+ * `seed=false`: bewusst gesetzte Liste (Preset beim Anlegen/Optimieren), gilt
+ * auf allen Geräten exakt.
+ */
+export async function writeSharedIgnores(
+  folderPath: string,
+  myDeviceId: string,
+  ignores: string[],
+  seed = false,
+): Promise<FolderDefaultsFile> {
+  const file = await folderSettingsRead(folderPath);
+  const settings: FolderDefaults = {
+    ...(file?.settings ?? DEFAULT_FOLDER_DEFAULTS),
+    ignores: withoutHidden(ignores),
+    ignores_seed: seed,
+  };
+  return folderSettingsWrite(folderPath, myDeviceId, settings);
+}
+
+/** Lokale Liste mit einer geteilten Abgleich-Liste vereinigen (ohne geteilte
+ * Liste: die lokale wird zur geteilten). Gibt die neu geschriebene Datei
+ * zurück, "unchanged" wenn nichts dazukam, null bei API-Aussetzer (dann wird
+ * nichts geschrieben — sonst landet eine leere Liste im Cluster). */
+async function mergeLocalInto(
+  ep: Endpoint,
+  f: Folder,
+  myDeviceId: string,
+  shared: string[] | null,
+): Promise<FolderDefaultsFile | null | "unchanged"> {
+  const cur = await getFolderIgnores(ep, f.id).catch(() => ({ ignore: null }));
+  if (cur.ignore === null) return null;
+  const local = withoutHidden(normalizeIgnores(cur.ignore));
+  const sharedNorm = shared ? normalizeIgnores(shared) : null;
+  const merged = sharedNorm ? union(sharedNorm, local) : local;
+  if (shared && sameList(merged, shared)) return "unchanged";
+  return writeSharedIgnores(f.path, myDeviceId, merged, true);
 }
 
 // ── Replication-Hook ──────────────────────────────────────────
@@ -182,7 +276,38 @@ export function useFolderSettingsReplication(
       for (const f of folders) {
         if (cancelled) return;
         try {
-          const file = await folderSettingsRead(f.path);
+          let file = await folderSettingsRead(f.path);
+
+          // Einmalige Umstellung auf die geteilte Ignore-Liste. Läuft VOR
+          // jedem Übernehmen fremder Listen, sonst wäre die eigene Liste schon
+          // überschrieben, bevor sie in die Vereinigung eingeht.
+          if (!isSeeded(f.id)) {
+            const shared = file?.settings.ignores;
+            if (Array.isArray(shared) && file?.settings.ignores_seed === false) {
+              // Bewusst gesetzte Liste existiert schon → einfach übernehmen.
+              markIgnoresSeeded(f.id);
+            } else {
+              const res = await mergeLocalInto(
+                ep,
+                f,
+                myDeviceId,
+                Array.isArray(shared) ? shared : null,
+              );
+              if (res === null) continue; // API-Aussetzer → nächste Runde
+              markIgnoresSeeded(f.id);
+              if (res !== "unchanged") {
+                await applyFolderDefaults(ep, f, res.settings);
+                appliedRef.current.set(f.id, res.updated_at);
+                saveAppliedMap(appliedRef.current);
+                console.log(`[shared-ignores] ${f.id}: Liste abgeglichen`);
+                continue;
+              }
+            }
+            // "unchanged": die geteilte Liste fremder Geräte unten normal
+            // übernehmen (lastApplied ist noch nicht gesetzt).
+            appliedRef.current.delete(f.id);
+          }
+
           if (!file) continue;
           // Tag-Detection: jeder file-Read mit Tags ist ein Signal an useFolderTags
           // dass die UI refreshed werden sollte (auch wenn updated_by=self, weil
@@ -198,6 +323,13 @@ export function useFolderSettingsReplication(
 
           const lastApplied = appliedRef.current.get(f.id) ?? 0;
           if (file.updated_at <= lastApplied) continue;
+          // Abgleich-Liste eines anderen Geräts: eigene Einträge ergänzen,
+          // falls etwas fehlt (Vereinigung → alle landen beim selben Stand).
+          if (file.settings.ignores_seed && Array.isArray(file.settings.ignores)) {
+            const res = await mergeLocalInto(ep, f, myDeviceId, file.settings.ignores);
+            if (res === null) continue;
+            if (res !== "unchanged") file = res;
+          }
           // Neuer als zuletzt gesehen → applizieren.
           await applyFolderDefaults(ep, f, file.settings);
           appliedRef.current.set(f.id, file.updated_at);
