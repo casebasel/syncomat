@@ -30,6 +30,7 @@ import type {
 } from "../lib/syncthing";
 import { useSharedFolderStatus as useFolderStatus } from "../lib/folderStatusStore";
 import { useFolderConflicts } from "../lib/conflicts";
+import { usePluginPresetHint } from "../lib/folderSettings";
 
 export function FolderInspector({
   folder,
@@ -62,6 +63,7 @@ export function FolderInspector({
   const peerOnline = others.some((id) => connections[id]?.connected);
   const state = deriveSyncState(folder, status, peerOnline, others.length, conflictCount);
   const [copied, setCopied] = useState(false);
+  const pluginHint = usePluginPresetHint(endpoint, folder, myID);
 
   const errorCount = status?.errors ?? 0;
   // Erstes offline-peer für "Wartet auf X" Label
@@ -176,6 +178,35 @@ export function FolderInspector({
               Ansehen
             </span>
           </button>
+        )}
+
+        {/* Plugin-Ordner mit Projekt-Preset: DLLs fehlen auf den anderen Geräten */}
+        {pluginHint.show && (
+          <div className="rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 flex items-center gap-3">
+            <AlertOctagon className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div className="flex-1 text-xs">
+              <div className="font-semibold text-amber-900 dark:text-amber-200">
+                {pluginHint.pluginCount} Unreal-Plugins — ihre DLLs werden nicht synct
+              </div>
+              <div className="text-amber-700/80 dark:text-amber-300/80 mt-0.5">
+                Der Ordner nutzt das Projekt-Preset, das Binaries ausschliesst.
+                Das Plugin-Preset synct die fertigen Plugins komplett, auf allen
+                Geräten.
+              </div>
+              {pluginHint.error && (
+                <div className="text-rose-600 dark:text-rose-400 mt-1 break-words">
+                  {pluginHint.error}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => void pluginHint.apply()}
+              disabled={pluginHint.busy}
+              className="text-xs font-medium px-3 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 shrink-0"
+            >
+              {pluginHint.busy ? "Stelle um…" : "Plugin-Preset"}
+            </button>
+          </div>
         )}
 
         {/* Activity-Feed */}

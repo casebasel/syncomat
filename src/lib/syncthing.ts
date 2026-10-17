@@ -330,7 +330,7 @@ export function tuneFolderForSize(
   workload: string,
 ): Folder {
   const gb = bytes / (1024 * 1024 * 1024);
-  const isUnreal = workload === "unreal";
+  const isUnreal = workload === "unreal" || workload === "unreal-plugins";
   let rescanIntervalS: number;
   let fsWatcherDelayS: number;
   let copiers: number | undefined;

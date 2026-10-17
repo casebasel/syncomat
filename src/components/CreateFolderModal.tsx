@@ -85,6 +85,7 @@ export function CreateFolderModal({
     : 0;
   const isHuge = estimate && estimate.bytes > 10 * 1024 * 1024 * 1024;
   const isUnreal = effectivePreset === "unreal";
+  const isUnrealPlugins = effectivePreset === "unreal-plugins";
 
   const submit = async () => {
     if (!label.trim() || !path) return;
@@ -255,6 +256,19 @@ export function CreateFolderModal({
                 spart das pro Rechner massiv Speicher.
               </div>
             )}
+            {isUnrealPlugins && (
+              <div className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed border-t border-neutral-200 dark:border-neutral-800 pt-2">
+                <strong>
+                  {estimate && estimate.workload.uplugin_count > 0
+                    ? `${estimate.workload.uplugin_count} Unreal-Plugins erkannt.`
+                    : "Unreal-Plugin-Ordner."}
+                </strong>{" "}
+                Fertig installierte Plugins werden komplett synct — inklusive
+                Binaries (DLLs), ohne die Unreal sie nicht lädt.
+                Nur Debug-Symbole (*.pdb), Build-Reste und Caches bleiben weg. Gedacht für
+                Engine/Plugins/Marketplace — pro Unreal-Version ein eigener Ordner.
+              </div>
+            )}
             <div>
               <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 Ignore-Preset
@@ -269,6 +283,7 @@ export function CreateFolderModal({
                 className="w-full px-2 py-1.5 text-xs rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
               >
                 <option value="unreal">Unreal-Projekt</option>
+                <option value="unreal-plugins">Unreal-Plugins (Engine/Marketplace)</option>
                 <option value="node">Node.js / Web</option>
                 <option value="generic">Allgemein (nur OS-Müll)</option>
               </select>

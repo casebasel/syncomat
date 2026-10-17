@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getConfig,
   getFolderIgnores,
@@ -11,7 +11,7 @@ import {
   type FolderID,
 } from "./syncthing";
 import { notifyTagsChanged } from "./tags";
-import { normalizeIgnores } from "./unreal";
+import { normalizeIgnores, pickStignoreForWorkload, workloadDetect } from "./unreal";
 
 /** Pattern die WIR setzen wenn ignore_hidden=true. Wird beim toggle-off
  * gezielt rausgefiltert; user-erstellte Patterns bleiben unberührt.
@@ -461,4 +461,64 @@ export function useFolderSettingsReplication(
     folders.map((f) => `${f.id}|${f.path}`).join(","),
     intervalMs,
   ]);
+}
+
+// ── Plugin-Ordner mit Projekt-Preset ──────────────────────────────
+//
+// Engine-/Marketplace-Plugin-Ordner wurden bis v0.9.12 mit dem Unreal-Projekt-
+// Preset angelegt (eine eigene Erkennung gab es nicht). Das wirft `Binaries`
+// raus — bei installierten Plugins sind das aber die DLLs, ohne die Unreal das
+// Plugin nicht lädt. Kein stilles Umstellen: die Ordneransicht zeigt einen
+// Hinweis, ein Klick setzt das Plugin-Preset für alle Geräte.
+
+const ignoresBinaries = (lines: string[]) =>
+  lines.some((l) => {
+    const t = stripD(l);
+    return t === "Binaries" || t === "**/Plugins/*/Binaries";
+  });
+
+export function usePluginPresetHint(
+  ep: Endpoint | null,
+  folder: Folder,
+  myDeviceId: string | null,
+): { show: boolean; pluginCount: number; busy: boolean; error: string | null; apply: () => Promise<void> } {
+  const [pluginCount, setPluginCount] = useState(0);
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setShow(false);
+    setError(null);
+    if (!ep) return;
+    let cancelled = false;
+    (async () => {
+      const det = await workloadDetect(folder.path).catch(() => null);
+      if (cancelled || det?.kind !== "unreal-plugins") return;
+      const cur = await getFolderIgnores(ep, folder.id).catch(() => ({ ignore: null }));
+      if (cancelled || cur.ignore === null) return;
+      setPluginCount(det.uplugin_count);
+      setShow(ignoresBinaries(cur.ignore));
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ep?.url, ep?.api_key, folder.id, folder.path]);
+
+  const apply = useCallback(async () => {
+    if (!ep || !myDeviceId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await applyPresetEverywhere(ep, folder, myDeviceId, pickStignoreForWorkload("unreal-plugins"));
+      setShow(false);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [ep, folder, myDeviceId]);
+
+  return { show, pluginCount, busy, error, apply };
 }

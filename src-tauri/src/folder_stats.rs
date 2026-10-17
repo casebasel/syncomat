@@ -5,7 +5,7 @@ use walkdir::WalkDir;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct WorkloadDetection {
-    pub kind: String, // "unreal" | "unity" | "node" | "godot" | "generic"
+    pub kind: String, // "unreal" | "unreal-plugins" | "unity" | "node" | "godot" | "generic"
     pub has_uproject: bool,
     pub has_unity_project: bool,
     pub has_package_json: bool,
@@ -16,6 +16,9 @@ pub struct WorkloadDetection {
     /// Anzahl gefundener *.uproject Files. Relevant für Multi-Projekt-Workspaces
     /// (z.B. Marlon's Setup mit 10 UE-Projekten unter einem Sync-Folder).
     pub uproject_count: u32,
+    /// Anzahl gefundener *.uplugin Files. Ein Ordner mit Plugins, aber ohne
+    /// .uproject, ist ein Plugin-Ordner (z.B. Engine/Plugins/Marketplace).
+    pub uplugin_count: u32,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -52,6 +55,7 @@ fn workload_detect_blocking(path: &str) -> Result<WorkloadDetection, String> {
         has_intermediate: false,
         has_node_modules: false,
         uproject_count: 0,
+        uplugin_count: 0,
     };
 
     // max_depth=4 deckt:
@@ -97,6 +101,8 @@ fn workload_detect_blocking(path: &str) -> Result<WorkloadDetection, String> {
             if name.ends_with(".uproject") {
                 det.has_uproject = true;
                 det.uproject_count = det.uproject_count.saturating_add(1);
+            } else if name.ends_with(".uplugin") {
+                det.uplugin_count = det.uplugin_count.saturating_add(1);
             } else if name == "package.json" {
                 det.has_package_json = true;
             } else if name == "project.godot" {
@@ -116,8 +122,13 @@ fn workload_detect_blocking(path: &str) -> Result<WorkloadDetection, String> {
         }
     }
 
+    // Ein .uproject gewinnt: Plugins unter <Projekt>/Plugins gehören zum Projekt
+    // und werden dort gebaut. Nur Plugins OHNE Projekt sind fertig installierte
+    // Plugins (Engine-/Marketplace-Ordner), deren Binaries mit müssen.
     det.kind = if det.has_uproject {
         "unreal".into()
+    } else if det.uplugin_count > 0 {
+        "unreal-plugins".into()
     } else if det.has_unity_project {
         "unity".into()
     } else if det.has_godot_project {

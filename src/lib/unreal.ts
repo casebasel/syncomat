@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 /** Workload-Detection für CreateFolderModal — Rust-side WalkDir bis max_depth=4 */
 export type WorkloadDetection = {
-  kind: "unreal" | "unity" | "node" | "godot" | "generic";
+  kind: "unreal" | "unreal-plugins" | "unity" | "node" | "godot" | "generic";
   has_uproject: boolean;
   has_unity_project: boolean;
   has_package_json: boolean;
@@ -13,6 +13,8 @@ export type WorkloadDetection = {
   /** Wieviele Unreal-Projekte gefunden — relevant für Multi-Projekt-Workspaces.
    * Bei 1: einzelnes Projekt im Root. Bei N>1: Workspace mit N Subprojekten. */
   uproject_count: number;
+  /** Wieviele *.uplugin gefunden — ohne .uproject heisst das: Plugin-Ordner. */
+  uplugin_count: number;
 };
 
 export type FolderEstimate = {
@@ -134,6 +136,61 @@ export const UNREAL_STIGNORE: string[] = [
   "!**/Saved/Config",
 ];
 
+// Unreal-Plugins .stignore-Preset — für Ordner mit FERTIG INSTALLIERTEN Plugins,
+// typisch `UE_5.x/Engine/Plugins/Marketplace` (eine Engine-Version = ein Ordner).
+//
+// Gegenstück zum Projekt-Preset oben: Bei einem Projekt sind die Binaries
+// Bauschutt, bei einem installierten Plugin sind sie das Plugin selbst. Eine
+// installierte Engine kann ein Plugin nicht neu bauen — ohne Binaries/Win64/*.dll
+// lädt Unreal es nicht, und Source/ThirdParty bringt vorkompilierte Fremd-
+// Bibliotheken mit (DLSS, Substance …), die manche Plugins direkt von dort laden.
+// Deshalb kein `Binaries`, `Build`, `*.lib` o.ä. — nur echten Müll weglassen.
+// Fertig installierte Plugins bringen kein Intermediate mit (VM 150, 17.10.2026:
+// 18 Plugins, 0 Dateien); entsteht doch eins, ist es lokaler Build-Rest.
+// Neue oder aktualisierte Plugins von JEDEM Gerät landen so auf allen anderen.
+export const UNREAL_PLUGINS_STIGNORE: string[] = [
+  "// Unreal-Plugins — Syncomat-Preset für installierte Engine-/Marketplace-Plugins",
+  "// Binaries und Source/ThirdParty gehören zum Plugin und werden synct.",
+  "",
+  "// === Debug-Symbole (gross, nur zum Debuggen nötig) ===",
+  "*.pdb",
+  "",
+  "// === Lokale Build-Reste und Caches (in fertigen Plugins nicht vorhanden) ===",
+  "Intermediate",
+  "DerivedDataCache",
+  "Saved",
+  "",
+  "// === IDE / Tool-Metadaten ===",
+  ".vs",
+  ".vscode",
+  ".idea",
+  "",
+  "// === OS-Muell ===",
+  "(?i).DS_Store",
+  "(?i)Thumbs.db",
+  "(?i)desktop.ini",
+  "(?i)ehthumbs.db",
+  ".Spotlight-V100",
+  ".Trashes",
+  ".fseventsd",
+  ".AppleDouble",
+  "._*",
+  "",
+  "// === Temp-Files ===",
+  "*.tmp",
+  "*.temp",
+  "*.swp",
+  "*~",
+  "",
+  "// === Syncthing-/Syncomat-intern ===",
+  ".stversions",
+  ".stfolder",
+  ".stignore",
+  "",
+  "// === Resilio-Sync-Reste ===",
+  ".sync",
+];
+
 /** Generic .stignore — nur OS-Mull + dotfiles. Default für non-Unreal Folders. */
 export const GENERIC_STIGNORE: string[] = [
   "(?i).DS_Store",
@@ -191,7 +248,13 @@ export function deletableIgnore(pattern: string): string {
 
 export function pickStignoreForWorkload(kind: WorkloadDetection["kind"]): string[] {
   const preset =
-    kind === "unreal" ? UNREAL_STIGNORE : kind === "node" ? NODE_STIGNORE : GENERIC_STIGNORE;
+    kind === "unreal"
+      ? UNREAL_STIGNORE
+      : kind === "unreal-plugins"
+        ? UNREAL_PLUGINS_STIGNORE
+        : kind === "node"
+          ? NODE_STIGNORE
+          : GENERIC_STIGNORE;
   // (?d)-Prefix auf jedes echte Pattern -> OS-Müll & regenerierbare Caches
   // blockieren keine Remote-Löschungen mehr (sonst "contains ignored files").
   return preset.map(deletableIgnore);
@@ -207,6 +270,7 @@ export function workloadLabel(
   }
   return {
     unreal: "Unreal-Projekt",
+    "unreal-plugins": "Unreal-Plugins",
     unity: "Unity-Projekt",
     node: "Node.js / Web",
     godot: "Godot-Projekt",
@@ -239,7 +303,13 @@ const OBSOLETE_PRESET_LINES = new Set(["*.lib", "*.so", "*.dylib", "*.exe"]);
 
 /** Alle "echten" Preset-Zeilen — ohne Kommentare, Leerzeilen, Negationen. */
 const KNOWN_PRESET_LINES = new Set(
-  [...UNREAL_STIGNORE, ...GENERIC_STIGNORE, ...NODE_STIGNORE, ...OBSOLETE_PRESET_LINES].filter(
+  [
+    ...UNREAL_STIGNORE,
+    ...UNREAL_PLUGINS_STIGNORE,
+    ...GENERIC_STIGNORE,
+    ...NODE_STIGNORE,
+    ...OBSOLETE_PRESET_LINES,
+  ].filter(
     (l) => {
       const t = l.trim();
       return t !== "" && !t.startsWith("//") && !t.startsWith("!");

@@ -95,6 +95,7 @@ export function LinkFolderModal({
     : 0;
   const isHuge = estimate && estimate.bytes > 10 * 1024 * 1024 * 1024;
   const isUnreal = effectivePreset === "unreal";
+  const isUnrealPlugins = effectivePreset === "unreal-plugins";
 
   const submit = async () => {
     if (!label.trim() || !path) return;
@@ -195,6 +196,13 @@ export function LinkFolderModal({
                 mitgesynct — spart pro Maschine 10-50 GB pro Projekt.
               </div>
             )}
+            {isUnrealPlugins && (
+              <div className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed border-t border-neutral-200 dark:border-neutral-800 pt-2">
+                <strong>{estimate.workload.uplugin_count} Unreal-Plugins erkannt.</strong>{" "}
+                Fertig installierte Plugins werden komplett synct — inklusive
+                Binaries (DLLs), ohne die Unreal sie nicht lädt.
+              </div>
+            )}
           </div>
         )}
 
@@ -215,6 +223,7 @@ export function LinkFolderModal({
               className="w-full px-2 py-1.5 text-xs rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
             >
               <option value="unreal">Unreal-Projekt</option>
+              <option value="unreal-plugins">Unreal-Plugins (Engine/Marketplace)</option>
               <option value="node">Node.js / Web</option>
               <option value="generic">Allgemein (nur OS-Müll)</option>
             </select>
