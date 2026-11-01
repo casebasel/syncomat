@@ -262,6 +262,7 @@ function App() {
     pendingDevices: pendingDevices.data ?? [],
     pendingFolders: pendingFolders.data ?? [],
     updateState: updater.state,
+    folderErrors: aggregate.folderErrors,
   });
 
   const isEmpty =
@@ -628,6 +629,7 @@ function App() {
             aggregateState={aggregate.state}
             needBytes={aggregate.needBytes}
             errorCount={aggregate.errorCount}
+            folderErrorLabels={aggregate.folderErrors.map((e) => e.label)}
             lastSyncAt={aggregate.lastUpdate}
             localFiles={aggregate.localFiles}
             localBytes={aggregate.localBytes}

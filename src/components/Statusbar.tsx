@@ -47,6 +47,7 @@ export function Statusbar({
   aggregateState,
   needBytes,
   errorCount,
+  folderErrorLabels = [],
   lastSyncAt,
   version,
   localFiles,
@@ -58,6 +59,8 @@ export function Statusbar({
   aggregateState: AggregateState;
   needBytes: number;
   errorCount: number;
+  /** Labels der Ordner, die als Ganzes im Fehler stehen (Sync angehalten). */
+  folderErrorLabels?: string[];
   lastSyncAt: Date | null;
   version: string | null;
   localFiles?: number;
@@ -76,7 +79,10 @@ export function Statusbar({
   if (ready && aggregateState === "syncing")
     left = `Synct · ${fmtBytes(needBytes)} offen`;
   if (ready && aggregateState === "error")
-    left = `${errorCount} Datei-Fehler · Details im Inspector`;
+    left =
+      folderErrorLabels.length > 0
+        ? `Sync angehalten: ${folderErrorLabels.join(", ")} · Details im Inspector`
+        : `${errorCount} Datei-Fehler · Details im Inspector`;
 
   const leftCls =
     aggregateState === "error"

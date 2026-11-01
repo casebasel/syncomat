@@ -112,7 +112,39 @@ export type FolderStatus = {
   pullErrors: number;
   localFiles: number;
   globalFiles: number;
+  /** Fehler des GANZEN Ordners (z. B. „folder marker missing", „folder path
+   * missing"). Syncthing hält den Ordner dann an, `state` bleibt dabei oft
+   * „idle" und `errors` 0 — bis v0.9.14 sah Syncomat das nicht und zeigte
+   * wochenlang „Wartet" (x5950, Marketplace 5.7, Okt. 2026). */
+  error?: string;
 };
+
+/** Ordner-Fehler aus dem Status, oder null. Immer hierüber prüfen, nie nur
+ * `state` oder `errors` (das sind Datei-Fehler). */
+export function folderError(s: FolderStatus | null | undefined): string | null {
+  const e = s?.error?.trim();
+  return e ? e : null;
+}
+
+/** Ordner-Fehler in Werkzeug-Deutsch: was passiert ist + was zu tun ist. */
+export function describeFolderError(raw: string): { title: string; action: string } {
+  if (/folder marker missing/i.test(raw)) {
+    return {
+      title: "Ordner-Marke .stfolder fehlt — Sync angehalten",
+      action:
+        "Syncthing gleicht den Ordner nicht mehr ab, um Datenverlust zu verhindern. " +
+        "Prüfen, ob der Pfad stimmt und die Dateien vollständig sind; dann Ordner auf " +
+        "„Nur empfangen“ stellen, .stfolder neu anlegen, Abweichungen prüfen.",
+    };
+  }
+  if (/folder path missing/i.test(raw)) {
+    return {
+      title: "Ordner-Pfad nicht erreichbar — Sync angehalten",
+      action: "Laufwerk anschliessen bzw. Pfad wiederherstellen. Nicht neu anlegen.",
+    };
+  }
+  return { title: "Ordner-Fehler — Sync angehalten", action: raw };
+}
 
 export type SyncEvent = {
   id: number;
@@ -776,6 +808,8 @@ export type AggregateStatus = {
   state: "idle" | "syncing" | "error";
   needBytes: number;
   errorCount: number;
+  /** Ordner, die als Ganzes im Fehler stehen (siehe FolderStatus.error). */
+  folderErrors: { id: FolderID; label: string; message: string }[];
   lastUpdate: Date | null;
   localFiles: number;
   localBytes: number;
@@ -827,6 +861,7 @@ export function useAggregateStatus(
     state: "idle",
     needBytes: 0,
     errorCount: 0,
+    folderErrors: [],
     lastUpdate: null,
     localFiles: 0,
     localBytes: 0,
@@ -839,6 +874,7 @@ export function useAggregateStatus(
         state: "idle",
         needBytes: 0,
         errorCount: 0,
+        folderErrors: [],
         lastUpdate: null,
         localFiles: 0,
         localBytes: 0,
@@ -854,6 +890,7 @@ export function useAggregateStatus(
             state: "idle",
             needBytes: 0,
             errorCount: 0,
+            folderErrors: [],
             lastUpdate: new Date(),
             localFiles: 0,
             localBytes: 0,
@@ -868,6 +905,14 @@ export function useAggregateStatus(
       let needBytes = 0;
       let localFiles = 0;
       let localBytes = 0;
+      const folderErrors: AggregateStatus["folderErrors"] = [];
+      results.forEach((s, i) => {
+        const msg = folderError(s);
+        if (msg) {
+          const f = folders[i]!;
+          folderErrors.push({ id: f.id, label: f.label || f.id, message: msg });
+        }
+      });
       for (const s of results) {
         if (!s) continue;
         errorCount += s.errors || 0;
@@ -876,11 +921,16 @@ export function useAggregateStatus(
         localBytes += s.localBytes || 0;
       }
       const state: AggregateStatus["state"] =
-        errorCount > 0 ? "error" : needBytes > 0 ? "syncing" : "idle";
+        errorCount > 0 || folderErrors.length > 0
+          ? "error"
+          : needBytes > 0
+            ? "syncing"
+            : "idle";
       setAgg({
         state,
         needBytes,
         errorCount,
+        folderErrors,
         lastUpdate: new Date(),
         localFiles,
         localBytes,
@@ -918,10 +968,15 @@ export function useAggregateStatus(
       }
     };
     bus.add(handler);
+    // Sicherheitsnetz: Ein Ordner kann in den Fehler gehen, ohne dass eines der
+    // Events oben feuert (z. B. Marke fehlt beim Start) — darum zusätzlich jede
+    // Minute neu lesen.
+    const safetyPoll = setInterval(() => scheduleRefetch(false), 60_000);
 
     return () => {
       cancelled = true;
       bus.remove(handler);
+      clearInterval(safetyPoll);
       if (scheduledTimer) clearTimeout(scheduledTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

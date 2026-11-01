@@ -28,6 +28,7 @@ import type {
   Folder,
   FolderStatus,
 } from "../lib/syncthing";
+import { describeFolderError, folderError } from "../lib/syncthing";
 import { useSharedFolderStatus as useFolderStatus } from "../lib/folderStatusStore";
 import { useFolderConflicts } from "../lib/conflicts";
 import { usePluginPresetHint } from "../lib/folderSettings";
@@ -66,6 +67,8 @@ export function FolderInspector({
   const pluginHint = usePluginPresetHint(endpoint, folder, myID);
 
   const errorCount = status?.errors ?? 0;
+  const folderErr = folderError(status);
+  const folderErrInfo = folderErr ? describeFolderError(folderErr) : null;
   // Erstes offline-peer für "Wartet auf X" Label
   const offlinePeerName = (() => {
     const first = others.find((id) => !connections[id]?.connected);
@@ -157,6 +160,27 @@ export function FolderInspector({
               Auflösen
             </span>
           </button>
+        )}
+
+        {/* Ordner-Fehler (vor allem anderen: der Ordner synct gar nicht mehr) */}
+        {folderErrInfo && (
+          <div
+            role="alert"
+            className="rounded-lg border border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-950/30 px-3 py-2.5 flex items-start gap-3"
+          >
+            <AlertOctagon className="size-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="flex-1 text-xs min-w-0">
+              <div className="font-semibold text-rose-900 dark:text-rose-200">
+                {folderErrInfo.title}
+              </div>
+              <div className="text-rose-700/80 dark:text-rose-300/80 mt-0.5">
+                {folderErrInfo.action}
+              </div>
+              <div className="font-mono text-[10px] text-rose-600/70 dark:text-rose-400/70 mt-1 break-words">
+                {folderErr}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Error-Banner */}
@@ -300,7 +324,7 @@ function deriveSyncState(
   conflictCount: number,
 ): SyncState {
   if (folder.paused) return "paused";
-  if (status && status.errors > 0) return "error";
+  if (status && (status.errors > 0 || folderError(status))) return "error";
   if (conflictCount > 0) return "conflicts";
   if (peersConfigured === 0) return "local-only";
   if (status?.state === "syncing") return "syncing";

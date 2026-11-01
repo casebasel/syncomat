@@ -4,7 +4,15 @@ import {
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
-import type { Connection, DeviceID, Device, PendingDevice, PendingFolder } from "./syncthing";
+import type {
+  AggregateStatus,
+  Connection,
+  DeviceID,
+  Device,
+  PendingDevice,
+  PendingFolder,
+} from "./syncthing";
+import { describeFolderError } from "./syncthing";
 import type { UpdateState } from "./updater";
 
 const LS_KEY = "syncomat.notifications.enabled";
@@ -54,6 +62,7 @@ export function useNotificationTriggers({
   pendingDevices,
   pendingFolders,
   updateState,
+  folderErrors,
 }: {
   enabled: boolean;
   connections: Record<DeviceID, Connection>;
@@ -61,6 +70,7 @@ export function useNotificationTriggers({
   pendingDevices: PendingDevice[];
   pendingFolders: PendingFolder[];
   updateState: UpdateState;
+  folderErrors: AggregateStatus["folderErrors"];
 }) {
   const prevConnectedRef = useRef<Set<DeviceID> | null>(null);
   /** Wann ein Gerät offline ging — Reconnects nach kurzem Flackern (IPv6↔IPv4-
@@ -72,6 +82,8 @@ export function useNotificationTriggers({
   const seenPendingDevicesRef = useRef<Set<DeviceID> | null>(null);
   const seenPendingFoldersRef = useRef<Set<string> | null>(null);
   const prevUpdateKindRef = useRef<UpdateState["kind"] | null>(null);
+  /** Bereits gemeldete Ordner-Fehler (folderId + Meldung), einmal pro App-Lauf. */
+  const seenFolderErrorsRef = useRef<Set<string>>(new Set());
 
   // Nach dem Start trudeln die Geräte über 10–60 s ein — das ist kein Ereignis.
   const STARTUP_GRACE_MS = 90_000;
@@ -150,6 +162,24 @@ export function useNotificationTriggers({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingFolders.map((p) => p.folderID).join(","), enabled]);
+
+  // ── Ordner-Fehler: Ordner synct nicht mehr (Marke fehlt, Pfad fehlt …) ──
+  // Bewusst OHNE First-Mount-/Startup-Ausnahme: ein Fehler, der beim Start schon
+  // besteht, ist genau der, der sonst wochenlang unbemerkt bleibt.
+  useEffect(() => {
+    const seen = seenFolderErrorsRef.current;
+    const current = new Set(folderErrors.map((e) => `${e.id}\n${e.message}`));
+    // Behobene Fehler vergessen → tritt er wieder auf, wird er wieder gemeldet.
+    for (const k of seen) if (!current.has(k)) seen.delete(k);
+    for (const e of folderErrors) {
+      const k = `${e.id}\n${e.message}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      if (!enabled) continue;
+      void notify(`„${e.label}“ synct nicht`, describeFolderError(e.message).title);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folderErrors.map((e) => `${e.id}:${e.message}`).join("|"), enabled]);
 
   // ── Updater state change → "Update v0.1.x verfügbar" ──
   useEffect(() => {

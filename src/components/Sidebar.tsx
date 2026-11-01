@@ -17,6 +17,7 @@ import type {
   FolderStatus,
   PendingFolder,
 } from "../lib/syncthing";
+import { folderError } from "../lib/syncthing";
 import { useSharedFolderStatus as useFolderStatus } from "../lib/folderStatusStore";
 import { useFolderConflicts } from "../lib/conflicts";
 
@@ -464,7 +465,7 @@ function deriveSyncState(
   conflictCount: number,
 ): SyncState {
   if (folder.paused) return "paused";
-  if (status && status.errors > 0) return "error";
+  if (status && (status.errors > 0 || folderError(status))) return "error";
   if (conflictCount > 0) return "conflicts";
   if (peersConfigured === 0) return "local-only";
   if (status?.state === "syncing") return "syncing";
