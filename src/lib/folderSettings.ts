@@ -15,8 +15,10 @@ import { normalizeIgnores, pickStignoreForWorkload, workloadDetect } from "./unr
 
 /** Pattern die WIR setzen wenn ignore_hidden=true. Wird beim toggle-off
  * gezielt rausgefiltert; user-erstellte Patterns bleiben unberührt.
- * (?d)-Prefix: erlaubt Syncthing, diese Hidden-Files zu löschen wenn sie ein
- * Ordner-Löschen blockieren würden (sonst "delete dir: contains ignored files").
+ * (?d)-Prefix nur auf den OS-Resten (stehen VOR `.*`, erstes Muster gewinnt):
+ * die dürfen ein Ordner-Löschen von fern nicht blockieren. `.*` selbst OHNE
+ * (?d) — bis v0.9.15 `(?d).*`, das löschte bei einem Ordner-Löschen von fern
+ * auch lokale versteckte Ordner wie `.git` mit.
  *
  * `!/.syncomat` MUSS vorne stehen (Syncthing: erstes passendes Muster gewinnt):
  * `(?d).*` trifft sonst auch `.syncomat/` — dann syncen Tags, Papierkorb,
@@ -25,14 +27,25 @@ import { normalizeIgnores, pickStignoreForWorkload, workloadDetect } from "./unr
 export const SYNCOMAT_DIR_EXCEPTION = "!/.syncomat";
 const HIDDEN_PATTERNS = [
   SYNCOMAT_DIR_EXCEPTION,
-  "(?d).*",
   "(?d).DS_Store",
   "(?d)Thumbs.db",
   "(?d)desktop.ini",
+  ".*",
 ];
-/** Alte un-prefixed Varianten (Folders von vor dem (?d)-Fix) — beim toggle-off
- * mit rausfiltern, damit nichts liegen bleibt. */
-const HIDDEN_PATTERNS_LEGACY = [".*", ".DS_Store", "Thumbs.db", "desktop.ini"];
+/** Frühere Varianten — beim toggle-off und beim Nachziehen mit rausfiltern,
+ * damit nichts liegen bleibt: un-prefixed (vor dem (?d)-Fix) und `(?d).*`
+ * (bis v0.9.15). */
+const HIDDEN_PATTERNS_LEGACY = ["(?d).*", ".DS_Store", "Thumbs.db", "desktop.ini"];
+
+/** Lokale .stignore auf den aktuellen Stand bringen: Preset-Zeilen mit `(?d)`
+ * nur noch, wo erlaubt (normalizeIgnores), und — falls „versteckte Dateien
+ * ignorieren" aktiv ist — den Hidden-Block in der aktuellen Form vorne. */
+export function normalizeLocalIgnores(lines: string[]): string[] {
+  const norm = normalizeIgnores(lines);
+  const hadHidden = lines.includes("(?d).*") || lines.includes(".*");
+  if (!hadHidden) return norm;
+  return [...HIDDEN_PATTERNS, ...withoutHidden(norm)];
+}
 
 export type FolderDefaults = {
   ignore_hidden: boolean;

@@ -3,6 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { AlertTriangle, FolderOpen, Loader2 } from "lucide-react";
 import { PanelShell } from "./PanelShell";
 import {
+  MAX_CONFLICTS,
   putFolder,
   tuneFolderForSize,
   type Endpoint,
@@ -114,8 +115,8 @@ export function CreateFolderModal({
         ],
         // caseSensitiveFS NICHT setzen — Syncthing auto-detected pro path.
         // Hardcoded:true bricht Windows-Peer-Sync silent (NTFS = case-insensitive).
-        // Konflikte still lösen: neueres Änderungsdatum gewinnt.
-        maxConflicts: 0,
+        // Konfliktverlierer als .sync-conflict-Kopie behalten (MAX_CONFLICTS).
+        maxConflicts: MAX_CONFLICTS,
       };
       // Tuning anhand Estimate — fsWatcher, rescanInterval, copiers, etc.
       if (estimate) {

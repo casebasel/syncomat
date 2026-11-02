@@ -220,30 +220,73 @@ export const NODE_STIGNORE: string[] = [
   ".parcel-cache",
 ];
 
-// Syncthing-interne Marker bleiben unangetastet — sie liegen im Folder-Root und
-// blockieren eh keine Subfolder-Löschung; (?d) drauf wäre nur unnötiges Risiko.
-const NEVER_DELETABLE = new Set([".stfolder", ".stignore", ".stversions"]);
+/**
+ * Muster, die `(?d)` bekommen: nur Betriebssystem-Reste, Temp-/Lock-Dateien und
+ * echte, neu erzeugbare Caches. `(?d)` erlaubt Syncthing, ignorierte Dateien zu
+ * löschen, wenn sie ein Ordner-Löschen von einem anderen Gerät blockieren — und
+ * die gibt es NUR auf diesem Gerät. Bis v0.9.15 stand `(?d)` auf jedem Muster,
+ * auch auf `Binaries`, `Build`, `Saved/Autosaves|Backup|Screenshots`: Löschte
+ * oder benannte jemand anderswo den Elternordner um, waren diese lokalen Dateien
+ * weg (Prüfung Datenzentrale, 02.11.2026). Der Preis ohne `(?d)`: ein Löschen von
+ * fern bleibt an solchen Dateien hängen („contains ignored files") — seit v0.9.15
+ * als Ordner-Fehler sichtbar.
+ */
+const DELETABLE_PATTERNS = new Set([
+  // Betriebssystem-Reste
+  "(?i).DS_Store",
+  "(?i)Thumbs.db",
+  "(?i)desktop.ini",
+  "(?i)ehthumbs.db",
+  ".Spotlight-V100",
+  ".Trashes",
+  ".fseventsd",
+  ".AppleDouble",
+  "._*",
+  // Temp- und Lock-Dateien
+  "*.tmp",
+  "*.temp",
+  "*.swp",
+  "*~",
+  "*.uasset.lock",
+  "*.umap.lock",
+  // Neu erzeugbare Caches und Build-Zwischenstände
+  "DerivedDataCache",
+  "Intermediate",
+  "**/Plugins/*/Intermediate",
+  "**/Plugins/*/DerivedDataCache",
+  "**/Saved/Logs",
+  "**/Saved/Crashes",
+  "**/Saved/CrashReportClient",
+  "**/Saved/HardwareSurvey",
+  "**/Saved/SourceControl",
+  "*.pdb",
+  "*.obj",
+  "*.exp",
+  "*.generated.h",
+  "*.generated.cpp",
+  "*.VC.db",
+  "*.VC.opendb",
+  "*.sdf",
+  ".vs",
+  "node_modules",
+  ".next",
+  ".nuxt",
+  ".cache",
+  ".parcel-cache",
+  // Resilio-Reste (Marlon 01.11.2026: alle .sync-Ordner dürfen weg)
+  ".sync",
+]);
 
 /**
- * Prefix `(?d)` auf ein Ignore-Pattern: erlaubt Syncthing, die ignorierte
- * Datei/Ordner zu löschen WENN sie das Einzige ist, das ein Ordner-Löschen
- * blockiert. Ohne das bleibt z.B. ein unsichtbares `.DS_Store` hängen und wirft
- * "delete dir: directory has been deleted on a remote device but contains
- * ignored files". Kommentare, Leerzeilen, Negationen (`!`) und Syncthing-Marker
- * bleiben unverändert.
+ * `(?d)` vor ein Ignore-Muster setzen, wenn es in DELETABLE_PATTERNS steht —
+ * sonst ohne. Ein schon vorhandenes `(?d)` auf einem anderen Muster wird
+ * entfernt. Kommentare, Leerzeilen und Negationen (`!`) bleiben unverändert.
  */
 export function deletableIgnore(pattern: string): string {
   const t = pattern.trimStart();
-  if (
-    t === "" ||
-    t.startsWith("//") ||
-    t.startsWith("!") ||
-    t.startsWith("(?d)") ||
-    NEVER_DELETABLE.has(t)
-  ) {
-    return pattern;
-  }
-  return "(?d)" + pattern;
+  if (t === "" || t.startsWith("//") || t.startsWith("!")) return pattern;
+  const bare = t.replace(/^\(\?d\)/, "");
+  return DELETABLE_PATTERNS.has(bare) ? "(?d)" + bare : bare;
 }
 
 export function pickStignoreForWorkload(kind: WorkloadDetection["kind"]): string[] {
@@ -331,7 +374,8 @@ function isPresetManaged(lines: string[]): boolean {
 
 /**
  * Bringt eine .stignore-Liste auf den aktuellen Preset-Stand. Idempotent:
- * - bekannte Preset-Zeilen ohne `(?d)` bekommen das Präfix (Ordner vor v0.9.6)
+ * - bekannte Preset-Zeilen bekommen `(?d)` genau dann, wenn sie in
+ *   DELETABLE_PATTERNS stehen (fehlt → ergänzt, zu viel → entfernt, v0.9.16)
  * - veraltete Preset-Zeilen (`*.lib` …) fliegen raus
  * - `(?d).sync` (Resilio-Reste) wird ergänzt
  * Nur bei Listen, die erkennbar von einem Preset stammen; handgeschriebene
@@ -341,7 +385,7 @@ export function normalizeIgnores(lines: string[]): string[] {
   if (!isPresetManaged(lines)) return lines;
   const out = lines
     .filter((l) => !OBSOLETE_PRESET_LINES.has(stripD(l.trim())))
-    .map((l) => (KNOWN_PRESET_LINES.has(l) ? deletableIgnore(l) : l));
+    .map((l) => (KNOWN_PRESET_LINES.has(stripD(l.trim())) ? deletableIgnore(l.trim()) : l));
   if (!out.some((l) => stripD(l.trim()) === ".sync")) out.push(RESILIO_PATTERN);
   return out;
 }

@@ -21,6 +21,7 @@ import type {
   SystemStatus,
 } from "../lib/syncthing";
 import type { UpdateState } from "../lib/updater";
+import { compareVersions, type UpdateNote } from "../lib/updateAll";
 import { classifyPath, type NetPath } from "../lib/network";
 
 type Tab = "general" | "network" | "updates" | "notifications" | "power-user";
@@ -37,6 +38,10 @@ export function SettingsPanel({
   updateState,
   onRecheckUpdates,
   onInstallUpdate,
+  updateNotes,
+  updateRequest,
+  onRequestUpdateAll,
+  myID,
   notificationsEnabled,
   onSetNotificationsEnabled,
   autostartEnabled,
@@ -58,6 +63,10 @@ export function SettingsPanel({
   updateState: UpdateState;
   onRecheckUpdates: () => void;
   onInstallUpdate: () => void;
+  updateNotes: Record<DeviceID, UpdateNote>;
+  updateRequest: { version: string; by: DeviceID } | null;
+  onRequestUpdateAll: () => void;
+  myID: DeviceID | null;
   notificationsEnabled: boolean;
   onSetNotificationsEnabled: (v: boolean) => void;
   autostartEnabled: boolean;
@@ -158,6 +167,11 @@ export function SettingsPanel({
                 version={version}
                 onRecheck={onRecheckUpdates}
                 onInstall={onInstallUpdate}
+                notes={updateNotes}
+                request={updateRequest}
+                onRequestAll={onRequestUpdateAll}
+                peers={peers}
+                myID={myID}
               />
             )}
             {tab === "notifications" && (
@@ -315,11 +329,21 @@ function UpdatesTab({
   version,
   onRecheck,
   onInstall,
+  notes,
+  request,
+  onRequestAll,
+  peers,
+  myID,
 }: {
   updateState: UpdateState;
   version: string | null;
   onRecheck: () => void;
   onInstall: () => void;
+  notes: Record<DeviceID, UpdateNote>;
+  request: { version: string; by: DeviceID } | null;
+  onRequestAll: () => void;
+  peers: Device[];
+  myID: DeviceID | null;
 }) {
   const checking = updateState.kind === "checking";
   const available = updateState.kind === "available";
@@ -418,6 +442,16 @@ function UpdatesTab({
         Automatischer Check alle 6 Stunden. Updates werden mit
         Minisign-Signatur verifiziert bevor sie installiert werden.
       </p>
+
+      <AllDevicesUpdate
+        version={version}
+        upToDate={updateState.kind === "up-to-date"}
+        notes={notes}
+        request={request}
+        onRequestAll={onRequestAll}
+        peers={peers}
+        myID={myID}
+      />
     </div>
   );
 }
@@ -664,3 +698,72 @@ function LinkRow({
 
 // Re-export für convenience
 export { Loader2 };
+
+/** Versionen aller Geräte + Knopf „Alle Geräte auf vX aktualisieren". */
+function AllDevicesUpdate({
+  version,
+  upToDate,
+  notes,
+  request,
+  onRequestAll,
+  peers,
+  myID,
+}: {
+  version: string | null;
+  upToDate: boolean;
+  notes: Record<DeviceID, UpdateNote>;
+  request: { version: string; by: DeviceID } | null;
+  onRequestAll: () => void;
+  peers: Device[];
+  myID: DeviceID | null;
+}) {
+  const rows = [
+    ...(myID ? [{ id: myID, name: "Dieses Gerät" }] : []),
+    ...peers.map((p) => ({ id: p.deviceID, name: p.name?.trim() || p.deviceID.slice(0, 7) })),
+  ];
+  const nameOf = (id: DeviceID) => rows.find((r) => r.id === id)?.name ?? id.slice(0, 7);
+  const requested = !!(request && version && compareVersions(request.version, version) >= 0);
+  const behindCount = version
+    ? rows.filter((r) => {
+        const v = notes[r.id]?.version;
+        return !v || compareVersions(v, version) < 0;
+      }).length
+    : 0;
+
+  return (
+    <section>
+      <SectionHeading>Alle Geräte</SectionHeading>
+      <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-800">
+        {rows.map((r) => {
+          const v = notes[r.id]?.version;
+          const old = !v || (version ? compareVersions(v, version) < 0 : false);
+          return (
+            <div key={r.id} className="px-3 py-2 flex items-center justify-between gap-3 text-xs">
+              <span className="truncate text-neutral-800 dark:text-neutral-200">{r.name}</span>
+              <span
+                className={`font-mono shrink-0 ${old ? "text-amber-600 dark:text-amber-400" : "text-neutral-500 dark:text-neutral-400"}`}
+              >
+                {v ? `v${v}` : "unbekannt"}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <button
+        onClick={onRequestAll}
+        disabled={!upToDate || !version || behindCount === 0}
+        className="mt-2.5 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+      >
+        <Download className="size-3.5" />
+        Alle Geräte auf v{version ?? "?"} aktualisieren
+      </button>
+      <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+        {requested && request
+          ? `Angefordert: v${request.version} (von ${nameOf(request.by)}). Geräte mit älterer Version installieren das signierte Release selbst und starten neu; ausgeschaltete Geräte, sobald sie wieder laufen.`
+          : !upToDate
+            ? "Erst dieses Gerät aktualisieren — der Knopf verteilt die Version, die hier läuft."
+            : "Geräte mit älterer Version laden das signierte Release, installieren es und starten neu. „unbekannt“ = Gerät läuft noch eine Version ohne diese Funktion (einmal von Hand aktualisieren)."}
+      </p>
+    </section>
+  );
+}

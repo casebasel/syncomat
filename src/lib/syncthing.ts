@@ -119,6 +119,13 @@ export type FolderStatus = {
   error?: string;
 };
 
+/** Konfliktkopien je Datei. 1 statt 0 (bis v0.9.15): Bei `maxConflicts=0`
+ * löscht Syncthing die unterlegene Fassung eines echten Konflikts direkt, am
+ * Papierkorb vorbei (`moveForConflict` in lib/model/folder_sendrecv.go) — still
+ * verlorene Arbeit. Mit 1 bleibt sie als `.sync-conflict-…` liegen und erscheint
+ * im Konflikt-Auflöser. */
+export const MAX_CONFLICTS = 1;
+
 /** Ordner-Fehler aus dem Status, oder null. Immer hierüber prüfen, nie nur
  * `state` oder `errors` (das sind Datei-Fehler). */
 export function folderError(s: FolderStatus | null | undefined): string | null {
@@ -391,9 +398,9 @@ export function tuneFolderForSize(
     rescanIntervalS,
     copiers,
     hashers,
-    // Konflikte still lösen wie Resilio: neueres Änderungsdatum gewinnt, die
-    // ältere Version wird verworfen statt als .sync-conflict-Kopie zu bleiben.
-    maxConflicts: 0,
+    // Unterlegene Fassung eines Konflikts als .sync-conflict-Kopie behalten
+    // (siehe MAX_CONFLICTS).
+    maxConflicts: MAX_CONFLICTS,
     scanProgressIntervalS: 5,
     // Rechte-Bits NICHT syncen: im Mac/Windows/NAS-Mix erzeugen sie sonst
     // Dauer-Churn ("geändert", obwohl nur der Mode-Bit anders ist) und auf

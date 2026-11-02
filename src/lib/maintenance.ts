@@ -3,13 +3,14 @@ import {
   getConfig,
   getFolderIgnores,
   getOptions,
+  MAX_CONFLICTS,
   patchOptions,
   putFolder,
   setFolderIgnores,
   type Endpoint,
   type Folder,
 } from "./syncthing";
-import { SYNCOMAT_DIR_EXCEPTION } from "./folderSettings";
+import { normalizeLocalIgnores } from "./folderSettings";
 
 // ── Einmalige Sync-Wartung beim Start ─────────────────────────────
 //
@@ -26,20 +27,20 @@ import { SYNCOMAT_DIR_EXCEPTION } from "./folderSettings";
 //       (Rechte-Churn, "lokal geändert" auf receive-only-Ordnern).
 //    b) `weakHashThresholdPct 0 → 101` — Rolling-Hash bringt bei komplett
 //       neu geschriebenen Binärassets nichts, kostet nur CPU je Scan.
-//    c) (v3) `maxConflicts=0` — Konflikte still lösen wie Resilio: die Datei
-//       mit dem neueren Änderungsdatum gewinnt, die ältere wird verworfen
-//       (keine `.sync-conflict-`-Kopien mehr).
-//    d) (v4) `!/.syncomat` vor das Hidden-Muster `.*` setzen — sonst ignoriert
-//       "versteckte Dateien ignorieren" auch `.syncomat/`, und Tags, Papierkorb,
-//       geteilte Ignore-Liste und Netzwerk-Hinweise syncen nicht mehr.
+//    c) (v5) `maxConflicts=1` (MAX_CONFLICTS) — v3 setzte 0 („still lösen"),
+//       aber dann löscht Syncthing den Konfliktverlierer am Papierkorb vorbei.
+//       Jetzt bleibt er als `.sync-conflict-`-Kopie und ist im Auflöser sichtbar.
+//    d) (v4/v5) .stignore nachziehen (normalizeLocalIgnores): `!/.syncomat` vor
+//       dem Hidden-Muster (sonst syncen Tags, Papierkorb, geteilte Ignore-Liste
+//       und Netzwerk-Hinweise nicht), `.*` ohne `(?d)`, und `(?d)` auf
+//       Preset-Zeilen nur noch für OS-Reste und echte Caches (v5).
 //
-// Die .stignore-Bereinigung ((?d), .sync, veraltete Preset-Zeilen) läuft seit
-// v3 nicht mehr hier, sondern beim Abgleich der geteilten Ignore-Liste
-// (folderSettings.ts → useFolderSettingsReplication / mergeLocalInto).
+// Die geteilte Ignore-Liste zieht der Abgleich nach (folderSettings.ts →
+// useFolderSettingsReplication / mergeLocalInto, beide über normalizeIgnores).
 //
 // Marker-Version hochzählen, wenn ein neuer Schritt dazukommt — alle Schritte
 // sind idempotent, ein erneuter Lauf schreibt nur, was wirklich fehlt.
-const MARK_PREFIX = "syncomat.maintenance.v4:";
+const MARK_PREFIX = "syncomat.maintenance.v5:";
 const STAGGER_MS = 1500; // Ordner nacheinander, nicht alle gleichzeitig neu starten
 
 // localStorage kann werfen (gesperrt/voll) — dann läuft die Wartung beim
@@ -95,13 +96,12 @@ export function useSyncMaintenance(
         try {
           const cur = await getFolderIgnores(ep, f.id).catch(() => ({ ignore: null }));
           // ignore === null = API-Aussetzer → nichts schreiben (sonst Leerung).
-          if (
-            cur.ignore !== null &&
-            (cur.ignore.includes("(?d).*") || cur.ignore.includes(".*")) &&
-            !cur.ignore.includes(SYNCOMAT_DIR_EXCEPTION)
-          ) {
-            await setFolderIgnores(ep, f.id, [SYNCOMAT_DIR_EXCEPTION, ...cur.ignore]);
-            console.log(`[maintenance] ${f.id}: .syncomat vom Hidden-Muster ausgenommen`);
+          if (cur.ignore !== null) {
+            const next = normalizeLocalIgnores(cur.ignore);
+            if (next.join("\n") !== cur.ignore.join("\n")) {
+              await setFolderIgnores(ep, f.id, next);
+              console.log(`[maintenance] ${f.id}: .stignore nachgezogen ((?d), Hidden-Block)`);
+            }
           }
 
           const fresh = (await getConfig(ep)).folders.find((x) => x.id === f.id);
@@ -109,7 +109,7 @@ export function useSyncMaintenance(
             const patch: Partial<Folder> = {};
             if (fresh.ignorePerms !== true) patch.ignorePerms = true;
             if (fresh.weakHashThresholdPct === 0) patch.weakHashThresholdPct = 101;
-            if (fresh.maxConflicts !== 0) patch.maxConflicts = 0;
+            if (fresh.maxConflicts !== MAX_CONFLICTS) patch.maxConflicts = MAX_CONFLICTS;
             if (Object.keys(patch).length > 0) {
               await putFolder(ep, { ...fresh, ...patch });
               console.log(`[maintenance] ${f.id}: folder`, patch);

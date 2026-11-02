@@ -35,7 +35,7 @@ export function useNotificationsEnabled() {
   return { enabled, setEnabled };
 }
 
-async function notify(title: string, body: string): Promise<void> {
+export async function notify(title: string, body: string): Promise<void> {
   try {
     let granted = await isPermissionGranted();
     if (!granted) {

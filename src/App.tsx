@@ -9,6 +9,7 @@ import {
   patchDevice,
   putFolder,
   scanAllFolders,
+  MAX_CONFLICTS,
   useAggregateStatus,
   useConfig,
   useConnections,
@@ -55,6 +56,7 @@ import {
   useFolderSettingsReplication,
 } from "./lib/folderSettings";
 import { useUpdater } from "./lib/updater";
+import { useUpdateAll } from "./lib/updateAll";
 import {
   setFolderIgnores,
   tuneFolderForSize,
@@ -255,6 +257,15 @@ function App() {
   );
   // Pinnt die schnellen Adressen aus der gemergten Karte (wenn aktiv); Fallback bleibt.
   usePrefer10GbE_apply(endpoint, ready, devices, prefer10.enabled, netHints);
+  const updateAll = useUpdateAll({
+    ready,
+    folders,
+    myID,
+    version,
+    updateState: updater.state,
+    recheck: updater.recheck,
+    installAndRestart: updater.installAndRestart,
+  });
   useNotificationTriggers({
     enabled: notifications.enabled,
     connections: connectionsByID,
@@ -354,8 +365,8 @@ function App() {
       // caseSensitiveFS bewusst NICHT setzen — Syncthing auto-detected pro
       // folder.path. Hardcoded:true bricht silent den Sync mit Windows-Peers
       // (NTFS = case-insensitive), siehe Audit-Finding.
-      // Konflikte still lösen: neueres Änderungsdatum gewinnt.
-      maxConflicts: 0,
+      // Konfliktverlierer als .sync-conflict-Kopie behalten (MAX_CONFLICTS).
+      maxConflicts: MAX_CONFLICTS,
     };
     // Wenn der Empfänger ein Preset gewählt hat: tune Folder + setze .stignore
     // VOR dem putFolder, damit Syncthing nicht erst die ganzen Ignore-Files
@@ -484,6 +495,10 @@ function App() {
                 updateState={updater.state}
                 onRecheckUpdates={updater.recheck}
                 onInstallUpdate={updater.installAndRestart}
+                updateNotes={updateAll.notes}
+                updateRequest={updateAll.request}
+                onRequestUpdateAll={updateAll.requestAll}
+                myID={myID}
                 notificationsEnabled={notifications.enabled}
                 onSetNotificationsEnabled={notifications.setEnabled}
                 autostartEnabled={autostart.enabled}

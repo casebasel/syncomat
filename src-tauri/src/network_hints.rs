@@ -12,6 +12,18 @@ use std::{
 
 const SUBDIR: &str = ".syncomat";
 const HINTS_DIR: &str = "net-hints";
+/// Weitere Arten von Pro-Gerät-Dateien nach demselben Muster (eine Datei pro
+/// Node unter `.syncomat/<art>/<deviceID>.json`). Feste Liste: das Frontend darf
+/// keine beliebigen Pfade wählen.
+const NOTE_KINDS: &[&str] = &["update"];
+
+fn note_dir(kind: &str) -> Result<&'static str, String> {
+    NOTE_KINDS
+        .iter()
+        .copied()
+        .find(|k| *k == kind)
+        .ok_or_else(|| format!("unknown note kind: {kind}"))
+}
 
 /// Geräte-ID auf dateinamen-sichere Zeichen reduzieren (Syncthing-IDs sind
 /// alphanumerisch + Bindestriche, also passiert hier real nichts — reiner Schutz).
@@ -30,15 +42,37 @@ pub fn network_hints_write(
     device_id: String,
     content: String,
 ) -> Result<(), String> {
+    write_note(&folder_path, HINTS_DIR, &device_id, &content)
+}
+
+/// Schreibt die Datei DIESES Nodes für eine weitere Art (siehe NOTE_KINDS),
+/// z. B. `.syncomat/update/<deviceID>.json`.
+#[tauri::command]
+pub fn device_note_write(
+    folder_path: String,
+    kind: String,
+    device_id: String,
+    content: String,
+) -> Result<(), String> {
+    write_note(&folder_path, note_dir(&kind)?, &device_id, &content)
+}
+
+/// Liest alle Dateien einer weiteren Art (siehe NOTE_KINDS) eines Ordners.
+#[tauri::command]
+pub fn device_notes_read_all(folder_path: String, kind: String) -> Result<Vec<String>, String> {
+    read_notes(&folder_path, note_dir(&kind)?)
+}
+
+fn write_note(folder_path: &str, sub: &str, device_id: &str, content: &str) -> Result<(), String> {
     let base = Path::new(&folder_path);
     if !base.is_dir() {
         return Err(format!("folder path is not a directory: {folder_path}"));
     }
-    let safe = safe_name(&device_id);
+    let safe = safe_name(device_id);
     if safe.is_empty() {
         return Err("empty device_id".into());
     }
-    let dir = base.join(SUBDIR).join(HINTS_DIR);
+    let dir = base.join(SUBDIR).join(sub);
     fs::create_dir_all(&dir).map_err(|e| format!("mkdir {}: {e}", dir.display()))?;
     let path = dir.join(format!("{safe}.json"));
 
@@ -58,7 +92,11 @@ pub fn network_hints_write(
 /// merged. Fehlt das Verzeichnis → leere Liste (kein Fehler).
 #[tauri::command]
 pub fn network_hints_read_all(folder_path: String) -> Result<Vec<String>, String> {
-    let dir = Path::new(&folder_path).join(SUBDIR).join(HINTS_DIR);
+    read_notes(&folder_path, HINTS_DIR)
+}
+
+fn read_notes(folder_path: &str, sub: &str) -> Result<Vec<String>, String> {
+    let dir = Path::new(folder_path).join(SUBDIR).join(sub);
     let Ok(entries) = fs::read_dir(&dir) else {
         return Ok(vec![]);
     };
