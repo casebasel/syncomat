@@ -755,26 +755,72 @@ function AllDevicesUpdate({
         {rows.map((r) => {
           const v = notes[r.id]?.version;
           const old = !v || (version ? compareVersions(v, version) < 0 : false);
+          const updating = waitingFor.some((w) => w.id === r.id);
+          const justDone =
+            requested && !!request && !!v && compareVersions(v, request.version) >= 0;
           return (
             <div key={r.id} className="px-3 py-2 flex items-center justify-between gap-3 text-xs">
               <span className="truncate text-neutral-800 dark:text-neutral-200">{r.name}</span>
-              <span
-                className={`font-mono shrink-0 ${old ? "text-amber-600 dark:text-amber-400" : "text-neutral-500 dark:text-neutral-400"}`}
-              >
-                {v ? `v${v}` : noChannel.has(r.id) ? "kein syncomat oder alt" : "unbekannt"}
-              </span>
+              {updating ? (
+                <span className="shrink-0 flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                  <Loader2 className="size-3 animate-spin" />
+                  wird aktualisiert…
+                </span>
+              ) : (
+                <span
+                  className={`font-mono shrink-0 flex items-center gap-1 ${
+                    justDone
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : old
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-neutral-500 dark:text-neutral-400"
+                  }`}
+                >
+                  {justDone && <CheckCircle2 className="size-3" />}
+                  {v ? `v${v}` : noChannel.has(r.id) ? "kein syncomat oder alt" : "unbekannt"}
+                </span>
+              )}
             </div>
           );
         })}
       </div>
-      <button
-        onClick={onRequestAll}
-        disabled={!upToDate || !version || behindCount === 0}
-        className="mt-2.5 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-      >
-        <Download className="size-3.5" />
-        Alle Geräte auf v{version ?? "?"} aktualisieren
-      </button>
+      {(() => {
+        const target = rows.filter((r) => !noChannel.has(r.id)).length;
+        const inProgress = requested && waitingFor.length > 0;
+        const allDone = requested && waitingFor.length === 0;
+        if (inProgress) {
+          return (
+            <div
+              role="status"
+              className="mt-2.5 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30 flex items-center justify-center gap-1.5"
+            >
+              <Loader2 className="size-3.5 animate-spin" />
+              Updates werden installiert … {target - waitingFor.length} von {target}
+            </div>
+          );
+        }
+        if (allDone && behindCount === 0) {
+          return (
+            <div
+              role="status"
+              className="mt-2.5 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 flex items-center justify-center gap-1.5"
+            >
+              <CheckCircle2 className="size-3.5" />
+              Alle Geräte auf v{request?.version}
+            </div>
+          );
+        }
+        return (
+          <button
+            onClick={onRequestAll}
+            disabled={!upToDate || !version || behindCount === 0}
+            className="mt-2.5 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          >
+            <Download className="size-3.5" />
+            Alle Geräte auf v{version ?? "?"} aktualisieren
+          </button>
+        );
+      })()}
       <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
         {requested && request
           ? waitingFor.length > 0

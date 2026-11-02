@@ -28,8 +28,10 @@ const REQUEST_LS = "syncomat.updateAll.request";
  * (bis v0.9.18): ein Fern-Update startet so rund eine Minute früher. Geschrieben
  * wird weiterhin nur bei einer Änderung. */
 const POLL_MS = 15_000;
-/** Solange eine Aufforderung offen ist: so oft neu nach dem Release fragen. */
-const RECHECK_MS = 10 * 60_000;
+/** Solange eine Aufforderung offen ist: so oft neu nach dem Release fragen.
+ * 2 min statt 10 (bis v0.9.19): Kam die erste Abfrage zu früh (Release noch
+ * nicht sichtbar), standen die Geräte sonst 10 Minuten still. */
+const RECHECK_MS = 2 * 60_000;
 
 export type UpdateNote = {
   by: DeviceID;
@@ -180,6 +182,11 @@ export function useUpdateAll({
     if (!request || compareVersions(n.request.version, request.version) > 0) {
       request = { version: n.request.version, by: n.by };
     }
+  }
+  // Die eigene Aufforderung sofort berücksichtigen — nicht erst, wenn sie über
+  // die Datei zurückgelesen ist (sonst gibt der Knopf sekundenlang kein Feedback).
+  if (ownRequest && myID && (!request || compareVersions(ownRequest.version, request.version) > 0)) {
+    request = { version: ownRequest.version, by: myID };
   }
   const behind = !!(request && version && compareVersions(request.version, version) > 0);
 
