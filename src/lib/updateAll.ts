@@ -82,7 +82,10 @@ export function useUpdateAll({
   /** Geräte, die den internen Kanal nicht teilen (kein syncomat ≥ v0.9.17). */
   const [noChannel, setNoChannel] = useState<Set<DeviceID>>(new Set());
   const [ownRequest, setOwnRequest] = useState(loadRequest);
-  const lastWrittenRef = useRef("");
+  /** Ordnerpfad → zuletzt geschriebener Inhalt. Pro Ordner, nicht global: Ein
+   * Ordner, der erst später dazukommt (z. B. syncomat-intern, das nach dem
+   * Start angelegt wird), bekommt sonst nie eine Notiz (bis v0.9.17). */
+  const lastWrittenRef = useRef<Map<string, string>>(new Map());
   const lastRecheckRef = useRef(0);
   const installStartedRef = useRef(false);
 
@@ -103,18 +106,21 @@ export function useUpdateAll({
       // Nur bei Änderung schreiben (`at` zählt nicht) — sonst synct jede Minute
       // eine neue Datei durch alle Ordner.
       const key = JSON.stringify({ ...own, at: 0 });
-      const shouldWrite = key !== lastWrittenRef.current;
       const merged: Record<DeviceID, UpdateNote> = {};
       for (const f of folders) {
         if (cancelled) return;
         try {
-          if (shouldWrite && writable.some((w) => w.id === f.id)) {
+          if (
+            lastWrittenRef.current.get(f.path) !== key &&
+            writable.some((w) => w.id === f.id)
+          ) {
             await invoke("device_note_write", {
               folderPath: f.path,
               kind: KIND,
               deviceId: myID,
               content: JSON.stringify(own),
             });
+            lastWrittenRef.current.set(f.path, key);
           }
           const raws = await invoke<string[]>("device_notes_read_all", {
             folderPath: f.path,
@@ -134,7 +140,6 @@ export function useUpdateAll({
           console.warn(`[update-all] ${f.label || f.id}:`, e);
         }
       }
-      if (shouldWrite) lastWrittenRef.current = key;
       merged[myID] = own;
       // Wer den internen Kanal nicht teilt, hat kein (aktuelles) syncomat —
       // z. B. der NAS-Hub mit reinem Syncthing.
