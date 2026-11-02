@@ -24,7 +24,9 @@
 >   Dataset-Namen nur `A–Z a–z 0–9 _ -`. Ein Syncthing-Ordner = genau ein Dataset.
 > - **Gerüst (E25):** 00–09 bestätigt (07 frei, dazu `TESTS`); Ordner entstehen nur bei Bedarf.
 > - **Geräteprofil (E3):** Rolle `projekte` = **`D:`** auf allen Rechnern (je 2 TB); NAS-Projekte
->   zusätzlich als **`N:`**. Rolle beim Start über die Volume-ID prüfen. Vorarbeiten: Ada `D:`
+>   zusätzlich als **`N:`**, **nur lesend** (E41: ein Löschen über `N:` würde sich sofort auf alle
+>   Abos verteilen; ins NAS schreiben nur syncomat-Abos und Aufträge der Datenzentrale). Rolle beim
+>   Start über die Volume-ID prüfen. Vorarbeiten: Ada `D:`
 >   freiräumen, x3950 `D:` exFAT → Daten nach `H:`, dann NTFS.
 > - **NAS sendet (E2):** nur die Projekt-Ordner „senden und empfangen" (Snapshots,
 >   Syncthing-Papierkorb, Prüfung beim Anlegen: Mount über mountinfo/Geräte-ID, nicht `.stfolder`).
@@ -67,7 +69,10 @@
 > 5. **Plugins:** Updates nur ausserhalb von Aufnahmen; vor dem nDisplay-Start prüfen, dass
 >    Marketplace auf allen Render-Rechnern 100 % hat.
 > 6. **Scanner + Datenagent-Kern** als Rust-Crates (gemeinsam mit dem NAS-Agenten), Regeln als
->    JSON, müssen die Tests des Wächters bestehen (datengetrieben, E17); signierte Aufträge,
+>    JSON, müssen die Tests des Wächters bestehen (datengetrieben, E17). Prüfsummen (E40, beim
+>    Umbau entscheiden): Vorschlag XXH3-128 für Projekt-/Mediendateien wie beim Ingest, SHA-256
+>    für KI-Modelle (Abgleich mit Hugging Face/Civitai); jedes Manifest nennt seinen Algorithmus.
+>    Signierte Aufträge,
 >    Regeln lokal durchsetzen, Vorbedingungen beim Ausführen neu prüfen. `syncomat://reveal`.
 > 7. **Oberfläche neu (E19)** mit dem Begriff „Abonnieren": zuerst `PRODUCT.md` und Richtung mit
 >    `/impeccable`, abgestimmt mit dem Datenzentrale-Entwurf.
