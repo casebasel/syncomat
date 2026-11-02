@@ -26,6 +26,14 @@
 >   „neueste gewinnt" (E10). Marketplace-Ordner bleiben auf dem NAS „nur empfangen".
 > - Gebaut wird nur auf Marlons direkten Auftrag in der syncomat-Session, auf eigenem Branch.
 >
+> **Geräteprofil (E3 entschieden, Marlon 02.11.2026, Konzept Commit 3fc8347):** Rolle
+> `projekte` = **`D:`** auf allen Rechnern (i9, x5950/Ada, x3950, x7950, je 2 TB); dorthin holt
+> syncomat die Arbeitskopien. NAS-Projekte zusätzlich als **`N:`** (lesen/schreiben) — Änderungen
+> über `N:` schützt nur der Snapshot, nicht der Syncthing-Papierkorb; gleichzeitig über `N:` und
+> `D:` an derselben Datei = Konflikt. Vorarbeiten vor Schritt 3: Ada `D:` freiräumen, x3950 `D:`
+> ist exFAT → Daten nach `H:`, dann NTFS. Rolle beim Start über die Volume-ID prüfen, nicht nur
+> über den Buchstaben.
+>
 > **Offen aus der Prüfung vom 02.11.2026** (Datenzentrale, Commit 25938a0; Entscheide folgen):
 > - **E10 wieder offen — `maxConflicts=0` verliert Daten still.** Bei einem echten Konflikt löscht
 >   Syncthing die unterlegene Fassung direkt, am Papierkorb vorbei (`moveForConflict` in
