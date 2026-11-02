@@ -21,9 +21,9 @@
 >   ignorierter Dateien nicht auf andere Geräte wirkt.
 > - **Oberfläche in Schritt 3 neu (E19):** zuerst `PRODUCT.md` und Richtung mit `/impeccable`,
 >   abgestimmt mit dem Datenzentrale-Entwurf, dann Bau.
-> - **NAS (E2):** Projekt-Ordner auf dem NAS werden „senden und empfangen" (Schutz:
+> - **NAS (E2):** nur die Projekt-Ordner auf dem NAS werden „senden und empfangen" (Schutz:
 >   stündliche Snapshots, Syncthing-Papierkorb, Prüfung beim Anlegen). Konflikte bleiben
->   „neueste gewinnt" (E10).
+>   „neueste gewinnt" (E10). Marketplace-Ordner bleiben auf dem NAS „nur empfangen".
 > - Gebaut wird nur auf Marlons direkten Auftrag in der syncomat-Session, auf eigenem Branch.
 >
 > **Ausgeliefert seit v0.9.4:** … · v0.9.12 (stille Konfliktlösung, gemeinsame Ignore-Liste) ·
@@ -64,8 +64,9 @@
 `/mnt/Apps/syncthing`) führt **nur die vier Marketplace-Ordner** (5.5–5.8), alle `receiveonly` in
 `tank/Syncthing`. **Projekte laufen nicht über ihn**; `Sync/run`, `UnrealLive`, `Presentations` sind
 reine SMB-Freigaben auf `m2_4TB/Sync`. Resilio ist seit 01.11.2026 überall entfernt (E15).
-`tank/Syncthing` hat **keine** regelmässigen Snapshots (nur von Hand gesetzte) — Snapshot-Task fehlt
-noch. Der folgende Absatz beschreibt den ursprünglichen Plan.
+Snapshots auf `tank/Syncthing` seit 02.11.2026 (TrueNAS-Aufgaben 14–16): stündlich 24 h,
+täglich 03:05 für 30 Tage, wöchentlich Mo 03:10 für 8 Wochen. Die Marketplace-Ordner bleiben auf dem
+NAS „nur empfangen" (E2 gilt nur für Projekt-Ordner). Der folgende Absatz beschreibt den ursprünglichen Plan.
 
 **Backup-Hub läuft:** vanilla Syncthing 2.1.1 in Docker (host-mode) auf TrueNAS, synct
 `receiveonly` in `tank/Syncthing`, Unreal-Caches ignoriert. Setup-Paket: `deploy/truenas-syncthing/`.
