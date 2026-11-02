@@ -126,6 +126,11 @@ export type FolderStatus = {
  * im Konflikt-Auflöser. */
 export const MAX_CONFLICTS = 1;
 
+/** Interner Syncthing-Ordner für syncomat selbst (Versionen, Steuerinfos).
+ * Liegt im App-Datenordner, wird an alle Geräte geteilt und nie als Nutzer-
+ * Ordner angezeigt. Siehe lib/internChannel.ts. */
+export const INTERN_FOLDER_ID = "syncomat-intern";
+
 /** Ordner-Fehler aus dem Status, oder null. Immer hierüber prüfen, nie nur
  * `state` oder `errors` (das sind Datei-Fehler). */
 export function folderError(s: FolderStatus | null | undefined): string | null {
@@ -256,6 +261,14 @@ export async function getPendingDevices(ep: Endpoint): Promise<PendingDevice[]> 
 
 export const getFolderStatus = (ep: Endpoint, id: FolderID) =>
   api<FolderStatus>(ep, `/rest/db/status?folder=${encodeURIComponent(id)}`);
+
+/** Abgleich-Stand eines Ordners auf einem anderen Gerät. `remoteState`:
+ * "valid" | "paused" | "notSharing" | "unknown" (Syncthing 2). */
+export const getRemoteCompletion = (ep: Endpoint, id: FolderID, device: DeviceID) =>
+  api<{ completion: number; needItems: number; needDeletes: number; remoteState?: string }>(
+    ep,
+    `/rest/db/completion?folder=${encodeURIComponent(id)}&device=${encodeURIComponent(device)}`,
+  );
 
 export const scanFolder = (ep: Endpoint, id: FolderID) =>
   api<void>(ep, `/rest/db/scan?folder=${encodeURIComponent(id)}`, {

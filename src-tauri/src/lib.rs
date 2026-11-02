@@ -136,6 +136,7 @@ pub fn run() {
             network_hints::network_hints_read_all,
             network_hints::device_note_write,
             network_hints::device_notes_read_all,
+            network_hints::intern_folder_path,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

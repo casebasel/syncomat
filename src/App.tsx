@@ -9,6 +9,7 @@ import {
   patchDevice,
   putFolder,
   scanAllFolders,
+  INTERN_FOLDER_ID,
   MAX_CONFLICTS,
   useAggregateStatus,
   useConfig,
@@ -57,6 +58,7 @@ import {
 } from "./lib/folderSettings";
 import { useUpdater } from "./lib/updater";
 import { useUpdateAll } from "./lib/updateAll";
+import { useInternFolder } from "./lib/internChannel";
 import {
   setFolderIgnores,
   tuneFolderForSize,
@@ -98,9 +100,21 @@ function App() {
   const pendingFolders = usePendingFolders(endpoint, ready);
   const pendingDevices = usePendingDevices(endpoint, ready);
 
-  const folders = config.data?.folders ?? [];
+  // Der interne Kanal (syncomat-intern) ist kein Nutzer-Ordner: nirgends
+  // anzeigen, nicht warten, nicht auto-sharen (er pflegt seine Geräte selbst).
+  const folders = useMemo(
+    () => (config.data?.folders ?? []).filter((f) => f.id !== INTERN_FOLDER_ID),
+    [config.data?.folders],
+  );
   const devices = config.data?.devices ?? [];
   const myID = status.data?.myID ?? null;
+  const internFolder = useInternFolder(endpoint, ready, config.data ?? null, myID);
+  // Angebote des internen Kanals (von Geräten, die ihn schon haben) nie als
+  // „Verfügbar" zeigen — dieses Gerät legt ihn selbst an.
+  const userPendingFolders = useMemo(
+    () => (pendingFolders.data ?? []).filter((p) => p.folderID !== INTERN_FOLDER_ID),
+    [pendingFolders.data],
+  );
 
   const aggregate = useAggregateStatus(endpoint, ready, folders);
   useFolderSettingsReplication(endpoint, ready, folders, myID);
@@ -138,7 +152,7 @@ function App() {
   // Umlauf angeboten. putFolder ist idempotent, Syncthing dedupliziert devices[].
   useEffect(() => {
     if (!endpoint || !ready || !config.data || !myID) return;
-    const allFolders = config.data.folders;
+    const allFolders = config.data.folders.filter((f) => f.id !== INTERN_FOLDER_ID);
     const peerIDs = config.data.devices
       .filter((d) => d.deviceID !== myID)
       .map((d) => d.deviceID);
@@ -258,8 +272,9 @@ function App() {
   // Pinnt die schnellen Adressen aus der gemergten Karte (wenn aktiv); Fallback bleibt.
   usePrefer10GbE_apply(endpoint, ready, devices, prefer10.enabled, netHints);
   const updateAll = useUpdateAll({
+    endpoint,
     ready,
-    folders,
+    folders: internFolder ? [internFolder, ...folders] : folders,
     myID,
     version,
     updateState: updater.state,
@@ -271,7 +286,7 @@ function App() {
     connections: connectionsByID,
     devices,
     pendingDevices: pendingDevices.data ?? [],
-    pendingFolders: pendingFolders.data ?? [],
+    pendingFolders: userPendingFolders,
     updateState: updater.state,
     folderErrors: aggregate.folderErrors,
   });
@@ -281,7 +296,7 @@ function App() {
     config.data !== null &&
     peers.length === 0 &&
     folders.length === 0 &&
-    (pendingFolders.data?.length ?? 0) === 0 &&
+    userPendingFolders.length === 0 &&
     (pendingDevices.data?.length ?? 0) === 0;
 
   // "Schon mal eingerichtet?"-Marker (app_data, übersteht einen Config-Wipe).
@@ -318,7 +333,7 @@ function App() {
   // Native-Redesign: Inline-Panel das die Inspector/Activity-Ansicht überlagert
   // (Settings, Ordner anlegen, Code anzeigen/einlösen, Folder-Settings).
   const [panel, setPanel] = useState<Panel>(null);
-  const visiblePending = pendingFolders.data ?? [];
+  const visiblePending = userPendingFolders;
 
   // Beim App-Start expired Codes purgen (sonst wächst die invites.json unbounded).
   useEffect(() => {
@@ -496,6 +511,7 @@ function App() {
                 onRecheckUpdates={updater.recheck}
                 onInstallUpdate={updater.installAndRestart}
                 updateNotes={updateAll.notes}
+                updateNoChannel={updateAll.noChannel}
                 updateRequest={updateAll.request}
                 onRequestUpdateAll={updateAll.requestAll}
                 myID={myID}

@@ -9,6 +9,7 @@ use std::{
     io::Write,
     path::Path,
 };
+use tauri::Manager;
 
 const SUBDIR: &str = ".syncomat";
 const HINTS_DIR: &str = "net-hints";
@@ -119,4 +120,19 @@ fn read_notes(folder_path: &str, sub: &str) -> Result<Vec<String>, String> {
         }
     }
     Ok(out)
+}
+
+/// Pfad des internen Syncthing-Ordners `syncomat-intern` (im App-Datenordner,
+/// nicht bei den Nutzerdaten). Legt das Verzeichnis an, falls es fehlt. Über
+/// diesen Ordner reisen Versionen und Steuerinfos an alle syncomat-Geräte —
+/// auch an Geräte, die (noch) keinen Nutzer-Ordner abonniert haben.
+#[tauri::command]
+pub fn intern_folder_path(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("app_data_dir: {e}"))?
+        .join("intern");
+    fs::create_dir_all(&dir).map_err(|e| format!("mkdir {}: {e}", dir.display()))?;
+    Ok(dir.to_string_lossy().into_owned())
 }

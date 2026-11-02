@@ -1,7 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { notify } from "./notifications";
-import type { DeviceID, Folder } from "./syncthing";
+import {
+  INTERN_FOLDER_ID,
+  getRemoteCompletion,
+  type DeviceID,
+  type Endpoint,
+  type Folder,
+} from "./syncthing";
 import type { UpdateState } from "./updater";
 
 // ── „Alle Geräte aktualisieren" ──────────────────────────────────
@@ -54,6 +60,7 @@ function loadRequest(): { version: string; at: number } | null {
  * Update selbst, sobald irgendein Gerät eine höhere Version verlangt.
  */
 export function useUpdateAll({
+  endpoint,
   ready,
   folders,
   myID,
@@ -62,6 +69,7 @@ export function useUpdateAll({
   recheck,
   installAndRestart,
 }: {
+  endpoint: Endpoint | null;
   ready: boolean;
   folders: Folder[];
   myID: DeviceID | null;
@@ -71,6 +79,8 @@ export function useUpdateAll({
   installAndRestart: () => void;
 }) {
   const [notes, setNotes] = useState<Record<DeviceID, UpdateNote>>({});
+  /** Geräte, die den internen Kanal nicht teilen (kein syncomat ≥ v0.9.17). */
+  const [noChannel, setNoChannel] = useState<Set<DeviceID>>(new Set());
   const [ownRequest, setOwnRequest] = useState(loadRequest);
   const lastWrittenRef = useRef("");
   const lastRecheckRef = useRef(0);
@@ -126,7 +136,25 @@ export function useUpdateAll({
       }
       if (shouldWrite) lastWrittenRef.current = key;
       merged[myID] = own;
-      if (!cancelled) setNotes(merged);
+      // Wer den internen Kanal nicht teilt, hat kein (aktuelles) syncomat —
+      // z. B. der NAS-Hub mit reinem Syncthing.
+      const intern = folders.find((f) => f.id === INTERN_FOLDER_ID);
+      const without = new Set<DeviceID>();
+      if (endpoint && intern) {
+        for (const d of intern.devices) {
+          if (d.deviceID === myID || cancelled) continue;
+          try {
+            const c = await getRemoteCompletion(endpoint, INTERN_FOLDER_ID, d.deviceID);
+            if (c.remoteState === "notSharing") without.add(d.deviceID);
+          } catch {
+            /* Gerät offline o. ä. — dann nichts behaupten */
+          }
+        }
+      }
+      if (!cancelled) {
+        setNotes(merged);
+        setNoChannel(without);
+      }
     };
     void run();
     const id = setInterval(() => void run(), POLL_MS);
@@ -135,7 +163,7 @@ export function useUpdateAll({
       clearInterval(id);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, myID, version, folderKey, ownRequest?.version, ownRequest?.at]);
+  }, [endpoint?.url, ready, myID, version, folderKey, ownRequest?.version, ownRequest?.at]);
 
   // Höchste verlangte Version (von irgendeinem Gerät).
   let request: { version: string; by: DeviceID } | null = null;
@@ -197,5 +225,11 @@ export function useUpdateAll({
     setOwnRequest(r);
   }, [version]);
 
-  return { notes, request, requestAll };
+  // Die eigene Version ist immer bekannt, auch ohne einen einzigen Ordner.
+  const withOwn =
+    myID && version && !notes[myID]
+      ? { ...notes, [myID]: { by: myID, at: Date.now(), version } }
+      : notes;
+
+  return { notes: withOwn, noChannel, request, requestAll };
 }

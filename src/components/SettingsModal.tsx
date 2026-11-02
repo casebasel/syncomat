@@ -39,6 +39,7 @@ export function SettingsPanel({
   onRecheckUpdates,
   onInstallUpdate,
   updateNotes,
+  updateNoChannel,
   updateRequest,
   onRequestUpdateAll,
   myID,
@@ -64,6 +65,7 @@ export function SettingsPanel({
   onRecheckUpdates: () => void;
   onInstallUpdate: () => void;
   updateNotes: Record<DeviceID, UpdateNote>;
+  updateNoChannel: Set<DeviceID>;
   updateRequest: { version: string; by: DeviceID } | null;
   onRequestUpdateAll: () => void;
   myID: DeviceID | null;
@@ -168,6 +170,7 @@ export function SettingsPanel({
                 onRecheck={onRecheckUpdates}
                 onInstall={onInstallUpdate}
                 notes={updateNotes}
+                noChannel={updateNoChannel}
                 request={updateRequest}
                 onRequestAll={onRequestUpdateAll}
                 peers={peers}
@@ -330,6 +333,7 @@ function UpdatesTab({
   onRecheck,
   onInstall,
   notes,
+  noChannel,
   request,
   onRequestAll,
   peers,
@@ -340,6 +344,7 @@ function UpdatesTab({
   onRecheck: () => void;
   onInstall: () => void;
   notes: Record<DeviceID, UpdateNote>;
+  noChannel: Set<DeviceID>;
   request: { version: string; by: DeviceID } | null;
   onRequestAll: () => void;
   peers: Device[];
@@ -447,6 +452,7 @@ function UpdatesTab({
         version={version}
         upToDate={updateState.kind === "up-to-date"}
         notes={notes}
+        noChannel={noChannel}
         request={request}
         onRequestAll={onRequestAll}
         peers={peers}
@@ -704,6 +710,7 @@ function AllDevicesUpdate({
   version,
   upToDate,
   notes,
+  noChannel,
   request,
   onRequestAll,
   peers,
@@ -712,6 +719,7 @@ function AllDevicesUpdate({
   version: string | null;
   upToDate: boolean;
   notes: Record<DeviceID, UpdateNote>;
+  noChannel: Set<DeviceID>;
   request: { version: string; by: DeviceID } | null;
   onRequestAll: () => void;
   peers: Device[];
@@ -726,7 +734,8 @@ function AllDevicesUpdate({
   const behindCount = version
     ? rows.filter((r) => {
         const v = notes[r.id]?.version;
-        return !v || compareVersions(v, version) < 0;
+        if (!v) return !noChannel.has(r.id);
+        return compareVersions(v, version) < 0;
       }).length
     : 0;
 
@@ -743,7 +752,7 @@ function AllDevicesUpdate({
               <span
                 className={`font-mono shrink-0 ${old ? "text-amber-600 dark:text-amber-400" : "text-neutral-500 dark:text-neutral-400"}`}
               >
-                {v ? `v${v}` : "unbekannt"}
+                {v ? `v${v}` : noChannel.has(r.id) ? "kein syncomat oder alt" : "unbekannt"}
               </span>
             </div>
           );
@@ -762,7 +771,7 @@ function AllDevicesUpdate({
           ? `Angefordert: v${request.version} (von ${nameOf(request.by)}). Geräte mit älterer Version installieren das signierte Release selbst und starten neu; ausgeschaltete Geräte, sobald sie wieder laufen.`
           : !upToDate
             ? "Erst dieses Gerät aktualisieren — der Knopf verteilt die Version, die hier läuft."
-            : "Geräte mit älterer Version laden das signierte Release, installieren es und starten neu. „unbekannt“ = Gerät läuft noch eine Version ohne diese Funktion (einmal von Hand aktualisieren)."}
+            : "Geräte mit älterer Version laden das signierte Release, installieren es und starten neu. „unbekannt“ = Gerät läuft noch eine Version ohne diese Funktion (einmal von Hand aktualisieren). „kein syncomat oder alt“ = reines Syncthing (z. B. der NAS-Hub) oder syncomat älter als v0.9.17."}
       </p>
     </section>
   );
