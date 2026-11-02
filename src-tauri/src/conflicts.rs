@@ -27,6 +27,7 @@ const PRUNE_DIRS: &[&str] = &[
     ".stversions",
     ".stfolder",
     ".syncomat",
+    ".waechter",
     "target",
     ".vs",
     ".vscode",

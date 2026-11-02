@@ -86,6 +86,7 @@ fn workload_detect_blocking(path: &str) -> Result<WorkloadDetection, String> {
                         | "target"
                         | ".stversions"
                         | ".stfolder"
+                        | ".waechter"
                 ),
                 None => true,
             }
@@ -189,6 +190,7 @@ fn folder_estimate_size_blocking(path: &str) -> Result<FolderEstimate, String> {
                         | "target"
                         | ".stversions"
                         | ".stfolder"
+                        | ".waechter"
                         | "__pycache__"
                         | ".next"
                 ),

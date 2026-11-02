@@ -127,6 +127,8 @@ export const UNREAL_STIGNORE: string[] = [
   ".stversions",
   ".stfolder",
   ".stignore",
+  "// Eingang des Speicher-Wächters (root 0700): nie verteilen, nie löschen",
+  ".waechter",
   "",
   "// === Resilio-Sync-Reste (Archiv gelöschter Dateien, reiner Ballast) ===",
   ".sync",
@@ -186,6 +188,8 @@ export const UNREAL_PLUGINS_STIGNORE: string[] = [
   ".stversions",
   ".stfolder",
   ".stignore",
+  "// Eingang des Speicher-Wächters (root 0700): nie verteilen, nie löschen",
+  ".waechter",
   "",
   "// === Resilio-Sync-Reste ===",
   ".sync",
@@ -202,6 +206,7 @@ export const GENERIC_STIGNORE: string[] = [
   ".fseventsd",
   "._*",
   ".sync", // Resilio-Sync-Reste (Archiv gelöschter Dateien)
+  ".waechter", // Eingang des Speicher-Wächters — nie verteilen, nie löschen
   "*.tmp",
   "*.swp",
   "*~",
@@ -362,6 +367,11 @@ const KNOWN_PRESET_LINES = new Set(
 
 const stripD = (l: string) => l.replace(/^\(\?d\)/, "");
 const RESILIO_PATTERN = "(?d).sync";
+/** Eingang des Speicher-Wächters (`.waechter/<auftrag>/`, root 0700, in
+ * `tank/Projekte/<NAME>` und `_Sammelstelle/<NAME>`): nie verteilen, nie löschen —
+ * darum OHNE `(?d)` (Konzept Datenzentrale, Kapitel 11). Ohne das Muster scheitert
+ * Syncthing (als ndisplay) an dem Ordner mit „permission denied". */
+export const WAECHTER_PATTERN = ".waechter";
 
 /** Stammt die Liste erkennbar von einem Syncomat-Preset? (Handgeschriebene
  * Listen fassen wir nicht an.) */
@@ -377,7 +387,7 @@ function isPresetManaged(lines: string[]): boolean {
  * - bekannte Preset-Zeilen bekommen `(?d)` genau dann, wenn sie in
  *   DELETABLE_PATTERNS stehen (fehlt → ergänzt, zu viel → entfernt, v0.9.16)
  * - veraltete Preset-Zeilen (`*.lib` …) fliegen raus
- * - `(?d).sync` (Resilio-Reste) wird ergänzt
+ * - `(?d).sync` (Resilio-Reste) und `.waechter` (ohne `(?d)`) werden ergänzt
  * Nur bei Listen, die erkennbar von einem Preset stammen; handgeschriebene
  * Listen bleiben unverändert.
  */
@@ -387,5 +397,6 @@ export function normalizeIgnores(lines: string[]): string[] {
     .filter((l) => !OBSOLETE_PRESET_LINES.has(stripD(l.trim())))
     .map((l) => (KNOWN_PRESET_LINES.has(stripD(l.trim())) ? deletableIgnore(l.trim()) : l));
   if (!out.some((l) => stripD(l.trim()) === ".sync")) out.push(RESILIO_PATTERN);
+  if (!out.some((l) => stripD(l.trim()) === WAECHTER_PATTERN)) out.push(WAECHTER_PATTERN);
   return out;
 }

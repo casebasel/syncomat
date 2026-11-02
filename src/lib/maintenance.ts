@@ -33,14 +33,15 @@ import { normalizeLocalIgnores } from "./folderSettings";
 //    d) (v4/v5) .stignore nachziehen (normalizeLocalIgnores): `!/.syncomat` vor
 //       dem Hidden-Muster (sonst syncen Tags, Papierkorb, geteilte Ignore-Liste
 //       und Netzwerk-Hinweise nicht), `.*` ohne `(?d)`, und `(?d)` auf
-//       Preset-Zeilen nur noch für OS-Reste und echte Caches (v5).
+//       Preset-Zeilen nur noch für OS-Reste und echte Caches (v5); `.waechter`
+//       (Eingang des Speicher-Wächters) ignorieren, ohne `(?d)` (v6).
 //
 // Die geteilte Ignore-Liste zieht der Abgleich nach (folderSettings.ts →
 // useFolderSettingsReplication / mergeLocalInto, beide über normalizeIgnores).
 //
 // Marker-Version hochzählen, wenn ein neuer Schritt dazukommt — alle Schritte
 // sind idempotent, ein erneuter Lauf schreibt nur, was wirklich fehlt.
-const MARK_PREFIX = "syncomat.maintenance.v5:";
+const MARK_PREFIX = "syncomat.maintenance.v6:";
 const STAGGER_MS = 1500; // Ordner nacheinander, nicht alle gleichzeitig neu starten
 
 // localStorage kann werfen (gesperrt/voll) — dann läuft die Wartung beim
