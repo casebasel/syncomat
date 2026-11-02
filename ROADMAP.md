@@ -26,6 +26,26 @@
 >   „neueste gewinnt" (E10). Marketplace-Ordner bleiben auf dem NAS „nur empfangen".
 > - Gebaut wird nur auf Marlons direkten Auftrag in der syncomat-Session, auf eigenem Branch.
 >
+> **Offen aus der Prüfung vom 02.11.2026** (Datenzentrale, Commit 25938a0; Entscheide folgen):
+> - **E10 wieder offen — `maxConflicts=0` verliert Daten still.** Bei einem echten Konflikt löscht
+>   Syncthing die unterlegene Fassung direkt, am Papierkorb vorbei (`moveForConflict` in
+>   `lib/model/folder_sendrecv.go`, im Quellcode nachgesehen). Der Papierkorb sichert nur normale
+>   Überschreibungen. syncomat setzt `maxConflicts=0` seit v0.9.12 („Konflikte still lösen").
+>   Optionen: `maxConflicts ≥ 1` + sichtbares Aufräumen der Konfliktkopien in syncomat, oder das
+>   Risiko bewusst tragen.
+> - **`(?d)` zu breit.** `deletableIgnore()` (`src/lib/unreal.ts`) setzt `(?d)` auf JEDES
+>   Preset-Muster, auch `Binaries`, `Build`, `**/Saved/Autosaves|Backup|Screenshots` — und
+>   `ignore_hidden` setzt `(?d).*` (trifft auch z. B. `.git`). Wird auf einem anderen Gerät der
+>   Elternordner gelöscht oder umbenannt, löscht Syncthing diese nur lokal vorhandenen Dateien mit.
+>   Vorschlag: `(?d)` nur für Betriebssystem-Reste und echte Caches (`DerivedDataCache`,
+>   `Intermediate`, `*.pdb`, `.vs` …). Preis: ein Ordner-Löschen von fern bleibt dann an
+>   ignorierten Dateien hängen („contains ignored files"); seit v0.9.15 ist so ein Fehler sichtbar.
+>   Bestehende `.stignore` müssten per Wartung zurückgebaut werden.
+> - Für Schritt 3 festgehalten: „NAS vollständig" nur nach Scan, im Leerlauf, `needItems =
+>   needDeletes = 0`, `remoteState` gültig je Gerät, und vor dem Herausnehmen aus dem Sync;
+>   Löschen erst nach einem Scan mit dem neuen Ignore-Muster; „Projekt holen" nur in leere Ziele;
+>   `.stfolder` beweist keinen Mount (Syncthing legt die Marke selbst an).
+>
 > **Ausgeliefert seit v0.9.4:** … · v0.9.12 (stille Konfliktlösung, gemeinsame Ignore-Liste) ·
 > v0.9.14 (Preset „Unreal-Plugins") · v0.9.15 (angehaltene Ordner sichtbar: Marke/Pfad fehlt).
 
