@@ -66,6 +66,11 @@
 >    - Die heutige gemeinsame Ignore-Liste (v0.9.12, überall gleich) wird dafür umgebaut.
 > 4. **Lokale `status.json` je Rechner** (Wunsch der Stage): Zustand je abonniertem Projekt,
 >    `needBytes`/`needItems`, Fehler, Zeitstempel; Datei statt HTTP; Form legt die Systemkarte fest.
+>    Dazu je Projekt und Rechner der Stand **„alles auf dem NAS"** (E44: eine „Version" = gesperrter
+>    ZFS-Snapshot entsteht erst, wenn alle Abo-Rechner fertig hochgeladen haben). Bedingungen: Rechner
+>    verbunden, Ordner dort im Leerlauf (Scan durch), NAS `needFiles = 0` und kein offener Stand
+>    dieses Rechners. Ein ausgeschalteter Rechner mit ungesendeten Änderungen ist von aussen
+>    unsichtbar → gilt als „nicht bestätigt", nie als „fertig". Kein Zurückspulen auf dem NAS.
 > 5. **Plugins:** Updates nur ausserhalb von Aufnahmen; vor dem nDisplay-Start prüfen, dass
 >    Marketplace auf allen Render-Rechnern 100 % hat.
 > 6. **Scanner + Datenagent-Kern** als Rust-Crates (gemeinsam mit dem NAS-Agenten), Regeln als
