@@ -1,5 +1,34 @@
 # Roadmap
 
+> **🧭 Stand 2026-11-02 — neue Richtung: syncomat wird Agent der Datenzentrale.**
+> Konzept freigegeben (Marlon, 02.11.2026): Repo `casebasel/datenzentrale`, `docs/KONZEPT.md`
+> Kapitel 9, 11, 17, 17a. Das geht allem darunter vor.
+>
+> - **Bis Schritt 3 nur Fehlerbehebungen (E18).** Reihenfolge der Datenzentrale: Katalog →
+>   Archiv-Ablauf → **syncomat** → Bibliotheken. Bis dahin räumt der Python-Speicher-Wächter
+>   auf den Rechnern auf (E17).
+> - **Kurskorrektur 2 gilt nicht mehr für Projekte (E6).** Projekte nur noch auf Abruf; „alles
+>   an alle" (Introducer, Auto-Share, Auto-Accept) wird für Projekte abgebaut. **Unreal-Plugins
+>   bleiben „an alle"** (bestehendes Preset). „An alle" wird eine Eigenschaft des Ordners
+>   (`verteilung: "alle"`), keine Automatik für das ganze Netz.
+> - **Schritt 3 (Umfang ca. 4–6 Releases):** „Projekt holen" ganz, je Bereich oder je
+>   Unterordner (ein Syncthing-Ordner = ein Dataset = Projekt × Bereich VFX, Auswahl über lokale
+>   Ignore-Muster, zwei Ignore-Schichten, Auswahl nie mit `(?d)`); Geräteprofil mit
+>   Laufwerksrollen (hängt an E3); Entfernen nur, wenn das NAS nachweislich vollständig ist;
+>   Scanner + Datenagent-Kern als Rust-Crates (müssen die Tests des Python-Wächters bestehen);
+>   Link `syncomat://reveal`; Footage verteilt syncomat nicht (E16).
+> - **Vorbedingung vor dem ersten Entfernen-Auftrag:** Live-Test, dass lokales Löschen
+>   ignorierter Dateien nicht auf andere Geräte wirkt.
+> - **Oberfläche in Schritt 3 neu (E19):** zuerst `PRODUCT.md` und Richtung mit `/impeccable`,
+>   abgestimmt mit dem Datenzentrale-Entwurf, dann Bau.
+> - **NAS (E2):** Projekt-Ordner auf dem NAS werden „senden und empfangen" (Schutz:
+>   stündliche Snapshots, Syncthing-Papierkorb, Prüfung beim Anlegen). Konflikte bleiben
+>   „neueste gewinnt" (E10).
+> - Gebaut wird nur auf Marlons direkten Auftrag in der syncomat-Session, auf eigenem Branch.
+>
+> **Ausgeliefert seit v0.9.4:** … · v0.9.12 (stille Konfliktlösung, gemeinsame Ignore-Liste) ·
+> v0.9.14 (Preset „Unreal-Plugins") · v0.9.15 (angehaltene Ordner sichtbar: Marke/Pfad fehlt).
+
 > **Stand 2026-06-09.** Konsolidiert aus zwei Multi-Agent-Audits (UX-Logik + Vereinfachung),
 > die zur **selben Wurzel** führen. Diese Datei ist die Single Source of Truth.
 > Volle Audit-Outputs (50 UX-Findings, 40 Vereinfachungs-Items) liegen in den
@@ -20,6 +49,7 @@
 > Automatiken jetzt sauber (mit x3950 bestätigt). **#1 ist überholt — Introducer/
 > Auto-Share NICHT wieder entfernen.** Künftig nur eingrenzen, wenn Multi-Person/
 > Fremd-Geräte dazukommen (dann Introducer auf eigene Geräte scopen).
+> ⚠️ **Für Projekte überholt seit 02.11.2026 (E6, siehe oben).**
 >
 > **Ausgeliefert:** v0.8.6 (#1–#3) · v0.8.7 (Fixes) · v0.8.8 (#4b, #5) ·
 > v0.8.9 (Config-Konflikt-Auto-Clean, Recovery-Screen, #6) · v0.9.0 (#7 Krypto
@@ -29,6 +59,13 @@
 ---
 
 ## 🌐 Netz & TrueNAS-Node — Erkenntnisse (v0.9.4+, real verifiziert)
+
+**Ist-Stand 02.11.2026 (auf dem NAS geprüft):** Der Hub (`syncthing-hub`, Config
+`/mnt/Apps/syncthing`) führt **nur die vier Marketplace-Ordner** (5.5–5.8), alle `receiveonly` in
+`tank/Syncthing`. **Projekte laufen nicht über ihn**; `Sync/run`, `UnrealLive`, `Presentations` sind
+reine SMB-Freigaben auf `m2_4TB/Sync`. Resilio ist seit 01.11.2026 überall entfernt (E15).
+`tank/Syncthing` hat **keine** regelmässigen Snapshots (nur von Hand gesetzte) — Snapshot-Task fehlt
+noch. Der folgende Absatz beschreibt den ursprünglichen Plan.
 
 **Backup-Hub läuft:** vanilla Syncthing 2.1.1 in Docker (host-mode) auf TrueNAS, synct
 `receiveonly` in `tank/Syncthing`, Unreal-Caches ignoriert. Setup-Paket: `deploy/truenas-syncthing/`.
