@@ -731,6 +731,15 @@ function AllDevicesUpdate({
   ];
   const nameOf = (id: DeviceID) => rows.find((r) => r.id === id)?.name ?? id.slice(0, 7);
   const requested = !!(request && version && compareVersions(request.version, version) >= 0);
+  // Fortschritt: Geräte mit syncomat, die die verlangte Version noch nicht melden.
+  const waitingFor =
+    requested && request
+      ? rows.filter((r) => {
+          if (noChannel.has(r.id)) return false;
+          const v = notes[r.id]?.version;
+          return !v || compareVersions(v, request.version) < 0;
+        })
+      : [];
   const behindCount = version
     ? rows.filter((r) => {
         const v = notes[r.id]?.version;
@@ -768,7 +777,9 @@ function AllDevicesUpdate({
       </button>
       <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
         {requested && request
-          ? `Angefordert: v${request.version} (von ${nameOf(request.by)}). Geräte mit älterer Version installieren das signierte Release selbst und starten neu; ausgeschaltete Geräte, sobald sie wieder laufen.`
+          ? waitingFor.length > 0
+            ? `Angefordert: v${request.version} (von ${nameOf(request.by)}). Warte auf: ${waitingFor.map((r) => r.name).join(", ")} — jedes Gerät lädt, installiert und startet neu, das dauert 1–2 Minuten; ausgeschaltete Geräte, sobald sie wieder laufen.`
+            : `Alle Geräte melden v${request.version}.`
           : !upToDate
             ? "Erst dieses Gerät aktualisieren — der Knopf verteilt die Version, die hier läuft."
             : "Geräte mit älterer Version laden das signierte Release, installieren es und starten neu. „unbekannt“ = Gerät läuft noch eine Version ohne diese Funktion (einmal von Hand aktualisieren). „kein syncomat oder alt“ = reines Syncthing (z. B. der NAS-Hub) oder syncomat älter als v0.9.17."}

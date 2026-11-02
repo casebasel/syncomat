@@ -24,7 +24,10 @@ import type { UpdateState } from "./updater";
 
 const KIND = "update";
 const REQUEST_LS = "syncomat.updateAll.request";
-const POLL_MS = 60_000;
+/** So oft die Notizen lesen (lokale Dateien, billig). 15 s statt 60 s
+ * (bis v0.9.18): ein Fern-Update startet so rund eine Minute früher. Geschrieben
+ * wird weiterhin nur bei einer Änderung. */
+const POLL_MS = 15_000;
 /** Solange eine Aufforderung offen ist: so oft neu nach dem Release fragen. */
 const RECHECK_MS = 10 * 60_000;
 
