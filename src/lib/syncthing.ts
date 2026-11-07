@@ -459,6 +459,10 @@ export type DbDatei = {
 export const getDbFile = (ep: Endpoint, folderID: FolderID, file: string) =>
   api<DbDatei>(ep, `/rest/db/file?folder=${encodeURIComponent(folderID)}&file=${encodeURIComponent(file)}`);
 
+/** Statistik je Gerät — u. a. wann es zuletzt verbunden war. */
+export const getDeviceStats = (ep: Endpoint) =>
+  api<Record<DeviceID, { lastSeen?: string; lastConnectionDurationS?: number }>>(ep, "/rest/stats/device");
+
 export const getFolderIgnores = (ep: Endpoint, folderID: FolderID) =>
   api<FolderIgnores>(ep, `/rest/db/ignores?folder=${encodeURIComponent(folderID)}`);
 

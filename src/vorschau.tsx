@@ -142,6 +142,7 @@ function Vorschau() {
         gewaehlt={abo ? zeile.folderId : detail || zelle ? pm.folderId : null}
         gewaehltRechner={abo ? "I9" : zelle}
         onZelle={() => {}}
+        ausgeblendet={new Set(["dz-projekt-coasthouse_5_6-1", "dz-projekt-xsens_demo-1"])}
         offeneWuensche={zelle === "X79" ? [{ id: "wu-1", ziel: "X79", folder_id: pm.folderId, name: pm.name, art: "auswahl", auswahl: ["03_UNREAL"], vorher: [], at: Date.now() }] : []}
         onZeile={() => {}}
         onAbonnieren={() => {}}

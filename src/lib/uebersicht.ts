@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import {
   folderError,
+  getDeviceStats,
   getFolderIgnores,
   getFolderStatus,
   getRemoteCompletion,
@@ -77,6 +78,8 @@ export type Spalte = {
   freiD: number | null;
   /** nimmt Wünsche anderer Rechner an (syncomat ≥ v0.9.27) */
   kannWuensche: boolean;
+  /** zuletzt verbunden (ms), wenn gerade nicht verbunden */
+  zuletzt?: number | null;
 };
 
 type AboNotizEintrag = { folder_id: string; name: string } & Zelle;
@@ -153,6 +156,7 @@ export function useUebersicht({
   const [auswahlHier, setAuswahlHier] = useState<Record<string, string[] | null>>({});
   const [ungesichert, setUngesichert] = useState<Record<string, { anzahl: number; beispiele: string[] }>>({});
   const [konflikte, setKonflikte] = useState<Record<string, number>>({});
+  const [zuletzt, setZuletzt] = useState<Record<DeviceID, number>>({});
   const konfliktVorherRef = useRef<Record<string, number>>({});
   const lastNoteRef = useRef("");
 
@@ -221,6 +225,19 @@ export function useUebersicht({
     };
     void kf();
     const id5 = setInterval(() => void kf(), 5 * 60_000);
+    const zs = async () => {
+      const st = await getDeviceStats(ep).catch(() => null);
+      if (!st || cancelled) return;
+      const m: Record<DeviceID, number> = {};
+      for (const [id, v] of Object.entries(st)) {
+        const t = v.lastSeen ? Date.parse(v.lastSeen) : NaN;
+        // Syncthing meldet „nie“ als 1970
+        if (Number.isFinite(t) && t > 86_400_000) m[id] = t;
+      }
+      setZuletzt(m);
+    };
+    void zs();
+    const id6 = setInterval(() => void zs(), 60_000);
     const fd = () => void freiAufD().then((v) => !cancelled && setFrei(v));
     fd();
     const id2 = setInterval(fd, 60_000);
@@ -231,6 +248,7 @@ export function useUebersicht({
       clearInterval(id3);
       clearInterval(id4);
       clearInterval(id5);
+      clearInterval(id6);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ep?.url, ep?.api_key, ready, folderKey]);
@@ -342,6 +360,7 @@ export function useUebersicht({
       rolle: n?.rolle ?? null,
       freiD: n?.frei_d ?? null,
       kannWuensche: (n?.kann_wuensche ?? 0) >= WUNSCH_PROTOKOLL,
+      zuletzt: connections[d.deviceID]?.connected ? null : (zuletzt[d.deviceID] ?? null),
     });
   }
 

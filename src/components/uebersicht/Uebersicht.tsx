@@ -15,6 +15,14 @@ function stoerungText(z: Zeile): string {
   if (k > 0) return k === 1 ? "1 Konflikt" : `${k} Konflikte`;
   return "Dateifehler";
 }
+/** „vor 5 min“, „vor 3 Std“, „vor 2 Tagen“ */
+function seit(t: number): string {
+  const m = Math.max(0, Math.round((Date.now() - t) / 60_000));
+  if (m < 60) return `vor ${m} min`;
+  const h = Math.round(m / 60);
+  if (h < 48) return `vor ${h} Std`;
+  return `vor ${Math.round(h / 24)} Tagen`;
+}
 const rolleKurz = (r: Spalte["rolle"]) => (r === "render" ? "Render" : r ? "Arbeitsplatz" : null);
 
 /** Hauptansicht: Projekte × Rechner. Zeilen = Projekte auf dem NAS (und die
@@ -29,6 +37,7 @@ export function Uebersicht({
   onZeile,
   onZelle,
   offeneWuensche,
+  ausgeblendet,
   onAbonnieren,
   onRechner,
   onRechnerKoppeln,
@@ -48,6 +57,8 @@ export function Uebersicht({
   onZelle: (z: Zeile, s: Spalte) => void;
   /** Von hier gesendete, noch offene Wünsche (Markierung in der Zelle) */
   offeneWuensche: Wunsch[];
+  /** in der Übersicht ausgeblendete Projekte (fertig) */
+  ausgeblendet: Set<string>;
   onAbonnieren: (z: Zeile) => void;
   onRechner: (id: string) => void;
   onRechnerKoppeln: () => void;
@@ -57,6 +68,7 @@ export function Uebersicht({
 }) {
   const [filter, setFilter] = useState<Filter>("alle");
   const [suche, setSuche] = useState("");
+  const [zeigeAusgeblendete, setZeigeAusgeblendete] = useState(false);
   const [pluginsOffen, setPluginsOffenRoh] = useState(() => {
     try {
       return localStorage.getItem("syncomat.uebersicht.pluginsZu") !== "1";
@@ -93,12 +105,15 @@ export function Uebersicht({
 
   const passt = (z: Zeile) => {
     if (suche && !z.name.toLowerCase().includes(suche.toLowerCase())) return false;
+    // Ausgeblendete nur zeigen, wenn gewünscht, gesucht oder gestört.
+    if (ausgeblendet.has(z.folderId) && !zeigeAusgeblendete && !suche && !z.stoerung) return false;
     if (filter === "hier") return !!z.hier;
     if (filter === "stoerung") return z.stoerung;
     if (filter === "plugins") return z.art === "plugin";
     return true;
   };
-  const sichtbar = useMemo(() => projekte.filter(passt), [projekte, filter, suche]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sichtbar = useMemo(() => projekte.filter(passt), [projekte, filter, suche, ausgeblendet, zeigeAusgeblendete]); // eslint-disable-line react-hooks/exhaustive-deps
+  const anzahlAusgeblendet = projekte.filter((z) => ausgeblendet.has(z.folderId)).length;
   const pluginsSichtbar = useMemo(() => plugins.filter(passt), [plugins, filter, suche]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pfeiltasten zwischen den Zellen (data-r / data-c)
@@ -144,7 +159,7 @@ export function Uebersicht({
               className="self-stretch w-[3px] shrink-0"
               style={{ background: z.farbe ?? "transparent" }}
             />
-            <span className="min-w-0 truncate text-[13px] font-semibold text-[var(--sm-text)]" dir="auto">
+            <span className={`min-w-0 truncate text-[13px] font-semibold ${ausgeblendet.has(z.folderId) ? "text-[var(--sm-text2)]" : "text-[var(--sm-text)]"}`} dir="auto">
               {z.name}
             </span>
             {z.stoerung && (
@@ -275,6 +290,15 @@ export function Uebersicht({
           <RefreshCw className={`size-3.5 ${pruefe ? "animate-spin" : ""}`} />
           Neu prüfen
         </button>
+        {anzahlAusgeblendet > 0 && (
+          <button
+            onClick={() => setZeigeAusgeblendete((v) => !v)}
+            aria-pressed={zeigeAusgeblendete}
+            className="h-7 px-2 text-[12px] text-[var(--sm-text2)] hover:text-[var(--sm-text)] underline-offset-2 hover:underline outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] rounded"
+          >
+            {zeigeAusgeblendete ? "Ausgeblendete verbergen" : `${anzahlAusgeblendet} ausgeblendet`}
+          </button>
+        )}
         {/* Immer sichtbar — nicht hinter den Rechner-Spalten (bei vielen
             Rechnern lagen die Knöpfe rechts ausserhalb, Marlon 07.11.2026). */}
         <span className="ml-auto inline-flex items-center gap-1">
@@ -321,7 +345,15 @@ export function Uebersicht({
                       <span className={`truncate text-[12px] ${s.ich ? "font-bold" : "font-semibold"}`}>{s.name}</span>
                     </span>
                     <span className="text-[10px] text-[var(--sm-text2)] truncate max-w-full">
-                      {s.ich ? <span className="font-semibold text-[var(--sm-blau)]">hier</span> : (rolleKurz(s.rolle) ?? (s.online ? "—" : "offline"))}
+                      {s.ich ? (
+                        <span className="font-semibold text-[var(--sm-blau)]">hier</span>
+                      ) : !s.online ? (
+                        <span title={s.zuletzt ? `zuletzt verbunden ${new Date(s.zuletzt).toLocaleString("de-CH")}` : "nie verbunden"}>
+                          {s.zuletzt ? `aus · ${seit(s.zuletzt)}` : "aus"}
+                        </span>
+                      ) : (
+                        (rolleKurz(s.rolle) ?? "—")
+                      )}
                     </span>
                     <span className="sm-zahl font-mono text-[10px] text-[var(--sm-text2)] truncate max-w-full">
                       {s.freiD != null ? `${gb(s.freiD)} frei` : s.ich ? "kein D:" : "\u00a0"}

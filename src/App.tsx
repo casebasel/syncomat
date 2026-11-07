@@ -64,6 +64,7 @@ import { useAboAusfuehrung, useGeraeteRolle } from "./lib/abo";
 import { useStatusDatei } from "./lib/statusDatei";
 import { aboBeenden, istInhaltOrdner } from "./lib/nasProjekte";
 import { useWuensche } from "./lib/wuensche";
+import { useAusgeblendet } from "./lib/ausgeblendet";
 import {
   setFolderIgnores,
   tuneFolderForSize,
@@ -338,6 +339,7 @@ function App() {
     ohneSyncomat: updateAll.noChannel,
     rolle: geraeteRolle.rolle,
   });
+  const ausgeblendet = useAusgeblendet();
   const wuensche = useWuensche({
     ep: endpoint,
     ready,
@@ -750,6 +752,7 @@ function App() {
                     setGewaehltRechner(gleich ? null : s.id);
                   }}
                   offeneWuensche={wuensche.eigene}
+                  ausgeblendet={ausgeblendet.ids}
                   onRechner={(id) => (id === myID ? setAnsicht("einstellungen") : setPanel({ kind: "device-detail", deviceID: id }))}
                   onRechnerKoppeln={() => setPanel({ kind: "code-show" })}
                   onCodeEinloesen={() => setPanel({ kind: "code-redeem" })}
@@ -795,6 +798,10 @@ function App() {
                           })()
                         : undefined
                     }
+                    ausblenden={{
+                      aus: ausgeblendet.ids.has(gewaehlteZeile.folderId),
+                      setzen: (aus) => ausgeblendet.setzen(gewaehlteZeile.folderId, aus),
+                    }}
                     onUeberallBeenden={async () => {
                       const z = gewaehlteZeile;
                       const teile: string[] = [];

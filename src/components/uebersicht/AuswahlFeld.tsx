@@ -152,6 +152,7 @@ export function AuswahlFeld({
   onSchliessen,
   aktionen,
   onUeberallBeenden,
+  ausblenden,
   vorschauBaum,
 }: {
   ep: Endpoint | null;
@@ -176,6 +177,8 @@ export function AuswahlFeld({
     konflikte: (() => void) | null;
     fehler: (() => void) | null;
   };
+  /** In der Übersicht ausblenden (fertiges Projekt) — nur Ansicht dieses Rechners. */
+  ausblenden?: { aus: boolean; setzen: (aus: boolean) => void };
   /** Abo auf ALLEN Rechnern beenden (hier direkt, sonst als Wunsch). */
   onUeberallBeenden?: () => Promise<string>;
   /** Nur für die Vorschau-Seite. */
@@ -505,6 +508,14 @@ export function AuswahlFeld({
           )}
         </div>
         {leer && <p className="text-[11px] text-[var(--sm-ocker-text)]">Mindestens einen Ordner wählen — oder „Alles“.</p>}
+        {ausblenden && (
+          <button
+            onClick={() => ausblenden.setzen(!ausblenden.aus)}
+            className="block pt-1 text-[12px] text-[var(--sm-text2)] hover:text-[var(--sm-text)] underline-offset-2 hover:underline"
+          >
+            {ausblenden.aus ? "In der Übersicht wieder zeigen" : "In der Übersicht ausblenden (nur hier, Daten bleiben)"}
+          </button>
+        )}
         {onUeberallBeenden && (
           <div className="pt-1 text-[12px]">
             {!ueberallFragen ? (
