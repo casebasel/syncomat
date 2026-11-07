@@ -103,7 +103,7 @@ export function FolderInspector({
       {/* Kopfzeile wie AboFeld: schwarz, Projektkante, Name, Aktionen */}
       <header className="h-12 shrink-0 pl-0 pr-1.5 flex items-center gap-2.5 bg-[var(--sm-kopf)] text-[var(--sm-kopf-text)]">
         <span aria-hidden className="self-stretch w-[3px] shrink-0" style={{ background: farbe ?? "transparent" }} />
-        <h2 className="flex-1 min-w-0 truncate text-[15px] font-bold" dir="auto">
+        <h2 className="flex-1 min-w-0 truncate text-[16px] font-bold" dir="auto">
           {folder.label || folder.id}
         </h2>
         {[
@@ -138,7 +138,7 @@ export function FolderInspector({
       </header>
       <div className="shrink-0 px-4 py-2.5 border-b border-[var(--sm-linie)] flex items-center gap-2.5 flex-wrap">
         <SyncStatusBadge state={state} label={statusLabel} variant="pill" size="sm" />
-        <span className="sm-zahl text-[12px] text-[var(--sm-text2)]">{fmtMeta(folder, status, others.length, peerOnline)}</span>
+        <span className="sm-zahl text-[13px] text-[var(--sm-text2)]">{fmtMeta(folder, status, others.length, peerOnline)}</span>
         {tags.map((t) => (
           <TagChip key={t} tag={t} size="sm" />
         ))}
@@ -181,7 +181,7 @@ export function FolderInspector({
               <div className="text-[var(--sm-text2)] mt-0.5">
                 {folderErrInfo.action}
               </div>
-              <div className="font-mono text-[10px] text-[var(--sm-text2)] mt-1 break-words">
+              <div className="font-mono text-[11px] text-[var(--sm-text2)] mt-1 break-words">
                 {folderErr}
               </div>
             </div>
@@ -277,10 +277,10 @@ export function FolderInspector({
         {/* Activity-Feed */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <div className="text-[10px] uppercase tracking-wider text-[var(--sm-text2)] font-semibold">
+            <div className="text-[11px] uppercase tracking-wider text-[var(--sm-text2)] font-semibold">
               Aktivität
             </div>
-            <div className="text-[10px] text-[var(--sm-text2)]">
+            <div className="text-[11px] text-[var(--sm-text2)]">
               letzte 200 Events
             </div>
           </div>
@@ -291,7 +291,7 @@ export function FolderInspector({
         </div>
 
         {/* Footer Meta */}
-        <div className="flex items-center justify-between text-[11px] text-[var(--sm-text2)] pt-2 border-t border-[var(--sm-linie)] gap-3">
+        <div className="flex items-center justify-between text-[12px] text-[var(--sm-text2)] pt-2 border-t border-[var(--sm-linie)] gap-3">
           <button
             onClick={async () => {
               try {

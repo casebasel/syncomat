@@ -121,10 +121,10 @@ function Knoten({
             onChange={() => onWahl(k)}
             className="accent-[var(--sm-blau)] shrink-0"
           />
-          <span className={`flex-1 min-w-0 truncate font-mono text-[12px] ${waehlbar ? "" : "text-[var(--sm-text2)] line-through"}`} dir="auto">
+          <span className={`flex-1 min-w-0 truncate text-[13px] ${waehlbar ? "" : "text-[var(--sm-text2)] line-through"}`} dir="auto">
             {k.name}
           </span>
-          <span className="sm-zahl font-mono text-[11px] text-[var(--sm-text2)] shrink-0">{gb(k.bytes)}</span>
+          <span className="sm-zahl font-mono text-[12px] text-[var(--sm-text2)] shrink-0">{gb(k.bytes)}</span>
         </label>
       </div>
       {auf && k.kinder.length > 0 && (
@@ -266,7 +266,7 @@ export function AuswahlFeld({
     >
       <header className="h-12 shrink-0 pl-0 pr-2 flex items-center gap-2.5 bg-[var(--sm-kopf)] text-[var(--sm-kopf-text)]">
         <span aria-hidden className="self-stretch w-[3px]" style={{ background: zeile.farbe ?? "transparent" }} />
-        <h2 id="auswahl-titel" className="flex-1 min-w-0 truncate text-[15px] font-bold" dir="auto">
+        <h2 id="auswahl-titel" className="flex-1 min-w-0 truncate text-[16px] font-bold" dir="auto">
           {zeile.name}
           <span className="font-normal text-[var(--sm-kopf-text2)]"> · {spalte.ich ? "dieser Rechner" : spalte.name}</span>
         </h2>
@@ -280,7 +280,7 @@ export function AuswahlFeld({
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        <p className="text-[13px] text-[var(--sm-text2)]">
+        <p className="text-[14px] text-[var(--sm-text2)]">
           {abonniert
             ? `Was von ${zeile.name} auf ${name} liegt. Nicht Gewähltes bleibt auf dem NAS.`
             : `${zeile.name} ist auf ${name} nicht abonniert.`}
@@ -288,31 +288,31 @@ export function AuswahlFeld({
         </p>
 
         {spalte.ich && zelle.ungesichert && (
-          <div className="text-[13px] text-[var(--sm-ocker-text)] space-y-1" role="alert">
+          <div className="text-[14px] text-[var(--sm-ocker-text)] space-y-1" role="alert">
             <p className="font-semibold">
               {zelle.ungesichert.anzahl} Datei(en) liegen hier ausserhalb der Auswahl. Sie werden nicht abgeglichen und nicht auf dem NAS gesichert.
             </p>
-            <ul className="font-mono text-[11px]">
+            <ul className="font-mono text-[12px]">
               {zelle.ungesichert.beispiele.map((b) => (
                 <li key={b} className="truncate" dir="auto">{b}</li>
               ))}
             </ul>
-            <p className="text-[12px]">Sichern: auf „Alles“ wechseln oder die Dateien in einen gewählten Ordner verschieben.</p>
+            <p className="text-[13px]">Sichern: auf „Alles“ wechseln oder die Dateien in einen gewählten Ordner verschieben.</p>
           </div>
         )}
         {!spalte.ich && !spalte.kannWuensche && (
-          <p className="text-[13px] font-semibold text-[var(--sm-ocker-text)]">
+          <p className="text-[14px] font-semibold text-[var(--sm-ocker-text)]">
             {spalte.name} läuft mit einer älteren syncomat-Version und nimmt noch keine Auswahl von anderen Rechnern an.
           </p>
         )}
         {spalte.ich && !windows && (
-          <p className="text-[13px] font-semibold text-[var(--sm-ocker-text)]">
+          <p className="text-[14px] font-semibold text-[var(--sm-ocker-text)]">
             Abos gibt es nur auf den Windows-Rechnern (Laufwerk D:). Von hier aus lässt sich die Auswahl der anderen Rechner festlegen.
           </p>
         )}
 
         {(zelle.zustand === "angehalten" || zelle.konflikte || zelle.dateifehler) && (
-          <div className="rounded-md border border-[var(--sm-linie)] px-3 py-2 text-[13px] space-y-1.5" role="alert">
+          <div className="rounded-md border border-[var(--sm-linie)] px-3 py-2 text-[14px] space-y-1.5" role="alert">
             {zelle.zustand === "angehalten" && (
               <p className="font-semibold text-[var(--sm-ocker-text)]">Angehalten{zelle.grund ? `: ${zelle.grund}` : ""}</p>
             )}
@@ -321,23 +321,23 @@ export function AuswahlFeld({
             {spalte.ich && aktionen && (
               <div className="flex flex-wrap gap-2 pt-0.5">
                 {aktionen.fortsetzen && (
-                  <button onClick={aktionen.fortsetzen} className="h-7 px-2.5 rounded-md bg-[var(--sm-blau)] text-white text-[12px] font-semibold">
+                  <button onClick={aktionen.fortsetzen} className="h-7 px-2.5 rounded-md bg-[var(--sm-blau)] text-white text-[13px] font-semibold">
                     Fortsetzen
                   </button>
                 )}
                 {aktionen.konflikte && (
-                  <button onClick={aktionen.konflikte} className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold hover:bg-[var(--sm-flaeche)]">
+                  <button onClick={aktionen.konflikte} className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[13px] font-semibold hover:bg-[var(--sm-flaeche)]">
                     Konflikte auflösen
                   </button>
                 )}
                 {aktionen.fehler && (
-                  <button onClick={aktionen.fehler} className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold hover:bg-[var(--sm-flaeche)]">
+                  <button onClick={aktionen.fehler} className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[13px] font-semibold hover:bg-[var(--sm-flaeche)]">
                     Fehler ansehen
                   </button>
                 )}
               </div>
             )}
-            {!spalte.ich && <p className="text-[12px] text-[var(--sm-text2)]">Beheben am Rechner {spalte.name} selbst.</p>}
+            {!spalte.ich && <p className="text-[13px] text-[var(--sm-text2)]">Beheben am Rechner {spalte.name} selbst.</p>}
           </div>
         )}
 
@@ -345,13 +345,13 @@ export function AuswahlFeld({
           <div className="flex flex-wrap gap-2">
             <button
               onClick={aktionen.explorer}
-              className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+              className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[13px] font-semibold hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
             >
               Im Explorer öffnen
             </button>
             <button
               onClick={aktionen.details}
-              className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+              className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[13px] font-semibold hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
             >
               Ordner-Details
             </button>
@@ -359,11 +359,11 @@ export function AuswahlFeld({
         )}
 
         <fieldset className="space-y-1" disabled={!!busy}>
-          <legend className="text-[11px] font-bold uppercase tracking-wide text-[var(--sm-text2)] mb-1.5">Umfang</legend>
+          <legend className="text-[12px] font-bold uppercase tracking-wide text-[var(--sm-text2)] mb-1.5">Umfang</legend>
           <label className="flex items-center gap-2.5 h-9 px-2 -mx-2 rounded hover:bg-[var(--sm-flaeche)] cursor-pointer">
             <input type="radio" name="umfang" checked={!benutzer} onChange={() => setBenutzer(false)} className="accent-[var(--sm-blau)]" />
-            <span className="flex-1 text-[13px] font-semibold">Alles</span>
-            {baum && <span className="sm-zahl font-mono text-[12px] text-[var(--sm-text2)]">{gb(baum.globalBytes)}</span>}
+            <span className="flex-1 text-[14px] font-semibold">Alles</span>
+            {baum && <span className="sm-zahl font-mono text-[13px] text-[var(--sm-text2)]">{gb(baum.globalBytes)}</span>}
           </label>
           <label className="flex items-center gap-2.5 h-9 px-2 -mx-2 rounded hover:bg-[var(--sm-flaeche)] cursor-pointer">
             <input
@@ -374,16 +374,16 @@ export function AuswahlFeld({
               disabled={!baum || baum.baum.length === 0}
               className="accent-[var(--sm-blau)]"
             />
-            <span className="flex-1 text-[13px] font-semibold">Benutzerdefiniert</span>
+            <span className="flex-1 text-[14px] font-semibold">Benutzerdefiniert</span>
           </label>
 
           {!baum && !baumFehler && (
-            <p className="flex items-center gap-2 text-[12px] text-[var(--sm-text2)] pl-1" role="status">
+            <p className="flex items-center gap-2 text-[13px] text-[var(--sm-text2)] pl-1" role="status">
               <Loader2 className="size-3.5 animate-spin text-[var(--sm-blau)]" />
               Ordnerbaum vom NAS holen (es wird nichts geladen) …
             </p>
           )}
-          {baumFehler && <p className="text-[12px] text-[var(--sm-text2)] pl-1">{baumFehler}</p>}
+          {baumFehler && <p className="text-[13px] text-[var(--sm-text2)] pl-1">{baumFehler}</p>}
           {baum && (
             <ul className={`mt-1 border-l border-[var(--sm-linie)] ml-1 ${benutzer ? "" : "opacity-50"}`}>
               {baum.baum.map((k) => (
@@ -412,18 +412,18 @@ export function AuswahlFeld({
                   }}
                 />
               ))}
-              {baum.baum.length === 0 && <li className="text-[12px] text-[var(--sm-text2)] py-1 pl-3">Keine Unterordner.</li>}
+              {baum.baum.length === 0 && <li className="text-[13px] text-[var(--sm-text2)] py-1 pl-3">Keine Unterordner.</li>}
             </ul>
           )}
           {benutzer && (
-            <p className="text-[11px] text-[var(--sm-text2)] pt-1">
+            <p className="text-[12px] text-[var(--sm-text2)] pt-1">
               Lose Dateien direkt im Projekt und in übergeordneten Ordnern kommen bei einer Auswahl nicht mit.
             </p>
           )}
         </fieldset>
 
         {offenerWunsch && (
-          <div className="rounded-md border border-[var(--sm-linie)] bg-[var(--sm-flaeche)] px-3 py-2 text-[12px] space-y-1" role="status">
+          <div className="rounded-md border border-[var(--sm-linie)] bg-[var(--sm-flaeche)] px-3 py-2 text-[13px] space-y-1" role="status">
             <p>
               <span className="font-semibold">Gesendet</span> ·{" "}
               {offenerWunsch.art === "beenden"
@@ -439,25 +439,25 @@ export function AuswahlFeld({
           </div>
         )}
         {!offenerWunsch && ergebnisVomZiel && !spalte.ich && (
-          <p className={`text-[12px] ${ergebnisVomZiel.ok ? "text-[var(--sm-text2)]" : "font-semibold text-[var(--sm-ocker-text)]"}`} role="status">
+          <p className={`text-[13px] ${ergebnisVomZiel.ok ? "text-[var(--sm-text2)]" : "font-semibold text-[var(--sm-ocker-text)]"}`} role="status">
             {spalte.name}: {ergebnisVomZiel.text}
           </p>
         )}
         {laeuftHier && (
-          <p className="flex items-center gap-2 text-[12px]" role="status">
+          <p className="flex items-center gap-2 text-[13px]" role="status">
             <Loader2 className="size-3.5 animate-spin text-[var(--sm-blau)]" />
             Ein anderer Rechner hat eine Änderung geschickt — wird gerade ausgeführt.
           </p>
         )}
         {meldung && (
-          <p role={meldung.ok ? "status" : "alert"} className={`text-[13px] ${meldung.ok ? "" : "font-semibold text-[var(--sm-ocker-text)]"}`}>
+          <p role={meldung.ok ? "status" : "alert"} className={`text-[14px] ${meldung.ok ? "" : "font-semibold text-[var(--sm-ocker-text)]"}`}>
             {meldung.text}
           </p>
         )}
       </div>
 
       <footer className="shrink-0 border-t border-[var(--sm-linie)] px-4 py-3 space-y-2">
-        <p className="sm-zahl text-[12px] text-[var(--sm-text2)]">
+        <p className="sm-zahl text-[13px] text-[var(--sm-text2)]">
           {bytes != null ? (
             <>
               braucht <span className="font-semibold text-[var(--sm-text)]">{gb(bytes)}</span>
@@ -468,7 +468,7 @@ export function AuswahlFeld({
           {spalte.freiD != null && <> · frei auf D: {gb(spalte.freiD)}</>}
         </p>
         {busy && (
-          <p className="flex items-center gap-2 text-[12px]" role="status">
+          <p className="flex items-center gap-2 text-[13px]" role="status">
             <Loader2 className="size-3.5 animate-spin text-[var(--sm-blau)]" />
             {busy}
           </p>
@@ -478,7 +478,7 @@ export function AuswahlFeld({
             <button
               onClick={() => void hierUebernehmen()}
               disabled={!kannHier || !!busy || leer || !geaendert || laeuftHier || (!zeile.hier && !zeile.angebot)}
-              className="flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-white text-[13px] font-semibold disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
+              className="flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-white text-[14px] font-semibold disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
             >
               {zeile.hier ? "Übernehmen" : "Abonnieren"}
             </button>
@@ -492,7 +492,7 @@ export function AuswahlFeld({
                 }
               }}
               disabled={!kannFern || leer || (!geaendert && !offenerWunsch)}
-              className="flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-white text-[13px] font-semibold disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
+              className="flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-white text-[14px] font-semibold disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
             >
               An {spalte.name} senden
             </button>
@@ -501,23 +501,23 @@ export function AuswahlFeld({
             <button
               onClick={() => (spalte.ich ? void hierBeenden() : onSenden("beenden", [], vorherFern ?? null))}
               disabled={spalte.ich ? !zeile.hier || !!busy || laeuftHier : !kannFern}
-              className="h-8 px-3 rounded-md border border-[var(--sm-linie)] text-[13px] hover:bg-[var(--sm-flaeche)] disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+              className="h-8 px-3 rounded-md border border-[var(--sm-linie)] text-[14px] hover:bg-[var(--sm-flaeche)] disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
             >
               Abo beenden
             </button>
           )}
         </div>
-        {leer && <p className="text-[11px] text-[var(--sm-ocker-text)]">Mindestens einen Ordner wählen — oder „Alles“.</p>}
+        {leer && <p className="text-[12px] text-[var(--sm-ocker-text)]">Mindestens einen Ordner wählen — oder „Alles“.</p>}
         {ausblenden && (
           <button
             onClick={() => ausblenden.setzen(!ausblenden.aus)}
-            className="block pt-1 text-[12px] text-[var(--sm-text2)] hover:text-[var(--sm-text)] underline-offset-2 hover:underline"
+            className="block pt-1 text-[13px] text-[var(--sm-text2)] hover:text-[var(--sm-text)] underline-offset-2 hover:underline"
           >
             {ausblenden.aus ? "In der Übersicht wieder zeigen" : "In der Übersicht ausblenden (nur hier, Daten bleiben)"}
           </button>
         )}
         {onUeberallBeenden && (
-          <div className="pt-1 text-[12px]">
+          <div className="pt-1 text-[13px]">
             {!ueberallFragen ? (
               <button
                 onClick={() => setUeberallFragen(true)}
@@ -550,7 +550,7 @@ export function AuswahlFeld({
           </div>
         )}
         {!abonniert && bytes != null && spalte.freiD != null && bytes > spalte.freiD && (
-          <p className="text-[11px] font-semibold text-[var(--sm-ocker-text)]">
+          <p className="text-[12px] font-semibold text-[var(--sm-ocker-text)]">
             Passt nicht auf D: von {spalte.ich ? "diesem Rechner" : spalte.name} — weniger Ordner wählen.
           </p>
         )}

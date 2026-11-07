@@ -49,24 +49,33 @@
   color: var(--sm-text);
 }
 
-.sm-zahl {
+/* Zahlen (Grössen, Prozente, freier Platz): normale Schrift mit gleich
+   breiten Ziffern — nicht Festbreitenschrift (wirkte neben Segoe unruhig). */
+.sm-zahl,
+.sm-zahl.font-mono {
+  font-family: inherit;
   font-variant-numeric: tabular-nums;
 }
 
 /* Native-App-Basis statt Browser-Defaults: System-Schriftstack, sauberes
    Anti-Aliasing, kein Text-Select-/Drag-Verhalten wie auf einer Webseite. */
 html {
-  /* leicht über Browser-Default damit Tailwinds rem-Utilities (Text + Spacing)
-     einen Tick luftiger sind — entwebbt das Dashboard-Gedränge ohne Overflow. */
-  font-size: 16.5px;
+  /* Ganze Pixel: 16.5px (bis v0.9.29) setzte rem-Abstände auf halbe Pixel —
+     Windows (WebView2/ClearType) zeichnete Schrift dann unscharf. */
+  font-size: 16px;
 }
 
 body {
+  /* Windows zuerst Segoe UI Variable (Win 11, für Bildschirm gezeichnet),
+     dann Segoe UI; auf dem Mac gibt es beide nicht → San Francisco. */
   font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui,
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont,
+    "SF Pro Text", system-ui, sans-serif;
+  /* Windows: ClearType/Subpixel bleibt aktiv (kein „antialiased“-Zwang);
+     macOS zeichnet ohnehin graustufig. */
+  -webkit-font-smoothing: auto;
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
   /* App, kein Dokument: keine Text-Markierung ausser in echten Eingabe-/Code-
      Feldern (die setzen select-text selbst), kein Gummiband-Scroll. */
   user-select: none;
@@ -86,7 +95,8 @@ textarea,
 code,
 pre {
   font-family:
-    ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    "Cascadia Mono", Consolas, ui-monospace, "SF Mono", "SFMono-Regular", Menlo,
+    monospace;
 }
 
 /* Dezentere Scrollbars (macOS-Overlay-Stil) statt fetter Web-Balken. */

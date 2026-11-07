@@ -159,14 +159,14 @@ export function Uebersicht({
               className="self-stretch w-[3px] shrink-0"
               style={{ background: z.farbe ?? "transparent" }}
             />
-            <span className={`min-w-0 truncate text-[13px] font-semibold ${ausgeblendet.has(z.folderId) ? "text-[var(--sm-text2)]" : "text-[var(--sm-text)]"}`} dir="auto">
+            <span className={`min-w-0 truncate text-[14px] font-semibold ${ausgeblendet.has(z.folderId) ? "text-[var(--sm-text2)]" : "text-[var(--sm-text)]"}`} dir="auto">
               {z.name}
             </span>
             {z.stoerung && (
-              <span className="shrink-0 text-[11px] font-semibold text-[var(--sm-ocker-text)]">{stoerungText(z)}</span>
+              <span className="shrink-0 text-[12px] font-semibold text-[var(--sm-ocker-text)]">{stoerungText(z)}</span>
             )}
             {z.bytes != null && (
-              <span className="ml-auto shrink-0 sm-zahl font-mono text-[11px] text-[var(--sm-text2)]">{gb(z.bytes)}</span>
+              <span className="ml-auto shrink-0 sm-zahl font-mono text-[12px] text-[var(--sm-text2)]">{gb(z.bytes)}</span>
             )}
           </button>
         </th>
@@ -201,10 +201,10 @@ export function Uebersicht({
                   <span aria-hidden className="absolute top-1.5 right-2 size-1.5 rounded-full bg-[var(--sm-blau)]" />
                 )}
                 {(zelle.ungesichert || zelle.konflikte || zelle.dateifehler) && (
-                  <span aria-hidden className="absolute top-1 left-2 text-[10px] font-bold leading-none text-[var(--sm-ocker-text)]">!</span>
+                  <span aria-hidden className="absolute top-1 left-2 text-[11px] font-bold leading-none text-[var(--sm-ocker-text)]">!</span>
                 )}
                 {abonnierbar ? (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--sm-text2)] group-hover:text-[var(--sm-blau)] [button:focus-visible_&]:text-[var(--sm-blau)]">
+                  <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--sm-text2)] group-hover:text-[var(--sm-blau)] [button:focus-visible_&]:text-[var(--sm-blau)]">
                     <Plus className="size-3.5" strokeWidth={2.25} />
                     <span className="hidden group-hover:inline [button:focus-visible_&]:inline">Abonnieren</span>
                   </span>
@@ -212,7 +212,7 @@ export function Uebersicht({
                   <>
                     <ZellSymbol z={zelle} />
                     {zelle.zustand === "laedt" && (
-                      <span className="sm-zahl font-mono text-[10px] text-[var(--sm-blau)]">{zelle.prozent ?? 0}%</span>
+                      <span className="sm-zahl font-mono text-[11px] text-[var(--sm-blau)]">{zelle.prozent ?? 0}%</span>
                     )}
                   </>
                 )}
@@ -229,8 +229,8 @@ export function Uebersicht({
     <section className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[var(--sm-grund)] text-[var(--sm-text)]">
       {/* Kopfzeile: Titel + zwei Zahlen */}
       <header className="h-12 shrink-0 px-5 flex items-center justify-between bg-[var(--sm-kopf)] text-[var(--sm-kopf-text)]">
-        <h1 className="text-[15px] font-bold tracking-tight">Übersicht</h1>
-        <p className="sm-zahl text-[13px]">
+        <h1 className="text-[16px] font-bold">Übersicht</h1>
+        <p className="sm-zahl text-[14px]">
           <span className="font-semibold">{gb(lage.freiD)}</span>
           <span className="text-[var(--sm-kopf-text2)]"> frei auf D: · </span>
           <span className="font-semibold">{lage.abosHier}</span>
@@ -256,10 +256,10 @@ export function Uebersicht({
             onChange={(e) => setSuche(e.target.value)}
             placeholder="Projekt suchen   /"
             aria-label="Projekt suchen"
-            className="w-40 xl:w-56 h-7 pl-7 pr-2 text-[13px] rounded-md bg-[var(--sm-flaeche)] border border-[var(--sm-linie)] placeholder:text-[var(--sm-text2)] outline-none focus:border-[var(--sm-blau)] focus:ring-2 focus:ring-[var(--sm-blau)]/25"
+            className="w-40 xl:w-56 h-7 pl-7 pr-2 text-[14px] rounded-md bg-[var(--sm-flaeche)] border border-[var(--sm-linie)] placeholder:text-[var(--sm-text2)] outline-none focus:border-[var(--sm-blau)] focus:ring-2 focus:ring-[var(--sm-blau)]/25"
           />
         </label>
-        <div role="radiogroup" aria-label="Filter" className="shrink-0 flex h-7 rounded-md border border-[var(--sm-linie)] overflow-hidden text-[12px]">
+        <div role="radiogroup" aria-label="Filter" className="shrink-0 flex h-7 rounded-md border border-[var(--sm-linie)] overflow-hidden text-[13px]">
           {(
             [
               ["alle", "Alle"],
@@ -285,7 +285,7 @@ export function Uebersicht({
           onClick={onNeuPruefen}
           disabled={pruefe}
           title="Alle Ordner auf diesem Rechner neu prüfen"
-          className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] inline-flex items-center gap-1.5 hover:bg-[var(--sm-flaeche)] disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+          className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[13px] inline-flex items-center gap-1.5 hover:bg-[var(--sm-flaeche)] disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
         >
           <RefreshCw className={`size-3.5 ${pruefe ? "animate-spin" : ""}`} />
           Neu prüfen
@@ -294,7 +294,7 @@ export function Uebersicht({
           <button
             onClick={() => setZeigeAusgeblendete((v) => !v)}
             aria-pressed={zeigeAusgeblendete}
-            className="h-7 px-2 text-[12px] text-[var(--sm-text2)] hover:text-[var(--sm-text)] underline-offset-2 hover:underline outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] rounded"
+            className="h-7 px-2 text-[13px] text-[var(--sm-text2)] hover:text-[var(--sm-text)] underline-offset-2 hover:underline outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] rounded"
           >
             {zeigeAusgeblendete ? "Ausgeblendete verbergen" : `${anzahlAusgeblendet} ausgeblendet`}
           </button>
@@ -305,7 +305,7 @@ export function Uebersicht({
           <button
             onClick={onRechnerKoppeln}
             title="Einen neuen Rechner ins Netz holen: Code anzeigen"
-            className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold text-[var(--sm-blau)] inline-flex items-center gap-1 hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+            className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[13px] font-semibold text-[var(--sm-blau)] inline-flex items-center gap-1 hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
           >
             <Plus className="size-3.5" strokeWidth={2.25} />
             Rechner koppeln
@@ -313,7 +313,7 @@ export function Uebersicht({
           <button
             onClick={onCodeEinloesen}
             title="Code eines anderen Rechners eingeben"
-            className="h-7 px-2.5 rounded-md text-[12px] font-semibold text-[var(--sm-text2)] inline-flex items-center gap-1 hover:bg-[var(--sm-flaeche)] hover:text-[var(--sm-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+            className="h-7 px-2.5 rounded-md text-[13px] font-semibold text-[var(--sm-text2)] inline-flex items-center gap-1 hover:bg-[var(--sm-flaeche)] hover:text-[var(--sm-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
           >
             <KeyRound className="size-3.5" />
             Code einlösen
@@ -324,11 +324,11 @@ export function Uebersicht({
 
       {/* Tafel */}
       <div className="flex-1 overflow-auto">
-        <table ref={tabelleRef} onKeyDown={onTabelleKey} className="border-collapse text-[13px] min-w-full">
+        <table ref={tabelleRef} onKeyDown={onTabelleKey} className="border-collapse text-[14px] min-w-full">
           <thead className="sticky top-0 z-20 bg-[var(--sm-grund)]">
             <tr className="border-b border-[var(--sm-linie)]">
               <th scope="col" className="sticky left-0 z-30 bg-[var(--sm-grund)] h-[60px] pl-3 pr-3 text-left align-bottom pb-2 min-w-[280px] w-[280px]">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--sm-text2)]">Projekt</span>
+                <span className="text-[12px] font-bold uppercase tracking-wide text-[var(--sm-text2)]">Projekt</span>
               </th>
               {spalten.map((s) => (
                 <th key={s.id} scope="col" className={`h-[60px] px-0.5 align-bottom pb-1 min-w-[90px] max-w-[132px] ${s.ich ? "bg-[var(--sm-ich)]" : ""}`}>
@@ -342,9 +342,9 @@ export function Uebersicht({
                         aria-hidden
                         className={`size-1.5 rounded-full shrink-0 ${s.online ? "bg-[var(--sm-text)]" : "border border-[var(--sm-text2)]"}`}
                       />
-                      <span className={`truncate text-[12px] ${s.ich ? "font-bold" : "font-semibold"}`}>{s.name}</span>
+                      <span className={`truncate text-[13px] ${s.ich ? "font-bold" : "font-semibold"}`}>{s.name}</span>
                     </span>
-                    <span className="text-[10px] text-[var(--sm-text2)] truncate max-w-full">
+                    <span className="text-[11px] text-[var(--sm-text2)] truncate max-w-full">
                       {s.ich ? (
                         <span className="font-semibold text-[var(--sm-blau)]">hier</span>
                       ) : !s.online ? (
@@ -355,7 +355,7 @@ export function Uebersicht({
                         (rolleKurz(s.rolle) ?? "—")
                       )}
                     </span>
-                    <span className="sm-zahl font-mono text-[10px] text-[var(--sm-text2)] truncate max-w-full">
+                    <span className="sm-zahl font-mono text-[11px] text-[var(--sm-text2)] truncate max-w-full">
                       {s.freiD != null ? `${gb(s.freiD)} frei` : s.ich ? "kein D:" : "\u00a0"}
                     </span>
                   </button>
@@ -367,7 +367,7 @@ export function Uebersicht({
           <tbody>
             {sichtbar.length > 0 && (
               <tr>
-                <th colSpan={spalten.length + 2} className="sticky left-0 text-left pl-3 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wide text-[var(--sm-text2)] bg-[var(--sm-grund)]">
+                <th colSpan={spalten.length + 2} className="sticky left-0 text-left pl-3 pt-3 pb-1 text-[12px] font-bold uppercase tracking-wide text-[var(--sm-text2)] bg-[var(--sm-grund)]">
                   Projekte auf dem NAS <span className="sm-zahl font-semibold normal-case tracking-normal">{sichtbar.length}</span>
                 </th>
               </tr>
@@ -375,14 +375,14 @@ export function Uebersicht({
             {sichtbar.map(zeileRender)}
             {filter === "plugins" && pluginsSichtbar.length === 0 && (
               <tr>
-                <td colSpan={spalten.length + 2} className="px-3 py-6 text-[13px] text-[var(--sm-text2)]">
+                <td colSpan={spalten.length + 2} className="px-3 py-6 text-[14px] text-[var(--sm-text2)]">
                   Noch kein Ordner, der mit allen Rechnern abgeglichen wird. Links unter „Ordner“ lässt sich einer anlegen.
                 </td>
               </tr>
             )}
             {sichtbar.length === 0 && filter !== "plugins" && (
               <tr>
-                <td colSpan={spalten.length + 2} className="px-3 py-6 text-[13px] text-[var(--sm-text2)]">
+                <td colSpan={spalten.length + 2} className="px-3 py-6 text-[14px] text-[var(--sm-text2)]">
                   {projekte.length === 0
                     ? "Der NAS bietet diesem Rechner noch keine Projekte an. Sobald er eins anbietet, erscheint es hier."
                     : filter === "stoerung"
@@ -399,7 +399,7 @@ export function Uebersicht({
                   <button
                     onClick={() => setPluginsOffen((o) => !o)}
                     aria-expanded={pluginsOffen}
-                    className="flex items-center gap-1 pl-2 pt-4 pb-1 text-[11px] font-bold uppercase tracking-wide text-[var(--sm-text2)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+                    className="flex items-center gap-1 pl-2 pt-4 pb-1 text-[12px] font-bold uppercase tracking-wide text-[var(--sm-text2)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
                   >
                     {pluginsOffen ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
                     Plugins und eigene Ordner, an alle
@@ -416,7 +416,7 @@ export function Uebersicht({
         </table>
       </div>
       <footer className="shrink-0 px-5 py-1.5 border-t border-[var(--sm-linie)] flex items-center gap-4">
-        <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--sm-text2)]" aria-label="Legende">
+        <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[var(--sm-text2)]" aria-label="Legende">
           {(
             [
               [{ zustand: "aktuell" }, "aktuell"],
@@ -432,12 +432,12 @@ export function Uebersicht({
             </li>
           ))}
         </ul>
-        <span className="ml-auto text-[11px] text-[var(--sm-text2)] hidden md:inline">
+        <span className="ml-auto text-[12px] text-[var(--sm-text2)] hidden md:inline">
           <kbd className="font-mono">/</kbd> suchen · Pfeiltasten in der Tabelle · Enter öffnet
         </span>
       </footer>
       {ich && ich.freiD == null && (
-        <p className="shrink-0 px-5 py-2 text-[11px] text-[var(--sm-text2)] border-t border-[var(--sm-linie)]">
+        <p className="shrink-0 px-5 py-2 text-[12px] text-[var(--sm-text2)] border-t border-[var(--sm-linie)]">
           Dieser Rechner hat kein Laufwerk D: — Abonnieren geht nur auf den Windows-Rechnern mit D:.
         </p>
       )}

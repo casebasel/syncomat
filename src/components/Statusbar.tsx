@@ -97,7 +97,7 @@ export function Statusbar({
   if (ramMB >= 500) ramTone = "text-[var(--sm-ocker-text)]";
 
   return (
-    <div className="h-7 flex items-center justify-between text-[11px] text-[var(--sm-text2)]">
+    <div className="h-7 flex items-center justify-between text-[12px] text-[var(--sm-text2)]">
       <span className={leftCls}>{left}</span>
       <span className="text-[var(--sm-text2)] flex items-center gap-1.5">
         {transferActive && (

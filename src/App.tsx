@@ -965,7 +965,7 @@ function FirstRunWelcome({
           </button>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-500">
+        <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[12px] text-neutral-500 dark:text-neutral-500">
           <span>Fenster schließen lässt den Sync im Tray weiterlaufen.</span>
           <button onClick={onOpenSettings} className="hover:text-neutral-900 dark:hover:text-neutral-100">
             Einstellungen →
