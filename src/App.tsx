@@ -61,6 +61,7 @@ import { useUpdateAll } from "./lib/updateAll";
 import { useInternFolder } from "./lib/internChannel";
 import { isAboFolderId, useDatenzentrale } from "./lib/datenzentrale";
 import { useAboAusfuehrung, useGeraeteRolle } from "./lib/abo";
+import { useStatusDatei } from "./lib/statusDatei";
 import { aboBeenden, abonnieren, nasProjekte as nasProjekteAus, type NasProjekt } from "./lib/nasProjekte";
 import {
   setFolderIgnores,
@@ -325,6 +326,14 @@ function App() {
     auftraege: datenzentrale.state.auftraege,
     rolle: geraeteRolle.rolle,
     sendBerichte: datenzentrale.sendBerichte,
+  });
+  useStatusDatei({
+    ep: endpoint,
+    ready,
+    folders,
+    myID,
+    version,
+    rechner: datenzentrale.state.connection?.rechner ?? null,
   });
   const updateAll = useUpdateAll({
     endpoint,

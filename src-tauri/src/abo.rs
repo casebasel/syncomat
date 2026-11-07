@@ -84,6 +84,30 @@ pub fn remove_unused_abo_dir(path: String) -> Result<bool, String> {
     Ok(true)
 }
 
+/// Lokale Statusdatei (Konzept Datenzentrale, Kap. 9; Wunsch der Stage):
+/// `<app_local_data>/status.json`, z. B. Windows
+/// `%LOCALAPPDATA%\ch.ca-se.syncomat\status.json`. Nie in einem gesyncten
+/// Ordner. Atomar über tmp + rename. Gibt den Pfad zurück.
+#[tauri::command]
+pub fn status_datei_write(app: tauri::AppHandle, content: String) -> Result<String, String> {
+    use std::io::Write;
+    use tauri::Manager;
+    let dir = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("app_local_data_dir: {e}"))?;
+    fs::create_dir_all(&dir).map_err(|e| format!("mkdir {}: {e}", dir.display()))?;
+    let path = dir.join("status.json");
+    let tmp = dir.join("status.json.tmp");
+    {
+        let mut f = fs::File::create(&tmp).map_err(|e| format!("create tmp: {e}"))?;
+        f.write_all(content.as_bytes()).map_err(|e| format!("write: {e}"))?;
+        f.sync_all().map_err(|e| format!("fsync: {e}"))?;
+    }
+    fs::rename(&tmp, &path).map_err(|e| format!("rename: {e}"))?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
