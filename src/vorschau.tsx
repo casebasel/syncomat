@@ -54,7 +54,7 @@ const projekte: Zeile[] = namen.map((n, i) => {
   if (n === "VERKEHRSHAUS_VR") zellen["I9"] = { zustand: "laedt", prozent: 64 };
   if (n === "EXLIBRIS_SPOT") zellen["RND2"] = { zustand: "angehalten", grund: "Ordner-Marke .stfolder fehlt" };
   if (n === "PM_MEDITERRANEAN") {
-    zellen["I9"] = { zustand: "aktuell", teil: true, auswahl: ["03_UNREAL", "04_SHOTS/SQ010/SH0010", "04_SHOTS/SQ010/SH0020"] };
+    zellen["I9"] = { zustand: "aktuell", teil: true, konflikte: 2, auswahl: ["03_UNREAL", "04_SHOTS/SQ010/SH0010", "04_SHOTS/SQ010/SH0020"] };
     zellen["X79"] = { zustand: "aktuell", offline: true, auswahl: [] };
   }
   if (n === "TEST_SYNCOMAT") zellen["I9"] = { zustand: "nicht" };
@@ -67,7 +67,7 @@ const projekte: Zeile[] = namen.map((n, i) => {
     hier: hier ? ({ id: "x" } as never) : null,
     angebot: hier ? null : ({ folderId: `dz-projekt-${n.toLowerCase()}-1`, name: n, anbieter: ["NAS"] } as never),
     zellen,
-    stoerung: Object.values(zellen).some((c) => c.zustand === "angehalten"),
+    stoerung: Object.values(zellen).some((c) => c.zustand === "angehalten" || !!c.konflikte),
     bytes: hier ? Math.round(rnd() * 600e9) : null,
   };
 });
@@ -165,6 +165,8 @@ function Vorschau() {
           onSenden={() => {}}
           onZuruecknehmen={() => {}}
           onSchliessen={() => {}}
+          aktionen={zelle === "I9" ? { explorer: () => {}, details: () => {}, fortsetzen: null, konflikte: () => {}, fehler: null } : undefined}
+          onUeberallBeenden={async () => "ok"}
           vorschauBaum={baum}
         />
       )}

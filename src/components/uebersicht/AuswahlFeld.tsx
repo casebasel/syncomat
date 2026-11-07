@@ -150,6 +150,8 @@ export function AuswahlFeld({
   onSenden,
   onZuruecknehmen,
   onSchliessen,
+  aktionen,
+  onUeberallBeenden,
   vorschauBaum,
 }: {
   ep: Endpoint | null;
@@ -166,6 +168,16 @@ export function AuswahlFeld({
   onSenden: (art: WunschArt, auswahl: string[], vorher: string[] | null) => void;
   onZuruecknehmen: (id: string) => void;
   onSchliessen: () => void;
+  /** Ordner-Aktionen für das eigene Abo (Explorer, Details, Fortsetzen …). */
+  aktionen?: {
+    explorer: () => void;
+    details: () => void;
+    fortsetzen: (() => void) | null;
+    konflikte: (() => void) | null;
+    fehler: (() => void) | null;
+  };
+  /** Abo auf ALLEN Rechnern beenden (hier direkt, sonst als Wunsch). */
+  onUeberallBeenden?: () => Promise<string>;
   /** Nur für die Vorschau-Seite. */
   vorschauBaum?: Baum;
 }) {
@@ -179,6 +191,7 @@ export function AuswahlFeld({
   const [offen, setOffen] = useState<Set<string>>(() => new Set(startAuswahl.flatMap((p) => p.split("/").slice(0, -1).map((_, i, t) => t.slice(0, i + 1).join("/")))));
   const [busy, setBusy] = useState<string | null>(null);
   const [meldung, setMeldung] = useState<{ ok: boolean; text: string } | null>(null);
+  const [ueberallFragen, setUeberallFragen] = useState(false);
 
   // Ordnerbaum holen: aus dem eigenen Abo, sonst nur das Inhaltsverzeichnis vom NAS.
   useEffect(() => {
@@ -293,6 +306,53 @@ export function AuswahlFeld({
           <p className="text-[13px] font-semibold text-[var(--sm-ocker-text)]">
             Abos gibt es nur auf den Windows-Rechnern (Laufwerk D:). Von hier aus lässt sich die Auswahl der anderen Rechner festlegen.
           </p>
+        )}
+
+        {(zelle.zustand === "angehalten" || zelle.konflikte || zelle.dateifehler) && (
+          <div className="rounded-md border border-[var(--sm-linie)] px-3 py-2 text-[13px] space-y-1.5" role="alert">
+            {zelle.zustand === "angehalten" && (
+              <p className="font-semibold text-[var(--sm-ocker-text)]">Angehalten{zelle.grund ? `: ${zelle.grund}` : ""}</p>
+            )}
+            {!!zelle.konflikte && <p className="font-semibold text-[var(--sm-ocker-text)]">{zelle.konflikte} Konflikt(e) — zwei Fassungen derselben Datei.</p>}
+            {!!zelle.dateifehler && <p className="font-semibold text-[var(--sm-ocker-text)]">{zelle.dateifehler} Datei(en) lassen sich nicht abgleichen.</p>}
+            {spalte.ich && aktionen && (
+              <div className="flex flex-wrap gap-2 pt-0.5">
+                {aktionen.fortsetzen && (
+                  <button onClick={aktionen.fortsetzen} className="h-7 px-2.5 rounded-md bg-[var(--sm-blau)] text-white text-[12px] font-semibold">
+                    Fortsetzen
+                  </button>
+                )}
+                {aktionen.konflikte && (
+                  <button onClick={aktionen.konflikte} className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold hover:bg-[var(--sm-flaeche)]">
+                    Konflikte auflösen
+                  </button>
+                )}
+                {aktionen.fehler && (
+                  <button onClick={aktionen.fehler} className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold hover:bg-[var(--sm-flaeche)]">
+                    Fehler ansehen
+                  </button>
+                )}
+              </div>
+            )}
+            {!spalte.ich && <p className="text-[12px] text-[var(--sm-text2)]">Beheben am Rechner {spalte.name} selbst.</p>}
+          </div>
+        )}
+
+        {spalte.ich && zeile.hier && aktionen && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={aktionen.explorer}
+              className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+            >
+              Im Explorer öffnen
+            </button>
+            <button
+              onClick={aktionen.details}
+              className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+            >
+              Ordner-Details
+            </button>
+          </div>
         )}
 
         <fieldset className="space-y-1" disabled={!!busy}>
@@ -445,6 +505,39 @@ export function AuswahlFeld({
           )}
         </div>
         {leer && <p className="text-[11px] text-[var(--sm-ocker-text)]">Mindestens einen Ordner wählen — oder „Alles“.</p>}
+        {onUeberallBeenden && (
+          <div className="pt-1 text-[12px]">
+            {!ueberallFragen ? (
+              <button
+                onClick={() => setUeberallFragen(true)}
+                disabled={!!busy}
+                className="text-[var(--sm-text2)] hover:text-[var(--sm-text)] underline-offset-2 hover:underline disabled:opacity-40"
+              >
+                Projekt fertig? Abo auf allen Rechnern beenden …
+              </button>
+            ) : (
+              <div className="space-y-1.5">
+                <p>
+                  {zeile.name} auf allen Rechnern beenden? Jeder Rechner prüft vorher, dass das NAS alles von ihm hat. Die Dateien bleiben auf den Rechnern liegen und lassen sich dann löschen.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setUeberallFragen(false);
+                      void ausfuehren("Abos beenden …", onUeberallBeenden);
+                    }}
+                    className="h-7 px-2.5 rounded-md bg-[var(--sm-text)] text-[var(--sm-grund)] font-semibold"
+                  >
+                    Überall beenden
+                  </button>
+                  <button onClick={() => setUeberallFragen(false)} className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)]">
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {!abonniert && bytes != null && spalte.freiD != null && bytes > spalte.freiD && (
           <p className="text-[11px] font-semibold text-[var(--sm-ocker-text)]">
             Passt nicht auf D: von {spalte.ich ? "diesem Rechner" : spalte.name} — weniger Ordner wählen.

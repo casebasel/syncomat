@@ -35,6 +35,7 @@ type Tab = "general" | "network" | "updates" | "datenzentrale" | "notifications"
  * Teil von Welle 1 des Native-Redesigns (weg vom Web-App-Feel).
  */
 export function SettingsPanel({
+  onGeraet,
   endpoint,
   status,
   version,
@@ -64,6 +65,7 @@ export function SettingsPanel({
   onSetManual,
   onBack,
 }: {
+  onGeraet?: (deviceID: string) => void;
   endpoint: Endpoint | null;
   status: SystemStatus | null;
   version: string | null;
@@ -183,6 +185,7 @@ export function SettingsPanel({
                 hints={hints}
                 manual={manual}
                 onSetManual={onSetManual}
+                onGeraet={onGeraet}
               />
             )}
             {tab === "updates" && (
@@ -548,6 +551,7 @@ function NetworkTab({
   hints,
   manual,
   onSetManual,
+  onGeraet,
 }: {
   prefer10gbe: boolean;
   onSetPrefer10gbe: (v: boolean) => void;
@@ -558,6 +562,8 @@ function NetworkTab({
   hints: Record<string, string>;
   manual: Record<string, string>;
   onSetManual: (deviceID: string, addr: string) => void;
+  /** Gerät öffnen (Details, umbenennen, entfernen) — auch das NAS, das keine Spalte hat */
+  onGeraet?: (deviceID: string) => void;
 }) {
   return (
     <div className="space-y-5">
@@ -627,6 +633,14 @@ function NetworkTab({
                     <span className="flex-1 truncate font-medium text-neutral-800 dark:text-neutral-200">
                       {d.name || d.deviceID.slice(0, 7)}
                     </span>
+                    {onGeraet && (
+                      <button
+                        onClick={() => onGeraet(d.deviceID)}
+                        className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        Details
+                      </button>
+                    )}
                     {!online ? (
                       <span className="text-neutral-400 dark:text-neutral-500">
                         offline

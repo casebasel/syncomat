@@ -61,7 +61,7 @@ const CACHE_TTL_MS = 60_000;
 const pendingFetches = new Map<string, Promise<ConflictItem[]>>();
 const subscribers = new Map<string, Set<() => void>>();
 
-async function fetchConflictsCoalesced(folderPath: string): Promise<ConflictItem[]> {
+export async function fetchConflictsCoalesced(folderPath: string): Promise<ConflictItem[]> {
   const existing = conflictCache.get(folderPath);
   if (existing && Date.now() - existing.at < CACHE_TTL_MS) {
     return existing.items;

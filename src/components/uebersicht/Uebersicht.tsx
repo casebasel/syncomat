@@ -7,6 +7,14 @@ import { ZellSymbol, zellText } from "./ZellSymbol";
 type Filter = "alle" | "hier" | "stoerung" | "plugins";
 
 const gb = (n: number | null) => (n == null ? "—" : n >= 1e12 ? `${(n / 1e12).toFixed(1)} TB` : `${Math.round(n / 1e9)} GB`);
+/** Kurzwort für die Störung einer Zeile (wichtigstes zuerst). */
+function stoerungText(z: Zeile): string {
+  const zellen = Object.values(z.zellen);
+  if (zellen.some((c) => c.zustand === "angehalten")) return "angehalten";
+  const k = zellen.reduce((a, c) => a + (c.konflikte ?? 0), 0);
+  if (k > 0) return k === 1 ? "1 Konflikt" : `${k} Konflikte`;
+  return "Dateifehler";
+}
 const rolleKurz = (r: Spalte["rolle"]) => (r === "render" ? "Render" : r ? "Arbeitsplatz" : null);
 
 /** Hauptansicht: Projekte × Rechner. Zeilen = Projekte auf dem NAS (und die
@@ -140,7 +148,7 @@ export function Uebersicht({
               {z.name}
             </span>
             {z.stoerung && (
-              <span className="shrink-0 text-[11px] font-semibold text-[var(--sm-ocker-text)]">angehalten</span>
+              <span className="shrink-0 text-[11px] font-semibold text-[var(--sm-ocker-text)]">{stoerungText(z)}</span>
             )}
             {z.bytes != null && (
               <span className="ml-auto shrink-0 sm-zahl font-mono text-[11px] text-[var(--sm-text2)]">{gb(z.bytes)}</span>
@@ -177,7 +185,7 @@ export function Uebersicht({
                 {wunsch && (
                   <span aria-hidden className="absolute top-1.5 right-2 size-1.5 rounded-full bg-[var(--sm-blau)]" />
                 )}
-                {zelle.ungesichert && (
+                {(zelle.ungesichert || zelle.konflikte || zelle.dateifehler) && (
                   <span aria-hidden className="absolute top-1 left-2 text-[10px] font-bold leading-none text-[var(--sm-ocker-text)]">!</span>
                 )}
                 {abonnierbar ? (
@@ -213,7 +221,7 @@ export function Uebersicht({
           <span className="font-semibold">{lage.abosHier}</span>
           <span className="text-[var(--sm-kopf-text2)]"> {lage.abosHier === 1 ? "Abo" : "Abos"} hier</span>
           {lage.stoerungen > 0 && (
-            <span className="ml-3 font-semibold text-[var(--sm-ocker)]">{lage.stoerungen} angehalten</span>
+            <span className="ml-3 font-semibold text-[var(--sm-ocker)]">{lage.stoerungen} mit Störung</span>
           )}
           {(lage.ungesichert ?? 0) > 0 && (
             <span className="ml-3 font-semibold text-[var(--sm-ocker)]" title="Dateien in Projekten mit Teil-Auswahl, die ausserhalb der Auswahl liegen — sie werden nicht abgeglichen und nicht gesichert.">
@@ -346,7 +354,7 @@ export function Uebersicht({
                   {projekte.length === 0
                     ? "Der NAS bietet diesem Rechner noch keine Projekte an. Sobald er eins anbietet, erscheint es hier."
                     : filter === "stoerung"
-                      ? "Kein Projekt ist angehalten."
+                      ? "Kein Projekt hat eine Störung."
                       : filter === "hier"
                         ? "Auf diesem Rechner ist noch kein Projekt abonniert. Bei einem Projekt auf „Abonnieren“ klicken."
                         : `Kein Projekt passt zu „${suche}“.`}
@@ -365,7 +373,7 @@ export function Uebersicht({
                     Plugins und eigene Ordner, an alle
                     <span className="sm-zahl font-semibold normal-case tracking-normal ml-1">{pluginsSichtbar.length}</span>
                     {!pluginsOffen && pluginsSichtbar.some((p) => p.stoerung) && (
-                      <span className="ml-2 normal-case tracking-normal text-[var(--sm-ocker-text)]">angehalten</span>
+                      <span className="ml-2 normal-case tracking-normal text-[var(--sm-ocker-text)]">mit Störung</span>
                     )}
                   </button>
                 </th>

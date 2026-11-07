@@ -18,6 +18,8 @@ import { projektFarbe, projektIdAusFolderId } from "./projektFarbe";
 import { freiAufD, istInhaltOrdner, nasProjekte, type NasProjekt } from "./nasProjekte";
 import { auswahlAusIgnores, schutzRegeln, type GeraeteRolle } from "./abo";
 import { WUNSCH_PROTOKOLL, ladeErledigt, type WunschErgebnis } from "./wuensche";
+import { fetchConflictsCoalesced } from "./conflicts";
+import { notify } from "./notifications";
 
 // ── Übersicht Projekte × Rechner ─────────────────────────────────
 //
@@ -44,6 +46,10 @@ export type Zelle = {
   /** Dateien hier AUSSERHALB der Auswahl — werden nicht abgeglichen, also
    * auch nicht gesichert (z. B. ein neu angelegter Ordner). */
   ungesichert?: { anzahl: number; beispiele: string[] };
+  /** Konfliktkopien (.sync-conflict-…) in diesem Ordner hier */
+  konflikte?: number;
+  /** Dateien, die Syncthing hier nicht abgleichen kann */
+  dateifehler?: number;
 };
 
 export type Zeile = {
@@ -96,12 +102,16 @@ export function zelleAusStatus(s: FolderStatus | null, f: Folder): Zelle {
   if (!s) return { zustand: "unbekannt" };
   const err = folderError(s);
   if (err) return { zustand: "angehalten", grund: err };
+  const fehler = s.errors > 0 ? { dateifehler: s.errors } : {};
   const total = s.localBytes + s.needBytes;
   if (s.needBytes > 0 || s.state === "syncing") {
-    return { zustand: "laedt", prozent: total > 0 ? Math.floor((s.localBytes / total) * 100) : 0 };
+    return { zustand: "laedt", prozent: total > 0 ? Math.floor((s.localBytes / total) * 100) : 0, ...fehler };
   }
-  return { zustand: "aktuell" };
+  return { zustand: "aktuell", ...fehler };
 }
+
+/** Braucht diese Zelle Aufmerksamkeit? (angehalten, Konflikte, Dateifehler) */
+export const zelleStoerung = (z: Zelle) => z.zustand === "angehalten" || (z.konflikte ?? 0) > 0 || (z.dateifehler ?? 0) > 0;
 
 /** Prozent grob runden, damit die Notiz nicht bei jedem Byte neu geschrieben wird. */
 const grob = (z: Zelle): Zelle => (z.prozent != null ? { ...z, prozent: Math.floor(z.prozent / 10) * 10 } : z);
@@ -140,6 +150,8 @@ export function useUebersicht({
   /** Wirklich geltende Auswahl je eigenem Abo (aus der .stignore). */
   const [auswahlHier, setAuswahlHier] = useState<Record<string, string[] | null>>({});
   const [ungesichert, setUngesichert] = useState<Record<string, { anzahl: number; beispiele: string[] }>>({});
+  const [konflikte, setKonflikte] = useState<Record<string, number>>({});
+  const konfliktVorherRef = useRef<Record<string, number>>({});
   const lastNoteRef = useRef("");
 
   const folders = (config?.folders ?? []).filter((f) => f.id !== intern?.id && !istInhaltOrdner(f));
@@ -188,6 +200,25 @@ export function useUebersicht({
     };
     void ug();
     const id4 = setInterval(() => void ug(), 5 * 60_000);
+    // Konfliktkopien je Ordner (alle 5 min, wie früher in der Seitenleiste).
+    const kf = async () => {
+      const m: Record<string, number> = {};
+      for (const f of folders) {
+        const liste = await fetchConflictsCoalesced(f.path).catch(() => null);
+        if (liste && liste.length > 0) m[f.id] = liste.length;
+      }
+      if (cancelled) return;
+      for (const f of folders) {
+        const n = m[f.id] ?? 0;
+        if (n > (konfliktVorherRef.current[f.id] ?? 0)) {
+          void notify("Konflikt in " + (f.label || f.id), `${n} Konfliktkopie(n) — in syncomat ansehen und auflösen.`);
+        }
+      }
+      konfliktVorherRef.current = m;
+      setKonflikte(m);
+    };
+    void kf();
+    const id5 = setInterval(() => void kf(), 5 * 60_000);
     const fd = () => void freiAufD().then((v) => !cancelled && setFrei(v));
     fd();
     const id2 = setInterval(fd, 60_000);
@@ -197,6 +228,7 @@ export function useUebersicht({
       clearInterval(id2);
       clearInterval(id3);
       clearInterval(id4);
+      clearInterval(id5);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ep?.url, ep?.api_key, ready, folderKey]);
@@ -342,6 +374,7 @@ export function useUebersicht({
               teil: (auswahlHier[z.folderId] ?? []).length > 0,
               ...(auswahlHier[z.folderId] ? { auswahl: auswahlHier[z.folderId]! } : {}),
               ...(ungesichert[z.folderId] ? { ungesichert: ungesichert[z.folderId] } : {}),
+              ...(konflikte[z.folderId] ? { konflikte: konflikte[z.folderId] } : {}),
             }
           : { zustand: "nicht" };
         continue;
@@ -361,7 +394,7 @@ export function useUebersicht({
       else if (!frisch && !eintrag && !live) zelle = { zustand: "unbekannt" };
       z.zellen[sp.id] = zelle;
     }
-    z.stoerung = Object.values(z.zellen).some((c) => c.zustand === "angehalten");
+    z.stoerung = Object.values(z.zellen).some(zelleStoerung);
   }
 
   const plugins: Zeile[] = folders
@@ -371,13 +404,16 @@ export function useUebersicht({
       z.hier = f;
       z.bytes = status[f.id]?.localBytes ?? null;
       for (const sp of spalten) {
-        if (sp.ich) z.zellen[sp.id] = zelleAusStatus(status[f.id] ?? null, f);
+        if (sp.ich) {
+          const zz = zelleAusStatus(status[f.id] ?? null, f);
+          z.zellen[sp.id] = konflikte[f.id] ? { ...zz, konflikte: konflikte[f.id] } : zz;
+        }
         else {
           const r = remote[f.id]?.[sp.id] ?? { zustand: "nicht" as const };
           z.zellen[sp.id] = sp.online ? r : { ...r, offline: true };
         }
       }
-      z.stoerung = Object.values(z.zellen).some((c) => c.zustand === "angehalten");
+      z.stoerung = Object.values(z.zellen).some(zelleStoerung);
       return z;
     });
 

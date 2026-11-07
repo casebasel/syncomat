@@ -538,14 +538,14 @@ function App() {
       )}
 
       <div className="flex-1 flex overflow-hidden">
-        {isFirstRun && !panel ? (
+        {isFirstRun && !panel && ansicht !== "einstellungen" ? (
           <FirstRunWelcome
             onCreateFolder={() => setPanel({ kind: "create-folder" })}
             onShowCode={() => setPanel({ kind: "code-show" })}
             onRedeemCode={() => setPanel({ kind: "code-redeem" })}
             onOpenSettings={() => setAnsicht("einstellungen")}
           />
-        ) : isConfigLost && !panel ? (
+        ) : isConfigLost && !panel && ansicht !== "einstellungen" ? (
           <RecoveryScreen
             onRedeemCode={() => setPanel({ kind: "code-redeem" })}
             onShowCode={() => setPanel({ kind: "code-show" })}
@@ -594,6 +594,7 @@ function App() {
                 manual={netManual.manual}
                 onSetManual={netManual.setManual}
                 onBack={() => setAnsicht("uebersicht")}
+                onGeraet={(id) => setPanel({ kind: "device-detail", deviceID: id })}
               />
             ) : panel?.kind === "create-folder" ? (
               <CreateFolderModal
@@ -728,7 +729,15 @@ function App() {
                   plugins={uebersicht.plugins}
                   lage={uebersicht.lage}
                   gewaehlt={gewaehlt}
-                  onZeile={(z) => setGewaehlt((g) => (g === z.folderId ? null : z.folderId))}
+                  onZeile={(z) => {
+                    // Projekt, das hier nicht abonniert ist: gleich die Auswahl für diesen Rechner zeigen.
+                    if (z.art === "projekt" && !z.hier && myID) {
+                      setGewaehltRoh(z.folderId);
+                      setGewaehltRechner(myID);
+                      return;
+                    }
+                    setGewaehlt((g) => (g === z.folderId ? null : z.folderId));
+                  }}
                   onAbonnieren={(z) => {
                     setGewaehltRoh(z.folderId);
                     setGewaehltRechner(myID);
@@ -770,6 +779,45 @@ function App() {
                     }
                     onZuruecknehmen={wuensche.zuruecknehmen}
                     onSchliessen={() => setGewaehlt(null)}
+                    aktionen={
+                      gewaehlteZeile.hier
+                        ? (() => {
+                            const f = gewaehlteZeile.hier!;
+                            const z = gewaehlteZeile.zellen[gewaehltSpalte.id];
+                            return {
+                              explorer: () => void invoke("reveal_in_file_manager", { path: f.path }).catch(() => {}),
+                              details: () => setGewaehltRechner(null),
+                              fortsetzen: f.paused ? () => void onPauseToggle(f) : null,
+                              konflikte: z?.konflikte ? () => setPanel({ kind: "folder-conflicts", folder: f }) : null,
+                              fehler: z?.dateifehler ? () => setPanel({ kind: "folder-errors", folder: f }) : null,
+                            };
+                          })()
+                        : undefined
+                    }
+                    onUeberallBeenden={async () => {
+                      const z = gewaehlteZeile;
+                      const teile: string[] = [];
+                      for (const sp of uebersicht.spalten) {
+                        if (sp.ich) continue;
+                        const c = z.zellen[sp.id];
+                        if (!c || c.zustand === "nicht" || c.zustand === "unbekannt") continue;
+                        if (!sp.kannWuensche || c.auswahl === undefined) {
+                          teile.push(`${sp.name}: ältere Version — dort selbst beenden`);
+                          continue;
+                        }
+                        wuensche.senden({ ziel: sp.id, folder_id: z.folderId, name: z.name, art: "beenden", auswahl: [], vorher: c.auswahl });
+                        teile.push(`${sp.name}: gesendet`);
+                      }
+                      if (z.hier && endpoint && myID) {
+                        try {
+                          await aboBeenden(endpoint, z.hier, myID);
+                          teile.unshift("Hier: beendet");
+                        } catch (e) {
+                          teile.unshift(`Hier: ${e instanceof Error ? e.message : String(e)}`);
+                        }
+                      }
+                      return teile.length ? teile.join(" · ") : "Auf keinem Rechner abonniert.";
+                    }}
                   />
                 ) : gewaehlteZeile?.hier ? (
                   <aside className="w-[380px] shrink-0 border-l border-[var(--sm-linie)] flex overflow-hidden">

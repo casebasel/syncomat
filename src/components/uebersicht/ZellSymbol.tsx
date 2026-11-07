@@ -71,6 +71,9 @@ export function zellText(z: Zelle): string {
           : z.zustand === "nicht"
             ? "nicht abonniert"
             : "Stand unbekannt";
-  const u = z.ungesichert ? ` · ${z.ungesichert.anzahl} Datei(en) ausserhalb der Auswahl, nicht gesichert` : "";
+  const u =
+    (z.konflikte ? ` · ${z.konflikte} Konflikt(e)` : "") +
+    (z.dateifehler ? ` · ${z.dateifehler} Datei(en) mit Fehler` : "") +
+    (z.ungesichert ? ` · ${z.ungesichert.anzahl} Datei(en) ausserhalb der Auswahl, nicht gesichert` : "");
   return (z.offline && z.zustand !== "unbekannt" ? `${basis} (offline, letzter Stand)` : basis) + u;
 }
