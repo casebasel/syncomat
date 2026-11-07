@@ -32,7 +32,7 @@ export function Uebersicht({
   spalten: Spalte[];
   projekte: Zeile[];
   plugins: Zeile[];
-  lage: { freiD: number | null; abosHier: number; stoerungen: number };
+  lage: { freiD: number | null; abosHier: number; stoerungen: number; ungesichert?: number };
   gewaehlt: string | null;
   /** gewählter Rechner im gewählten Projekt (Schnittpunkt) */
   gewaehltRechner: string | null;
@@ -163,6 +163,9 @@ export function Uebersicht({
                 {wunsch && (
                   <span aria-hidden className="absolute top-1.5 right-2 size-1.5 rounded-full bg-[var(--sm-blau)]" />
                 )}
+                {zelle.ungesichert && (
+                  <span aria-hidden className="absolute top-1 left-2 text-[10px] font-bold leading-none text-[var(--sm-ocker-text)]">!</span>
+                )}
                 {abonnierbar ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--sm-text2)] group-hover:text-[var(--sm-blau)] [button:focus-visible_&]:text-[var(--sm-blau)]">
                     <Plus className="size-3.5" strokeWidth={2.25} />
@@ -197,6 +200,11 @@ export function Uebersicht({
           <span className="text-[var(--sm-kopf-text2)]"> {lage.abosHier === 1 ? "Abo" : "Abos"} hier</span>
           {lage.stoerungen > 0 && (
             <span className="ml-3 font-semibold text-[var(--sm-ocker)]">{lage.stoerungen} angehalten</span>
+          )}
+          {(lage.ungesichert ?? 0) > 0 && (
+            <span className="ml-3 font-semibold text-[var(--sm-ocker)]" title="Dateien in Projekten mit Teil-Auswahl, die ausserhalb der Auswahl liegen — sie werden nicht abgeglichen und nicht gesichert.">
+              {lage.ungesichert} nicht gesichert
+            </span>
           )}
         </p>
       </header>

@@ -5,7 +5,9 @@ import {
   baumAusBrowse,
   bytesDerAuswahl,
   getBrowse,
+  getConfig,
   getDbFile,
+  getFolderErrors,
   getFolderIgnores,
   getFolderStatus,
   scanFolder,
@@ -66,6 +68,21 @@ export const gb = (n: number) =>
   n >= 1e12 ? `${(n / 1e12).toFixed(1)} TB` : n >= 1e9 ? `${(n / 1e9).toFixed(n >= 1e11 ? 0 : 1)} GB` : n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(0, Math.round(n / 1e3))} KB`;
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+/** Nie zwei Abläufe gleichzeitig für denselben Ordner (Inhaltsverzeichnis,
+ * Abonnieren, Auswahl ändern, Abo beenden — vom Knopf oder als Wunsch). */
+const sperren = new Map<string, Promise<unknown>>();
+export async function mitSperre<T>(folderId: string, f: () => Promise<T>): Promise<T> {
+  while (sperren.has(folderId)) await sperren.get(folderId)!.catch(() => {});
+  const job = f();
+  sperren.set(folderId, job);
+  try {
+    return await job;
+  } finally {
+    if (sperren.get(folderId) === job) sperren.delete(folderId);
+  }
+}
+export const istGesperrt = (folderId: string) => sperren.has(folderId);
+
 const AUSWAHL_LS = "syncomat.abo.auswahl";
 
 /** Gemerkte Unterordner-Auswahl je Abo-Ordner (leer = ganzes Projekt). */
@@ -99,7 +116,7 @@ export type AboVorbereitung = {
 /** Schritt 1: prüfen, Ordner mit „alles ignoriert“ anlegen, Inhaltsverzeichnis
  * holen. Danach liegt nichts auf D: ausser .stfolder/.stignore. Wirft mit einem
  * Satz und räumt dann wieder weg. */
-export async function aboVorbereiten(
+async function aboVorbereitenEinmal(
   ep: Endpoint,
   p: NasProjekt,
   myID: DeviceID,
@@ -121,7 +138,9 @@ export async function aboVorbereiten(
   if (st !== "fehlt" && st !== "leer") throw new Error(`${ziel} gibt es schon und ist nicht leer. Bitte umbenennen oder löschen.`);
 
   onSchritt("Inhaltsverzeichnis holen …");
-  await inhaltLaeuft.get(p.folderId)?.catch(() => {});
+  if ((await getConfig(ep)).folders.some((f) => f.id === p.folderId)) {
+    throw new Error("Das Projekt ist hier schon eingerichtet.");
+  }
   await invoke("create_abo_dir", { path: ziel });
   const folder: Folder = {
     id: p.folderId,
@@ -166,7 +185,7 @@ export async function aboVorbereiten(
 }
 
 /** Schritt 2: Platz für die Auswahl prüfen, dann laden. Leere Auswahl = ganz. */
-export async function aboStarten(
+async function aboStartenEinmal(
   ep: Endpoint,
   p: NasProjekt,
   v: AboVorbereitung,
@@ -194,23 +213,13 @@ export const istInhaltOrdner = (f: Pick<Folder, "label">) => f.label === INHALT_
  * Auswahl für einen anderen Rechner zu bestimmen): kurz einen Ordner in den
  * App-Daten anlegen, der alles ignoriert, Inhaltsverzeichnis abwarten, Baum
  * lesen, Ordner wieder entfernen. Es werden keine Daten übertragen. */
-const inhaltLaeuft = new Map<string, Promise<{ baum: BaumKnoten[]; globalBytes: number }>>();
-
 export function inhaltHolen(
   ep: Endpoint,
   p: NasProjekt,
   myID: DeviceID,
 ): Promise<{ baum: BaumKnoten[]; globalBytes: number }> {
-  // Nie zweimal gleichzeitig denselben Ordner anlegen (Feld zu und wieder auf).
-  const laeuft = inhaltLaeuft.get(p.folderId);
-  if (laeuft) return laeuft;
-  const job = inhaltHolenEinmal(ep, p, myID).finally(() => inhaltLaeuft.delete(p.folderId));
-  inhaltLaeuft.set(p.folderId, job);
-  return job;
+  return mitSperre(p.folderId, () => inhaltHolenEinmal(ep, p, myID));
 }
-
-/** Läuft gerade eine Abfrage des Inhaltsverzeichnisses für diesen Ordner? */
-export const inhaltWirdGeholt = (folderId: string) => inhaltLaeuft.has(folderId);
 
 async function inhaltHolenEinmal(
   ep: Endpoint,
@@ -218,6 +227,10 @@ async function inhaltHolenEinmal(
   myID: DeviceID,
 ): Promise<{ baum: BaumKnoten[]; globalBytes: number }> {
   const ziel = await invoke<string>("inhalt_ordner_pfad", { folderId: p.folderId });
+  // Gibt es den Ordner hier inzwischen (abonniert), nie überschreiben.
+  if ((await getConfig(ep)).folders.some((f) => f.id === p.folderId)) {
+    throw new Error("Das Projekt ist hier eingerichtet — Ordnerbaum bitte neu öffnen.");
+  }
   await invoke("remove_unused_abo_dir", { path: ziel }).catch(() => {});
   await invoke("create_abo_dir", { path: ziel });
   const folder: Folder = {
@@ -246,7 +259,9 @@ async function inhaltHolenEinmal(
     }
     throw new Error("Der NAS hat das Inhaltsverzeichnis nicht geschickt (nicht verbunden?).");
   } finally {
-    await deleteFolder(ep, p.folderId).catch(() => {});
+    // Nur den eigenen kurzlebigen Ordner entfernen — nie ein echtes Abo.
+    const jetzt = (await getConfig(ep).catch(() => null))?.folders.find((f) => f.id === p.folderId);
+    if (jetzt && jetzt.label === INHALT_LABEL && jetzt.path === ziel) await deleteFolder(ep, p.folderId).catch(() => {});
     await invoke("remove_unused_abo_dir", { path: ziel }).catch(() => {});
   }
 }
@@ -261,10 +276,12 @@ export async function baumVonOrdner(ep: Endpoint, folderId: string): Promise<{ b
 type AuswahlPruefung = {
   entfernen_anzahl: number;
   entfernen_bytes: number;
-  entfernen_beispiele: string[];
-  neuere: string[];
+  entfernen_pfade: string[];
+  abweichend: string[];
+  abweichend_anzahl: number;
   streuner: string[];
   streuner_anzahl: number;
+  streuner_alle: string[];
 };
 type AuswahlEntfernt = { geloescht: number; bytes: number; fehler: string[] };
 
@@ -279,42 +296,76 @@ async function warteBisRuhig(ep: Endpoint, id: string, maxS = 600) {
   throw new Error("Der Ordner wird nicht ruhig (Abgleich läuft noch). Später nochmals versuchen.");
 }
 
-/** Haben alle verbundenen Gegenstellen (NAS) den Stand von hier vollständig? */
-async function nasHatAlles(ep: Endpoint, f: Folder, myID: DeviceID): Promise<boolean> {
+/** Index des globalen Stands: Pfad → [Grösse, Änderungszeit ms]. */
+function indexAusBrowse(tree: unknown): Record<string, [number, number]> {
+  const out: Record<string, [number, number]> = {};
+  const lauf = (node: unknown, pre: string) => {
+    if (!Array.isArray(node)) return;
+    for (const e of node as Record<string, unknown>[]) {
+      const p = pre ? `${pre}/${String(e.name)}` : String(e.name);
+      if (String(e.type).includes("DIRECTORY")) lauf(e.children, p);
+      else {
+        const t = Date.parse(String(e.modTime));
+        if (Number.isFinite(t)) out[p.normalize("NFC")] = [Number(e.size) || 0, t];
+      }
+    }
+  };
+  lauf(tree, "");
+  return out;
+}
+
+/** Sind ALLE Gegenstellen des Ordners verbunden und haben den Stand von hier
+ * vollständig? (Nicht nur die verbundenen — fehlt das NAS, wird nichts gelöscht.) */
+async function alleHabenAlles(ep: Endpoint, f: Folder, myID: DeviceID): Promise<string | null> {
   const andere = f.devices.map((d) => d.deviceID).filter((d) => d !== myID);
-  const stand = await Promise.all(andere.map((d) => getRemoteCompletion(ep, f.id, d).catch(() => null)));
-  const verbunden = stand.filter((c) => c?.remoteState === "valid");
-  return (
-    verbunden.length > 0 &&
-    verbunden.every((c) => !!c && c.completion >= 100 && c.needItems === 0 && c.needDeletes === 0)
-  );
+  if (andere.length === 0) return "Der Ordner ist mit keinem anderen Gerät geteilt.";
+  for (const d of andere) {
+    const c = await getRemoteCompletion(ep, f.id, d).catch(() => null);
+    if (!c || c.remoteState !== "valid") return `Gerät ${d.slice(0, 7)} ist nicht verbunden.`;
+    if (c.completion < 100 || c.needItems > 0 || c.needDeletes > 0) return `Gerät ${d.slice(0, 7)} hat noch nicht alles von hier.`;
+  }
+  return null;
 }
 
 /**
  * Auswahl eines bestehenden Abos ändern — so, dass nirgends etwas verloren
- * geht (live geprüft auf i9, 07.11.2026):
+ * geht (live geprüft auf i9, 07.11.2026; Prüfung durch zweiten Agenten):
  *
  * 1. Alte Auswahl aus der .stignore lesen (nicht aus dem Browser-Speicher).
- * 2. Vergrössern nur, wo lokal nichts liegt. Liegen im neu dazukommenden
- *    Bereich schon Dateien, die nie abgeglichen wurden, könnten sie neuere
- *    Stände auf dem NAS überschreiben → ablehnen.
+ * 2. Vergrössern nur, wo lokal nichts liegt („Streuner“ → ablehnen).
  * 3. Platz für den Zuwachs prüfen.
- * 4. Fällt etwas weg: scannen, warten, bis das NAS ALLES von hier hat.
- * 5. Neue Ignore-Liste setzen, scannen — die weggefallenen Pfade sind jetzt
- *    ignoriert; Gegenprobe bei Syncthing.
- * 6. Die weggefallenen Dateien HIER löschen (Rust; bricht ohne Löschen ab,
- *    wenn eine davon neuer ist als Schritt 4). Das Löschen reist nicht mit.
- *    Bei jedem Fehler in 5–6: alte Auswahl wieder setzen.
- *
- * Leere Auswahl = ganzes Projekt. Gibt einen Satz für die Anzeige zurück.
+ * Fällt etwas weg:
+ * 4. Scannen, warten; hier fehlt nichts, keine Fehler; ALLE Gegenstellen
+ *    verbunden und vollständig.
+ * 5. Globalen Index lesen; JEDE zu löschende Datei muss ihm entsprechen
+ *    (Grösse, Zeit) — sonst Abbruch, bevor sich etwas ändert.
+ * 6. Neue Ignore-Liste setzen, scannen, prüfen; Gegenprobe je Datei bei
+ *    Syncthing (ignoriert, gleiche Version wie global, auf einem anderen
+ *    Gerät vorhanden).
+ * 7. Löschen (Rust prüft jede Datei nochmals gegen den Index). Bei jedem
+ *    Fehler in 6–7: alte Auswahl wieder setzen.
  */
-export async function aboAuswahlAendern(
+export function aboAuswahlAendern(
   ep: Endpoint,
   f: Folder,
   auswahl: string[],
   rolle: GeraeteRolle,
   myID: DeviceID,
   onSchritt: (text: string) => void = () => {},
+): Promise<string> {
+  return mitSperre(f.id, () => auswahlAendernEinmal(ep, f, auswahl, rolle, myID, onSchritt));
+}
+
+/** Höchstzahl Dateien für die Gegenprobe je Datei bei Syncthing. */
+const GEGENPROBE_MAX = 400;
+
+async function auswahlAendernEinmal(
+  ep: Endpoint,
+  f: Folder,
+  auswahl: string[],
+  rolle: GeraeteRolle,
+  myID: DeviceID,
+  onSchritt: (text: string) => void,
 ): Promise<string> {
   pruefeAuswahl(auswahl);
   const neu = normalisiereAuswahl(auswahl);
@@ -326,16 +377,32 @@ export async function aboAuswahlAendern(
   const neuLines = composeAboIgnores(neu, rolle);
   if (gleich(altLines, neuLines)) return "Keine Änderung.";
   const regeln = schutzRegeln(altLines, neuLines);
-  const pruefe = (seitMs: number | null) =>
-    invoke<AuswahlPruefung>("auswahl_pruefen", { root: f.path, alt, neu, ...regeln, seitMs });
+  const pruefe = (index: Record<string, [number, number]> | null) =>
+    invoke<AuswahlPruefung>("auswahl_pruefen", { root: f.path, alt, neu, ...regeln, index });
 
   onSchritt("Ordner prüfen …");
   const p0 = await pruefe(null);
   if (p0.streuner_anzahl > 0) {
-    throw new Error(
-      `Im neu gewählten Bereich liegen hier schon ${p0.streuner_anzahl} Datei(en), die nie abgeglichen wurden, z. B. ${p0.streuner[0]}. ` +
-        "Erst verschieben oder löschen — sonst könnten sie neuere Stände auf dem NAS überschreiben.",
-    );
+    // Lokale Dateien im neu dazukommenden Bereich. Gefährlich nur, wenn der
+    // Index den Pfad kennt (ältere Fassung oder auf dem NAS gelöscht — sie käme
+    // sonst zurück bzw. überschriebe Neueres). Ganz neue Dateien (dem Index
+    // unbekannt) werden einfach hochgeladen.
+    if (p0.streuner_alle.length < p0.streuner_anzahl) {
+      throw new Error(`Im neu gewählten Bereich liegen hier ${p0.streuner_anzahl} Dateien, die nicht abgeglichen werden — zu viele zum Einzelprüfen. Erst an einen sicheren Ort verschieben.`);
+    }
+    onSchritt(`${p0.streuner_anzahl} lokale Datei(en) im neuen Bereich prüfen …`);
+    const bekannt: string[] = [];
+    for (const rel of p0.streuner_alle) {
+      const fi = await getDbFile(ep, f.id, rel).catch((e: unknown) => (String(e).includes("404") ? null : "fehler"));
+      if (fi === "fehler") throw new Error(`Syncthing-Abfrage für ${rel} fehlgeschlagen. Auswahl bleibt, wie sie war.`);
+      if (fi && fi.global) bekannt.push(rel);
+    }
+    if (bekannt.length > 0) {
+      throw new Error(
+        `Im neu gewählten Bereich liegen hier ${bekannt.length} Datei(en), die das NAS in einem anderen Stand kennt (älter, geändert oder dort gelöscht), z. B. ${bekannt[0]}. ` +
+          "Erst an einen sicheren Ort verschieben — sonst könnten sie neuere Stände auf dem NAS überschreiben oder Gelöschtes zurückbringen.",
+      );
+    }
   }
 
   const { baum, globalBytes } = await baumVonOrdner(ep, f.id);
@@ -350,25 +417,43 @@ export async function aboAuswahlAendern(
   }
 
   const entfernen = p0.entfernen_anzahl > 0;
-  // Zeitgrenze VOR dem Scan, mit 2 s Spielraum: alles, was danach entsteht
-  // oder geändert wird, verhindert das Löschen.
-  const seit = Date.now() - 2000;
+  let index: Record<string, [number, number]> = {};
+  let pfade: string[] = [];
   if (entfernen) {
     onSchritt("Warten, bis das NAS alles von hier hat …");
     await scanFolder(ep, f.id);
-    await warteBisRuhig(ep, f.id);
-    let ok = false;
-    for (let i = 0; i < 30 && !ok; i++) {
-      ok = await nasHatAlles(ep, f, myID);
-      if (!ok) await sleep(2000);
+    let grund: string | null = "noch nicht geprüft";
+    for (let i = 0; i < 30 && grund; i++) {
+      const s = await warteBisRuhig(ep, f.id);
+      const fehler = (await getFolderErrors(ep, f.id).catch(() => null))?.errors ?? null;
+      grund =
+        s.needFiles !== 0 || s.needDeletes !== 0 || s.needBytes > 0 || s.error
+          ? "Hier fehlen noch Dateien vom NAS."
+          : s.errors > 0 || fehler === null || fehler.length > 0
+            ? "Der Ordner meldet Fehler (oder sie lassen sich nicht lesen)."
+            : await alleHabenAlles(ep, f, myID);
+      if (grund) await sleep(2000);
     }
-    if (!ok) throw new Error("Das NAS hat noch nicht alles von hier (oder ist nicht verbunden). Auswahl bleibt, wie sie war.");
+    if (grund) throw new Error(`${grund} Auswahl bleibt, wie sie war.`);
+    index = indexAusBrowse(await getBrowse(ep, f.id, -1));
+    const p1 = await pruefe(index);
+    if (p1.abweichend_anzahl > 0) {
+      throw new Error(
+        `${p1.abweichend_anzahl} Datei(en) in den abgewählten Ordnern sind nicht im Stand, den das NAS hat (neu, verschoben, geändert oder gesperrt), z. B. ${p1.abweichend[0]}. Auswahl bleibt, wie sie war.`,
+      );
+    }
+    pfade = p1.entfernen_pfade;
   }
 
   onSchritt("Neue Auswahl setzen …");
-  const zurueck = async () => {
-    await setFolderIgnores(ep, f.id, altLines).catch(() => {});
-    await scanFolder(ep, f.id).catch(() => {});
+  const zurueck = async (): Promise<string> => {
+    try {
+      await setFolderIgnores(ep, f.id, altLines);
+      await scanFolder(ep, f.id);
+      return "Alte Auswahl wieder gesetzt.";
+    } catch (e) {
+      return `ACHTUNG: Alte Auswahl liess sich nicht wieder setzen (${e instanceof Error ? e.message : String(e)}) — bitte melden.`;
+    }
   };
   await setFolderIgnores(ep, f.id, neuLines);
   try {
@@ -377,30 +462,36 @@ export async function aboAuswahlAendern(
     const jetzt = (await getFolderIgnores(ep, f.id)).ignore ?? [];
     if (!gleich(jetzt, neuLines)) throw new Error("Syncthing hat die neue Auswahl nicht übernommen.");
   } catch (e) {
-    await zurueck();
-    throw e;
+    throw new Error(`${e instanceof Error ? e.message : String(e)} ${await zurueck()}`);
   }
 
-  let text = neu.length === 0 ? "Ganzes Projekt." : `${neu.length} Ordner gewählt.`;
+  let text = neu.length === 0 ? "Alles." : `${neu.length} Ordner gewählt.`;
   if (entfernen) {
     onSchritt("Abgewählte Ordner hier entfernen …");
     try {
-      // Gegenprobe: die zu löschenden Dateien sind für Syncthing jetzt ignoriert.
-      for (const rel of p0.entfernen_beispiele.slice(0, 3)) {
+      // Gegenprobe je Datei (bis GEGENPROBE_MAX, sonst gleichmässig verteilt):
+      // für Syncthing ignoriert, gleiche Version wie global, auf einem anderen Gerät.
+      const schritt = Math.max(1, Math.ceil(pfade.length / GEGENPROBE_MAX));
+      for (let i = 0; i < pfade.length; i += schritt) {
+        const rel = pfade[i];
         const fi = await getDbFile(ep, f.id, rel);
         const l = fi.local;
+        const g = fi.global;
+        const v = (x: { version?: string[] } | null | undefined) => JSON.stringify(x?.version ?? null);
         if (!l || !(l.ignored || ((l.localFlags ?? 0) & 2) !== 0)) {
           throw new Error(`Syncthing führt ${rel} noch nicht als ignoriert — nichts gelöscht.`);
         }
+        if (!g || g.deleted || v(l) !== v(g) || !(fi.availability ?? []).some((a) => a.id !== myID)) {
+          throw new Error(`${rel} ist auf keinem anderen Gerät im selben Stand — nichts gelöscht.`);
+        }
       }
-      const r = await invoke<AuswahlEntfernt>("auswahl_entfernen", { root: f.path, alt, neu, ...regeln, seitMs: seit });
+      const r = await invoke<AuswahlEntfernt>("auswahl_entfernen", { root: f.path, alt, neu, ...regeln, index });
       text += ` Hier entfernt: ${r.geloescht} Datei(en), ${gb(r.bytes)} — auf dem NAS bleibt alles.`;
       if (r.fehler.length > 0) {
         text += ` ${r.fehler.length} Datei(en) liessen sich nicht löschen (geöffnet?), z. B. ${r.fehler[0]}. Bitte von Hand löschen, bevor dieser Bereich wieder gewählt wird.`;
       }
     } catch (e) {
-      await zurueck();
-      throw new Error(`${e instanceof Error ? e.message : String(e)} Alte Auswahl wieder gesetzt.`);
+      throw new Error(`${e instanceof Error ? e.message : String(e)} ${await zurueck()}`);
     }
   }
   merkeAuswahl(f.id, neu);
@@ -445,7 +536,7 @@ export async function freiAufD(): Promise<{ frei: number; total: number } | null
 /** Abo auf diesem Rechner beenden: nur, wenn alles von hier auf dem NAS ist.
  * Nimmt den Ordner aus dem Abgleich — die Dateien bleiben auf D: liegen
  * (Löschen wirkt danach nirgends mehr, auch nicht auf dem NAS). */
-export async function aboBeenden(ep: Endpoint, f: Folder, myID: DeviceID): Promise<string> {
+async function aboBeendenEinmal(ep: Endpoint, f: Folder, myID: DeviceID): Promise<string> {
   const s = await getFolderStatus(ep, f.id);
   if (s.state !== "idle") throw new Error("Der Ordner arbeitet gerade. Bitte warten, bis er fertig ist.");
   const andere = f.devices.map((d) => d.deviceID).filter((d) => d !== myID);
@@ -460,4 +551,16 @@ export async function aboBeenden(ep: Endpoint, f: Folder, myID: DeviceID): Promi
   }
   await deleteFolder(ep, f.id);
   return `Abo beendet. Die Dateien liegen weiter in ${f.path} — du kannst den Ordner löschen.`;
+}
+
+export function aboVorbereiten(ep: Endpoint, p: NasProjekt, myID: DeviceID, rolle: GeraeteRolle, onSchritt: (text: string) => void): Promise<AboVorbereitung> {
+  return mitSperre(p.folderId, () => aboVorbereitenEinmal(ep, p, myID, rolle, onSchritt));
+}
+
+export function aboStarten(ep: Endpoint, p: NasProjekt, v: AboVorbereitung, auswahl: string[], rolle: GeraeteRolle): Promise<void> {
+  return mitSperre(p.folderId, () => aboStartenEinmal(ep, p, v, auswahl, rolle));
+}
+
+export function aboBeenden(ep: Endpoint, f: Folder, myID: DeviceID): Promise<string> {
+  return mitSperre(f.id, () => aboBeendenEinmal(ep, f, myID));
 }

@@ -112,6 +112,9 @@ export type FolderStatus = {
   pullErrors: number;
   localFiles: number;
   globalFiles: number;
+  /** Fehlende Dateien/Löschungen von den anderen Geräten. */
+  needFiles?: number;
+  needDeletes?: number;
   /** Fehler des GANZEN Ordners (z. B. „folder marker missing", „folder path
    * missing"). Syncthing hält den Ordner dann an, `state` bleibt dabei oft
    * „idle" und `errors` 0 — bis v0.9.14 sah Syncomat das nicht und zeigte
@@ -343,7 +346,10 @@ export function baumAusBrowse(tree: unknown, tiefe = 8): BaumKnoten[] {
       const pfad = prefix ? `${prefix}/${e.name}` : e.name;
       const unten = bau(e.kinder, pfad, rest - 1);
       summe += unten.bytes;
-      if (!e.name.startsWith(".")) knoten.push({ name: e.name, pfad, bytes: unten.bytes, kinder: rest > 1 ? unten.knoten : [] });
+      // Versteckte Ordner bleiben im Baum (nicht wählbar, aber sichtbar) —
+      // sonst fielen sie beim Aufteilen eines Elternordners still weg.
+      // Nur `.syncomat` (Notizen, immer abgeglichen) im Stamm nicht.
+      if (!(prefix === "" && e.name === ".syncomat")) knoten.push({ name: e.name, pfad, bytes: unten.bytes, kinder: rest > 1 ? unten.knoten : [] });
     }
     knoten.sort((a, b) => a.name.localeCompare(b.name, "de"));
     return { knoten, bytes: summe };
@@ -446,8 +452,9 @@ export const getFolderErrors = (ep: Endpoint, folderID: FolderID) =>
 
 /** Eintrag einer Datei in der Datenbank (lokal und global). */
 export type DbDatei = {
-  local?: { ignored?: boolean; invalid?: boolean; localFlags?: number; deleted?: boolean } | null;
-  global?: { deleted?: boolean; size?: number } | null;
+  local?: { ignored?: boolean; invalid?: boolean; localFlags?: number; deleted?: boolean; version?: string[] } | null;
+  global?: { deleted?: boolean; size?: number; version?: string[] } | null;
+  availability?: { id: string }[] | null;
 };
 export const getDbFile = (ep: Endpoint, folderID: FolderID, file: string) =>
   api<DbDatei>(ep, `/rest/db/file?folder=${encodeURIComponent(folderID)}&file=${encodeURIComponent(file)}`);

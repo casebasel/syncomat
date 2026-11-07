@@ -45,12 +45,28 @@ export function umschalten(sel: string[], k: BaumKnoten, baum: BaumKnoten[]): st
   const ahn = sel.find((s) => k.pfad === s || k.pfad.startsWith(s + "/"))!;
   const neu = sel.filter((s) => s !== ahn);
   let n = finde(baum, ahn);
+  if (!n) throw new Error(`„${ahn}“ steht nicht im Ordnerbaum — Auswahl bitte neu öffnen.`);
   while (n && n.pfad !== k.pfad) {
     const weiter: BaumKnoten | undefined = n.kinder.find((c) => k.pfad === c.pfad || k.pfad.startsWith(c.pfad + "/"));
-    for (const c of n.kinder) if (c !== weiter) neu.push(c.pfad);
-    n = weiter ?? null;
+    if (!weiter) throw new Error(`„${k.pfad}“ steht nicht im Ordnerbaum.`);
+    for (const c of n.kinder) {
+      if (c === weiter) continue;
+      // Ein Geschwister, das sich nicht wählen lässt, fiele sonst still weg.
+      if (!istAuswahlPfad(c.pfad)) {
+        throw new Error(
+          `„${k.name}“ lässt sich nicht einzeln abwählen: daneben liegt „${c.name}“, das sich nicht wählen lässt. „${n.name}“ ganz an- oder abwählen.`,
+        );
+      }
+      neu.push(c.pfad);
+    }
+    n = weiter;
   }
-  return normalisiereAuswahl(neu);
+  const ergebnis = normalisiereAuswahl(neu);
+  // Nichts darf beim Bereinigen verloren gehen (sonst wird es still abgewählt).
+  if (ergebnis.length !== new Set(neu.map((p) => p.normalize("NFC"))).size && neu.every((p) => !neu.some((q) => q !== p && p.startsWith(q + "/")))) {
+    throw new Error("Auswahl liess sich nicht sauber bilden — bitte neu öffnen.");
+  }
+  return ergebnis;
 }
 
 function Knoten({
@@ -147,7 +163,7 @@ export function AuswahlFeld({
   ergebnisVomZiel: WunschErgebnis | null;
   /** Dieser Rechner führt gerade einen Wunsch für dieses Projekt aus. */
   laeuftHier: boolean;
-  onSenden: (art: WunschArt, auswahl: string[]) => void;
+  onSenden: (art: WunschArt, auswahl: string[], vorher: string[] | null) => void;
   onZuruecknehmen: (id: string) => void;
   onSchliessen: () => void;
   /** Nur für die Vorschau-Seite. */
@@ -223,7 +239,9 @@ export function AuswahlFeld({
 
   const name = spalte.ich ? "diesem Rechner" : spalte.name;
   const kannHier = spalte.ich && windows;
-  const kannFern = !spalte.ich && spalte.kannWuensche;
+  // Was der Sender beim Ziel sieht — reist mit dem Wunsch (Gegenprobe am Ziel).
+  const vorherFern: string[] | null | undefined = abonniert ? zelle.auswahl : null;
+  const kannFern = !spalte.ich && spalte.kannWuensche && vorherFern !== undefined;
 
   return (
     <aside
@@ -253,6 +271,19 @@ export function AuswahlFeld({
           {!spalte.ich && " Ausgeführt wird am Rechner selbst, mit seinen Prüfungen — ist er aus, sobald er läuft."}
         </p>
 
+        {spalte.ich && zelle.ungesichert && (
+          <div className="text-[13px] text-[var(--sm-ocker-text)] space-y-1" role="alert">
+            <p className="font-semibold">
+              {zelle.ungesichert.anzahl} Datei(en) liegen hier ausserhalb der Auswahl. Sie werden nicht abgeglichen und nicht auf dem NAS gesichert.
+            </p>
+            <ul className="font-mono text-[11px]">
+              {zelle.ungesichert.beispiele.map((b) => (
+                <li key={b} className="truncate" dir="auto">{b}</li>
+              ))}
+            </ul>
+            <p className="text-[12px]">Sichern: auf „Alles“ wechseln oder die Dateien in einen gewählten Ordner verschieben.</p>
+          </div>
+        )}
         {!spalte.ich && !spalte.kannWuensche && (
           <p className="text-[13px] font-semibold text-[var(--sm-ocker-text)]">
             {spalte.name} läuft mit einer älteren syncomat-Version und nimmt noch keine Auswahl von anderen Rechnern an.
@@ -308,7 +339,14 @@ export function AuswahlFeld({
                       return n;
                     })
                   }
-                  onWahl={(k) => setSel((s) => umschalten(s, k, baum.baum))}
+                  onWahl={(k) => {
+                    try {
+                      setSel(umschalten(sel, k, baum.baum));
+                      setMeldung(null);
+                    } catch (e) {
+                      setMeldung({ ok: false, text: e instanceof Error ? e.message : String(e) });
+                    }
+                  }}
                 />
               ))}
               {baum.baum.length === 0 && <li className="text-[12px] text-[var(--sm-text2)] py-1 pl-3">Keine Unterordner.</li>}
@@ -383,7 +421,13 @@ export function AuswahlFeld({
             </button>
           ) : (
             <button
-              onClick={() => onSenden("auswahl", neu)}
+              onClick={() => {
+                try {
+                  onSenden("auswahl", neu, vorherFern ?? null);
+                } catch (e) {
+                  setMeldung({ ok: false, text: e instanceof Error ? e.message : String(e) });
+                }
+              }}
               disabled={!kannFern || leer || (!geaendert && !offenerWunsch)}
               className="flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-white text-[13px] font-semibold disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
             >
@@ -392,7 +436,7 @@ export function AuswahlFeld({
           )}
           {abonniert && (
             <button
-              onClick={() => (spalte.ich ? void hierBeenden() : onSenden("beenden", []))}
+              onClick={() => (spalte.ich ? void hierBeenden() : onSenden("beenden", [], vorherFern ?? null))}
               disabled={spalte.ich ? !zeile.hier || !!busy || laeuftHier : !kannFern}
               className="h-8 px-3 rounded-md border border-[var(--sm-linie)] text-[13px] hover:bg-[var(--sm-flaeche)] disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
             >

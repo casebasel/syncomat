@@ -10,8 +10,10 @@
 //! - Verkleinern: erst wenn das NAS alles von hier hat, dann Ignore setzen,
 //!   dann HIER löschen, was abgeglichen war und jetzt abgewählt ist. Gelöscht
 //!   wird nur, was die alte Auswahl abdeckte — nie etwas, das ohnehin nie
-//!   abgeglichen wurde, nie Geschütztes (Autosaves, .waechter …). Ist eine
-//!   betroffene Datei jünger als die Prüfung, wird gar nichts gelöscht.
+//!   abgeglichen wurde, nie Geschütztes (Autosaves, .waechter …). Jede zu
+//!   löschende Datei muss mit dem Index übereinstimmen (Grösse und
+//!   Änderungszeit wie im globalen Stand, den das NAS vollständig hat) —
+//!   weicht eine ab oder fehlt sie im Index, wird gar nichts gelöscht.
 //! - Vergrössern: nur in Bereiche, in denen lokal nichts liegt („Streuner“).
 //!
 //! Muster: wie in der .stignore ohne führenden „/“ (gelten in jeder Tiefe,
@@ -50,13 +52,15 @@ impl Muster {
         if s.is_empty() || s.starts_with("//") || s.starts_with('/') || s.starts_with('!') {
             return None;
         }
-        let teile: Vec<String> = s
-            .split('/')
-            .map(|t| if ci { t.to_lowercase() } else { t.to_string() })
-            .collect();
-        if teile.iter().any(|t| t.is_empty() || t == "**") {
+        let teile: Vec<String> = s.split('/').map(|t| t.to_string()).collect();
+        // Nur `*` als Platzhalter verstanden; alles andere (`?`, `[`, `{`, `**`
+        // mittendrin) → nicht verstanden (Aufrufer entscheidet, ob das ein Fehler ist).
+        if teile.iter().any(|t| t.is_empty() || t.contains("**") || t.contains(['?', '[', ']', '{', '}', '\\'])) {
             return None;
         }
+        // Syncthing vergleicht auf Windows und macOS immer ohne Gross/klein.
+        let ci = ci || cfg!(any(windows, target_os = "macos"));
+        let teile = if ci { teile.into_iter().map(|t| t.to_lowercase()).collect() } else { teile };
         Some(Self { teile, gross_klein_egal: ci })
     }
 
@@ -171,16 +175,13 @@ fn ist_verknuepfung(m: &fs::Metadata) -> bool {
     false
 }
 
-/// Jüngste Zeit einer Datei in ms (Änderung, auf Windows/macOS auch Anlage —
-/// eine hineinkopierte Datei behält ihr altes Änderungsdatum).
+/// Änderungszeit in ms seit 1970 (wie im Syncthing-Index, `modTime`).
 fn zeit_ms(m: &fs::Metadata) -> i64 {
-    let ms = |t: std::io::Result<std::time::SystemTime>| {
-        t.ok()
-            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-            .map(|d| d.as_millis() as i64)
-            .unwrap_or(0)
-    };
-    ms(m.modified()).max(ms(m.created()))
+    m.modified()
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(-1)
 }
 
 struct Datei {
@@ -218,19 +219,28 @@ fn dateien(wurzel: &Path) -> Result<Vec<Datei>, String> {
     Ok(out)
 }
 
+/// Stand einer Datei im globalen Index: (Grösse, Änderungszeit in ms).
+pub type Index = std::collections::HashMap<String, (u64, i64)>;
+
 #[derive(Serialize, Debug, Default)]
 pub struct AuswahlPruefung {
     /// Würden beim Verkleinern hier gelöscht (abgeglichen, jetzt abgewählt).
     pub entfernen_anzahl: u64,
     pub entfernen_bytes: u64,
-    /// Einige davon (für die Gegenprobe bei Syncthing und die Anzeige).
-    pub entfernen_beispiele: Vec<String>,
-    /// Davon jünger als `seit_ms` — dann wird nichts gelöscht.
-    pub neuere: Vec<String>,
+    /// Zu löschende Dateien ohne Wegwerf (für die Gegenprobe bei Syncthing).
+    pub entfernen_pfade: Vec<String>,
+    /// Zu löschende Dateien, die NICHT dem Index entsprechen (fehlen dort,
+    /// andere Grösse oder Zeit) — dann wird nichts gelöscht.
+    pub abweichend: Vec<String>,
+    pub abweichend_anzahl: u64,
     /// Liegen lokal in einem Bereich, der neu dazukäme.
     pub streuner: Vec<String>,
     pub streuner_anzahl: u64,
+    /// Alle Streuner (bis STREUNER_MAX) — für die Einzelprüfung bei Syncthing.
+    pub streuner_alle: Vec<String>,
 }
+
+const STREUNER_MAX: usize = 2000;
 
 struct Regeln {
     schutz: Vec<Muster>,
@@ -238,15 +248,30 @@ struct Regeln {
 }
 
 impl Regeln {
-    fn neu(schutz: &[String], wegwerf: &[String]) -> Self {
-        Self {
-            schutz: schutz.iter().filter_map(|s| Muster::neu(s)).collect(),
-            wegwerf: wegwerf.iter().filter_map(|s| Muster::neu(s)).collect(),
+    /// Ein geschütztes Muster, das hier nicht verstanden wird, ist ein Fehler
+    /// (sonst würde Geschütztes gelöscht). Ein unverstandenes Wegwerf-Muster
+    /// wird nur nicht als Wegwerf behandelt — das ist die vorsichtige Seite.
+    fn neu(schutz: &[String], wegwerf: &[String]) -> Result<Self, String> {
+        let mut s = Vec::new();
+        for m in schutz {
+            match Muster::neu(m) {
+                Some(x) => s.push(x),
+                None => return Err(format!("Geschütztes Muster nicht verstanden: {m}")),
+            }
         }
+        Ok(Self { schutz: s, wegwerf: wegwerf.iter().filter_map(|w| Muster::neu(w)).collect() })
     }
     fn trifft(liste: &[Muster], rel: &str) -> bool {
         let teile: Vec<&str> = rel.split('/').collect();
         liste.iter().any(|m| m.trifft(&teile))
+    }
+}
+
+/// Entspricht die Datei dem Index? Gleiche Grösse, Zeit auf 1 ms gleich.
+fn wie_im_index(d: &Datei, index: &Index) -> bool {
+    match index.get(&d.rel) {
+        Some(&(gr, zeit)) => gr == d.bytes && d.zeit >= 0 && (zeit - d.zeit).abs() <= 1,
+        None => false,
     }
 }
 
@@ -255,7 +280,7 @@ fn pruefen_intern(
     alt: &[String],
     neu: &[String],
     r: &Regeln,
-    seit_ms: Option<i64>,
+    index: Option<&Index>,
 ) -> (AuswahlPruefung, Vec<usize>) {
     let mut p = AuswahlPruefung::default();
     let mut weg = Vec::new();
@@ -270,12 +295,15 @@ fn pruefen_intern(
             p.entfernen_anzahl += 1;
             p.entfernen_bytes += d.bytes;
             weg.push(i);
-            if !wegwerf && p.entfernen_beispiele.len() < BEISPIELE {
-                p.entfernen_beispiele.push(d.rel.clone());
-            }
-            if let Some(seit) = seit_ms {
-                if !wegwerf && d.zeit > seit && p.neuere.len() < BEISPIELE {
-                    p.neuere.push(d.rel.clone());
+            if !wegwerf {
+                p.entfernen_pfade.push(d.rel.clone());
+                if let Some(ix) = index {
+                    if !wie_im_index(d, ix) {
+                        p.abweichend_anzahl += 1;
+                        if p.abweichend.len() < BEISPIELE {
+                            p.abweichend.push(d.rel.clone());
+                        }
+                    }
                 }
             }
         } else if in_neu && !in_alt && !wegwerf {
@@ -283,12 +311,16 @@ fn pruefen_intern(
             if p.streuner.len() < BEISPIELE {
                 p.streuner.push(d.rel.clone());
             }
+            if p.streuner_alle.len() < STREUNER_MAX {
+                p.streuner_alle.push(d.rel.clone());
+            }
         }
     }
     (p, weg)
 }
 
 /// Was eine Änderung der Auswahl hier bedeuten würde. Ändert nichts.
+/// Mit `index` wird jede zu löschende Datei gegen den Index geprüft.
 #[tauri::command]
 pub fn auswahl_pruefen(
     root: String,
@@ -296,13 +328,13 @@ pub fn auswahl_pruefen(
     neu: Vec<String>,
     schutz: Vec<String>,
     wegwerf: Vec<String>,
-    seit_ms: Option<i64>,
+    index: Option<Index>,
 ) -> Result<AuswahlPruefung, String> {
     auswahl_gueltig(&alt)?;
     auswahl_gueltig(&neu)?;
     let w = wurzel(&root)?;
     let d = dateien(&w)?;
-    Ok(pruefen_intern(&d, &alt, &neu, &Regeln::neu(&schutz, &wegwerf), seit_ms).0)
+    Ok(pruefen_intern(&d, &alt, &neu, &Regeln::neu(&schutz, &wegwerf)?, index.as_ref()).0)
 }
 
 #[derive(Serialize, Debug, Default)]
@@ -313,10 +345,18 @@ pub struct AuswahlEntfernt {
     pub fehler: Vec<String>,
 }
 
+/// Ist `rel` ein Elternordner eines gewählten Pfads? (Gross/klein wie `abgedeckt`.)
+fn ist_ahn(rel: &str, auswahl: &[String]) -> bool {
+    let norm = |x: &str| if cfg!(any(windows, target_os = "macos")) { x.to_lowercase() } else { x.to_string() };
+    let r = format!("{}/", norm(rel));
+    auswahl.iter().any(|s| norm(s).starts_with(&r))
+}
+
 /// Löscht HIER, was die alte Auswahl abdeckte und die neue nicht mehr —
 /// erst NACHDEM Syncthing die neue Auswahl übernommen hat (dann sind diese
-/// Pfade ignoriert, das Löschen reist nicht mit). Ist eine betroffene Datei
-/// jünger als `seit_ms`, wird nichts gelöscht.
+/// Pfade ignoriert, das Löschen reist nicht mit). Entspricht auch nur eine
+/// betroffene Datei nicht dem `index` (Stand, den das NAS vollständig hat),
+/// wird nichts gelöscht.
 #[tauri::command]
 pub fn auswahl_entfernen(
     root: String,
@@ -324,7 +364,7 @@ pub fn auswahl_entfernen(
     neu: Vec<String>,
     schutz: Vec<String>,
     wegwerf: Vec<String>,
-    seit_ms: i64,
+    index: Index,
 ) -> Result<AuswahlEntfernt, String> {
     auswahl_gueltig(&alt)?;
     auswahl_gueltig(&neu)?;
@@ -339,12 +379,11 @@ pub fn auswahl_entfernen(
     }
     let w = wurzel(&root)?;
     let d = dateien(&w)?;
-    let (p, weg) = pruefen_intern(&d, &alt, &neu, &Regeln::neu(&schutz, &wegwerf), Some(seit_ms));
-    if !p.neuere.is_empty() {
+    let (p, weg) = pruefen_intern(&d, &alt, &neu, &Regeln::neu(&schutz, &wegwerf)?, Some(&index));
+    if p.abweichend_anzahl > 0 {
         return Err(format!(
-            "Nichts gelöscht: {} Datei(en) in den abgewählten Ordnern sind neuer als die Prüfung, z. B. {}.",
-            p.neuere.len(),
-            p.neuere[0]
+            "Nichts gelöscht: {} Datei(en) in den abgewählten Ordnern sind nicht im Stand, den das NAS hat (neu, verschoben, geändert oder gesperrt), z. B. {}.",
+            p.abweichend_anzahl, p.abweichend[0]
         ));
     }
     let mut out = AuswahlEntfernt::default();
@@ -372,12 +411,13 @@ pub fn auswahl_entfernen(
             Err(e) => out.fehler.push(format!("{}: {e}", f.rel)),
         }
     }
-    // Leer gewordene Ordner von tief nach flach entfernen (nur leere).
+    // Leer gewordene Ordner von tief nach flach entfernen (nur leere, nie
+    // gewählte und nie Elternordner von Gewähltem).
     let mut ordner: Vec<PathBuf> = ordner.into_iter().collect();
     ordner.sort_by_key(|p| std::cmp::Reverse(p.components().count()));
     for dir in ordner {
         let rel = dir.strip_prefix(&w).map(|r| r.to_string_lossy().replace('\\', "/")).unwrap_or_default();
-        if rel.is_empty() || abgedeckt(&rel, &neu) || neu.iter().any(|s| s.starts_with(&format!("{rel}/"))) {
+        if rel.is_empty() || abgedeckt(&rel, &neu) || ist_ahn(&rel, &neu) {
             continue;
         }
         let _ = fs::remove_dir(&dir);
@@ -493,20 +533,27 @@ mod tests {
         assert!(abgedeckt("irgendwas", &[]));
     }
 
+    /// Index wie Syncthing ihn hätte: alle Dateien mit ihrem jetzigen Stand.
+    fn index_von(t: &Tmp) -> Index {
+        dateien(t.path()).unwrap().into_iter().map(|d| (d.rel, (d.bytes, d.zeit))).collect()
+    }
+
     #[test]
     fn verkleinern_loescht_nur_abgewaehltes() {
         let t = projekt();
         let root = t.path().to_string_lossy().into_owned();
         let neu = s(&["03_UNREAL", "04_SHOTS/SQ010/SH0010"]);
-        let p = auswahl_pruefen(root.clone(), vec![], neu.clone(), schutz(), wegwerf(), None).unwrap();
+        let p = auswahl_pruefen(root.clone(), vec![], neu.clone(), schutz(), wegwerf(), Some(index_von(&t))).unwrap();
         assert_eq!(p.entfernen_anzahl, 4, "{p:?}"); // briefing, SQ020-plate, notiz, wurzel
+        assert_eq!(p.abweichend_anzahl, 0);
         assert!(p.streuner.is_empty());
-        let r = auswahl_entfernen(root, vec![], neu, schutz(), wegwerf(), i64::MAX).unwrap();
+        let r = auswahl_entfernen(root, vec![], neu, schutz(), wegwerf(), index_von(&t)).unwrap();
         assert_eq!(r.geloescht, 4);
         let w = t.path();
         assert!(!w.join("00_PRODUKTION").exists());
         assert!(!w.join("04_SHOTS/SQ020").exists());
         assert!(!w.join("wurzel.txt").exists());
+        assert!(w.join("04_SHOTS").is_dir(), "Elternordner von Gewähltem bleibt");
         assert!(w.join("04_SHOTS/SQ010/SH0010/plate.bin").exists());
         assert!(w.join("03_UNREAL/P/Saved/Autosaves/auto.bin").exists());
         assert!(w.join(".stfolder/x.txt").exists());
@@ -517,8 +564,8 @@ mod tests {
     fn nie_loeschen_was_nie_abgeglichen_war() {
         let t = projekt();
         let root = t.path().to_string_lossy().into_owned();
-        // alt: nur 03_UNREAL — 00_PRODUKTION liegt lokal, war aber ignoriert
-        let r = auswahl_entfernen(root, s(&["03_UNREAL", "00_PRODUKTION"]), s(&["03_UNREAL"]), schutz(), wegwerf(), i64::MAX)
+        // alt: 03_UNREAL + 00_PRODUKTION — 04_SHOTS und wurzel.txt liegen lokal, waren aber ignoriert
+        let r = auswahl_entfernen(root, s(&["03_UNREAL", "00_PRODUKTION"]), s(&["03_UNREAL"]), schutz(), wegwerf(), index_von(&t))
             .unwrap();
         assert_eq!(r.geloescht, 1); // nur briefing.txt
         assert!(t.path().join("04_SHOTS/notiz.txt").exists());
@@ -526,12 +573,71 @@ mod tests {
     }
 
     #[test]
-    fn neuere_datei_verhindert_jedes_loeschen() {
+    fn datei_nicht_im_index_verhindert_jedes_loeschen() {
         let t = projekt();
         let root = t.path().to_string_lossy().into_owned();
-        let e = auswahl_entfernen(root, vec![], s(&["03_UNREAL"]), schutz(), wegwerf(), 0).unwrap_err();
+        let mut ix = index_von(&t);
+        ix.remove("00_PRODUKTION/briefing.txt"); // z. B. hineinverschoben, nie gescannt
+        let e = auswahl_entfernen(root.clone(), vec![], s(&["03_UNREAL"]), schutz(), wegwerf(), ix).unwrap_err();
         assert!(e.contains("Nichts gelöscht"), "{e}");
         assert!(t.path().join("00_PRODUKTION/briefing.txt").exists());
+        assert!(t.path().join("04_SHOTS/notiz.txt").exists(), "auch keine andere Datei gelöscht");
+    }
+
+    #[test]
+    fn geaenderte_datei_verhindert_jedes_loeschen() {
+        let t = projekt();
+        let root = t.path().to_string_lossy().into_owned();
+        let ix = index_von(&t);
+        fs::write(t.path().join("04_SHOTS/notiz.txt"), b"lokal geaendert, laenger").unwrap();
+        let e = auswahl_entfernen(root.clone(), vec![], s(&["03_UNREAL"]), schutz(), wegwerf(), ix.clone()).unwrap_err();
+        assert!(e.contains("Nichts gelöscht"), "{e}");
+        // nur die Zeit anders (gleiche Grösse)
+        let mut ix2 = index_von(&t);
+        ix2.get_mut("04_SHOTS/notiz.txt").unwrap().1 -= 5_000;
+        assert!(auswahl_entfernen(root, vec![], s(&["03_UNREAL"]), schutz(), wegwerf(), ix2).is_err());
+        assert!(t.path().join("00_PRODUKTION/briefing.txt").exists());
+    }
+
+    #[test]
+    fn wegwerf_muss_nicht_im_index_sein() {
+        let t = projekt();
+        let root = t.path().to_string_lossy().into_owned();
+        let mut ix = index_von(&t);
+        ix.remove("03_UNREAL/P/Intermediate/x.bin");
+        let r = auswahl_entfernen(root, vec![], s(&["04_SHOTS"]), schutz(), wegwerf(), ix).unwrap();
+        assert!(!t.path().join("03_UNREAL/P/Intermediate/x.bin").exists());
+        assert!(t.path().join("03_UNREAL/P/Saved/Autosaves/auto.bin").exists());
+        assert!(r.geloescht >= 4);
+    }
+
+    #[test]
+    fn umlaute_und_sonderzeichen() {
+        let t = Tmp::neu();
+        let r = t.path();
+        for f in [".stfolder/x", "05_ÜBERGABE/Kunde (final)/a.txt", "05_ÜBERGABE/lose.txt", "08_A&B, Co's/d.txt", "09_Café/Straße/f.txt"] {
+            let p = r.join(f);
+            fs::create_dir_all(p.parent().unwrap()).unwrap();
+            fs::write(p, b"x").unwrap();
+        }
+        let root = r.to_string_lossy().into_owned();
+        let neu = s(&["05_ÜBERGABE/Kunde (final)", "09_Café/Straße"]);
+        let ix = index_von(&t);
+        let p = auswahl_pruefen(root.clone(), vec![], neu.clone(), schutz(), wegwerf(), Some(ix.clone())).unwrap();
+        assert_eq!(p.entfernen_anzahl, 2, "{p:?}"); // lose.txt + d.txt
+        auswahl_entfernen(root, vec![], neu, schutz(), wegwerf(), ix).unwrap();
+        assert!(r.join("05_ÜBERGABE/Kunde (final)/a.txt").exists());
+        assert!(r.join("09_Café/Straße/f.txt").exists());
+        assert!(!r.join("05_ÜBERGABE/lose.txt").exists());
+        assert!(!r.join("08_A&B, Co's").exists());
+    }
+
+    #[test]
+    fn unverstandenes_schutzmuster_ist_fehler() {
+        let t = projekt();
+        let root = t.path().to_string_lossy().into_owned();
+        let e = auswahl_pruefen(root, vec![], s(&["03_UNREAL"]), s(&["Saved/Auto?saves"]), wegwerf(), None).unwrap_err();
+        assert!(e.contains("nicht verstanden"), "{e}");
     }
 
     #[test]

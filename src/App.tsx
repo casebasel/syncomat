@@ -742,8 +742,8 @@ function App() {
                       !!wuensche.laeuft &&
                       [...wuensche.neueste.values()].some((w) => w.id === wuensche.laeuft && w.folder_id === gewaehlteZeile.folderId)
                     }
-                    onSenden={(art, auswahl) =>
-                      wuensche.senden({ ziel: gewaehltSpalte.id, folder_id: gewaehlteZeile.folderId, name: gewaehlteZeile.name, art, auswahl })
+                    onSenden={(art, auswahl, vorher) =>
+                      wuensche.senden({ ziel: gewaehltSpalte.id, folder_id: gewaehlteZeile.folderId, name: gewaehlteZeile.name, art, auswahl, vorher })
                     }
                     onZuruecknehmen={wuensche.zuruecknehmen}
                     onSchliessen={() => setGewaehlt(null)}

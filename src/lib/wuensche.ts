@@ -1,7 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Config, Connection, DeviceID, Endpoint, Folder, PendingFolder } from "./syncthing";
-import { normalisiereAuswahl, pruefeAuswahl, type GeraeteRolle } from "./abo";
+import { auswahlAusIgnores, normalisiereAuswahl, pruefeAuswahl, type GeraeteRolle } from "./abo";
+import { getFolderIgnores } from "./syncthing";
 import {
   aboAbbrechen,
   aboAuswahlAendern,
@@ -49,10 +50,21 @@ export type Wunsch = {
   /** auswahl: abonnieren bzw. Auswahl setzen ([] = ganzes Projekt); beenden: Abo beenden */
   art: WunschArt;
   auswahl: string[];
+  /** Auswahl, die der Sender beim Ziel sah (null = nicht abonniert). Hat das
+   * Ziel inzwischen eine andere, wird der Wunsch nicht ausgeführt — so läuft
+   * auch nie ein alter Wunsch ein zweites Mal. */
+  vorher: string[] | null;
   at: number;
 };
 
-export type WunschNotiz = { by: DeviceID; at: number; wuensche: Wunsch[] };
+export type WunschNotiz = {
+  by: DeviceID;
+  at: number;
+  wuensche: Wunsch[];
+  /** Vom Schreiber AUSGEFÜHRTE Wünsche anderer (dauerhaft, nicht nur im
+   * Browser-Speicher: überlebt Neuinstallation). */
+  erledigt?: WunschErgebnis[];
+};
 
 export type WunschErgebnis = { id: string; ok: boolean; text: string; at: number };
 
@@ -70,8 +82,11 @@ export function ladeErledigt(): WunschErgebnis[] {
     return [];
   }
 }
-function merkeErledigt(e: WunschErgebnis) {
-  const liste = [e, ...ladeErledigt().filter((x) => x.id !== e.id)].slice(0, ERLEDIGT_MAX);
+function merkeErledigt(...neue: WunschErgebnis[]) {
+  const ids = new Set(neue.map((x) => x.id));
+  const liste = [...neue, ...ladeErledigt().filter((x) => !ids.has(x.id))]
+    .sort((a, b) => b.at - a.at)
+    .slice(0, ERLEDIGT_MAX);
   try {
     localStorage.setItem(ERLEDIGT_LS, JSON.stringify(liste));
   } catch {
@@ -92,6 +107,7 @@ function gueltig(w: unknown): w is Wunsch {
     (x.art === "auswahl" || x.art === "beenden") &&
     Array.isArray(x.auswahl) &&
     x.auswahl.every((p) => typeof p === "string") &&
+    (x.vorher === null || (Array.isArray(x.vorher) && x.vorher.every((p) => typeof p === "string"))) &&
     typeof x.at === "number"
   );
 }
@@ -167,7 +183,11 @@ export function useWuensche({
       }
       if (cancelled) return;
       setAlle(liste);
-      setEigene((e) => e ?? (liste.find((n) => n.by === myID)?.wuensche ?? []).filter(gueltig));
+      const meine = liste.find((n) => n.by === myID);
+      setEigene((e) => e ?? (meine?.wuensche ?? []).filter(gueltig));
+      // Erledigtes aus der eigenen Notiz übernehmen (falls der Browser-Speicher leer ist).
+      const ausDatei = (meine?.erledigt ?? []).filter((x) => x && typeof x.id === "string");
+      if (ausDatei.some((x) => !ladeErledigt().some((y) => y.id === x.id))) setErledigt(merkeErledigt(...ausDatei));
     };
     void run();
     const id = setInterval(() => void run(), TAKT_MS);
@@ -192,13 +212,13 @@ export function useWuensche({
   // Eigene Notiz schreiben, wenn sich die Liste ändert
   useEffect(() => {
     if (!ready || !myID || !intern || !eigene) return;
-    const inhalt = JSON.stringify(eigene);
+    const inhalt = JSON.stringify({ eigene, erledigt });
     if (inhalt === lastWrittenRef.current) return;
-    const notiz: WunschNotiz = { by: myID, at: Date.now(), wuensche: eigene };
+    const notiz: WunschNotiz = { by: myID, at: Date.now(), wuensche: eigene, erledigt };
     invoke("device_note_write", { folderPath: intern.path, kind: KIND, deviceId: myID, content: JSON.stringify(notiz) })
       .then(() => (lastWrittenRef.current = inhalt))
       .catch((e) => console.warn("[wunsch] Notiz schreiben", e));
-  }, [ready, myID, intern?.path, eigene]);
+  }, [ready, myID, intern?.path, eigene, erledigt]);
 
   /** Wunsch an einen anderen Rechner senden (ersetzt einen offenen für dasselbe Projekt). */
   const senden = useCallback(
@@ -207,6 +227,7 @@ export function useWuensche({
       const neu: Wunsch = {
         ...w,
         auswahl: w.art === "auswahl" ? normalisiereAuswahl(w.auswahl) : [],
+        vorher: w.vorher === null ? null : normalisiereAuswahl(w.vorher),
         id: neueId(),
         at: Date.now(),
       };
@@ -273,6 +294,13 @@ async function ausfuehren(
 ): Promise<string> {
   const folders = (config?.folders ?? []).filter((f) => !istInhaltOrdner(f));
   const hier = folders.find((f) => f.id === w.folder_id) ?? null;
+  // Stimmt der Stand noch mit dem überein, den der Sender sah?
+  const jetzt = hier ? auswahlAusIgnores((await getFolderIgnores(ep, hier.id)).ignore) : null;
+  if (hier && jetzt === null) throw new Error("Die Auswahl hier ist nicht lesbar — nicht ausgeführt.");
+  const s = (x: string[] | null) => (x === null ? "nicht abonniert" : x.length === 0 ? "Alles" : normalisiereAuswahl(x).join(", "));
+  if (s(jetzt) !== s(w.vorher)) {
+    throw new Error(`Hier gilt inzwischen „${s(jetzt)}“ statt „${s(w.vorher)}“ — nicht ausgeführt. Bitte neu senden.`);
+  }
   if (w.art === "beenden") {
     if (!hier) return "War hier nicht abonniert.";
     return aboBeenden(ep, hier, myID);

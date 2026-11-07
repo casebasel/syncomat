@@ -16,7 +16,7 @@ import {
 import { isAboFolderId } from "./datenzentrale";
 import { projektFarbe, projektIdAusFolderId } from "./projektFarbe";
 import { freiAufD, istInhaltOrdner, nasProjekte, type NasProjekt } from "./nasProjekte";
-import { auswahlAusIgnores, type GeraeteRolle } from "./abo";
+import { auswahlAusIgnores, schutzRegeln, type GeraeteRolle } from "./abo";
 import { WUNSCH_PROTOKOLL, ladeErledigt, type WunschErgebnis } from "./wuensche";
 
 // ── Übersicht Projekte × Rechner ─────────────────────────────────
@@ -41,6 +41,9 @@ export type Zelle = {
   grund?: string;
   /** gewählte Unterordner ([] = ganzes Projekt; fehlt = unbekannt) */
   auswahl?: string[];
+  /** Dateien hier AUSSERHALB der Auswahl — werden nicht abgeglichen, also
+   * auch nicht gesichert (z. B. ein neu angelegter Ordner). */
+  ungesichert?: { anzahl: number; beispiele: string[] };
 };
 
 export type Zeile = {
@@ -136,6 +139,7 @@ export function useUebersicht({
   const [frei, setFrei] = useState<{ frei: number; total: number } | null>(null);
   /** Wirklich geltende Auswahl je eigenem Abo (aus der .stignore). */
   const [auswahlHier, setAuswahlHier] = useState<Record<string, string[] | null>>({});
+  const [ungesichert, setUngesichert] = useState<Record<string, { anzahl: number; beispiele: string[] }>>({});
   const lastNoteRef = useRef("");
 
   const folders = (config?.folders ?? []).filter((f) => f.id !== intern?.id && !istInhaltOrdner(f));
@@ -163,6 +167,27 @@ export function useUebersicht({
     };
     void aw();
     const id3 = setInterval(() => void aw(), NOTIZ_MS);
+    // Alle 5 min: liegen hier Dateien ausserhalb der Auswahl? (Rust-Prüfung
+    // „Alles statt Auswahl“: was dann neu dazukäme, wird heute nicht gesichert.)
+    const ug = async () => {
+      const m: Record<string, { anzahl: number; beispiele: string[] }> = {};
+      for (const f of folders.filter((x) => isAboFolderId(x.id))) {
+        const ign = await getFolderIgnores(ep, f.id).catch(() => null);
+        const sel = ign ? auswahlAusIgnores(ign.ignore) : null;
+        if (!ign || !sel || sel.length === 0) continue;
+        const r = await invoke<{ streuner: string[]; streuner_anzahl: number }>("auswahl_pruefen", {
+          root: f.path,
+          alt: sel,
+          neu: [],
+          ...schutzRegeln(ign.ignore ?? []),
+          index: null,
+        }).catch(() => null);
+        if (r && r.streuner_anzahl > 0) m[f.id] = { anzahl: r.streuner_anzahl, beispiele: r.streuner.slice(0, 5) };
+      }
+      if (!cancelled) setUngesichert(m);
+    };
+    void ug();
+    const id4 = setInterval(() => void ug(), 5 * 60_000);
     const fd = () => void freiAufD().then((v) => !cancelled && setFrei(v));
     fd();
     const id2 = setInterval(fd, 60_000);
@@ -171,6 +196,7 @@ export function useUebersicht({
       clearInterval(id);
       clearInterval(id2);
       clearInterval(id3);
+      clearInterval(id4);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ep?.url, ep?.api_key, ready, folderKey]);
@@ -315,6 +341,7 @@ export function useUebersicht({
               ...zelleAusStatus(status[z.folderId] ?? null, z.hier),
               teil: (auswahlHier[z.folderId] ?? []).length > 0,
               ...(auswahlHier[z.folderId] ? { auswahl: auswahlHier[z.folderId]! } : {}),
+              ...(ungesichert[z.folderId] ? { ungesichert: ungesichert[z.folderId] } : {}),
             }
           : { zustand: "nicht" };
         continue;
@@ -371,6 +398,7 @@ export function useUebersicht({
       freiD: frei?.frei ?? null,
       abosHier: hier,
       stoerungen: [...sortiert, ...plugins].filter((z) => z.stoerung).length,
+      ungesichert: Object.values(ungesichert).reduce((a, u) => a + u.anzahl, 0),
     },
   };
 }

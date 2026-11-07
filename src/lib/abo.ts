@@ -114,14 +114,20 @@ export function composeAboIgnores(auswahl: string[], rolle: GeraeteRolle): strin
 /** Ein Auswahl-Pfad: relativ zum Projekt, Teile mit „/“ getrennt, jeder Teil
  * ein gültiger Name (kein „..“, kein „\“, nichts Verstecktes). */
 export const AUSWAHL_PFAD_RE = /^[\p{L}\p{N}_\- .()+&,']{1,128}(\/[\p{L}\p{N}_\- .()+&,']{1,128}){0,15}$/u;
-export function istAuswahlPfad(p: string): boolean {
+export function istAuswahlPfad(roh: string): boolean {
+  const p = roh.normalize("NFC");
   return AUSWAHL_PFAD_RE.test(p) && !p.split("/").some((t) => t === "." || t === ".." || t.startsWith(".") || t.trim() !== t);
 }
+
+/** Schrägstriche aussen weg, Unicode zusammengesetzt (NFC) — so führt
+ * Syncthing alle Namen in seinem Index, auch wenn sie auf dem NAS zerlegt
+ * (NFD, z. B. vom Mac über SMB) liegen. Live geprüft auf i9, 07.11.2026. */
+const sauberPfad = (p: string) => p.normalize("NFC").replace(/^\/+|\/+$/g, "");
 
 /** Wirft, wenn ein Pfad der Auswahl ungültig ist — nie still weglassen:
  * eine dadurch LEERE Auswahl hiesse „ganzes Projekt“. */
 export function pruefeAuswahl(auswahl: string[]): void {
-  const schlecht = auswahl.map((p) => p.replace(/^\/+|\/+$/g, "")).filter((p) => !istAuswahlPfad(p));
+  const schlecht = auswahl.map(sauberPfad).filter((p) => !istAuswahlPfad(p));
   if (schlecht.length > 0) {
     throw new Error(`Ordnername nicht wählbar: „${schlecht[0]}“ (Sonderzeichen wie * ? [ ] ! # oder führender Punkt).`);
   }
@@ -129,7 +135,7 @@ export function pruefeAuswahl(auswahl: string[]): void {
 
 /** Auswahl bereinigen: doppelte und in einem gewählten Ordner liegende Pfade weg. */
 export function normalisiereAuswahl(auswahl: string[]): string[] {
-  const sauber = [...new Set(auswahl.map((p) => p.replace(/^\/+|\/+$/g, "")))].filter(istAuswahlPfad).sort();
+  const sauber = [...new Set(auswahl.map(sauberPfad))].filter(istAuswahlPfad).sort();
   return sauber.filter((p) => !sauber.some((q) => q !== p && p.startsWith(q + "/")));
 }
 

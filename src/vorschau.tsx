@@ -131,7 +131,7 @@ function Vorschau() {
         gewaehlt={abo ? zeile.folderId : detail || zelle ? pm.folderId : null}
         gewaehltRechner={abo ? "I9" : zelle}
         onZelle={() => {}}
-        offeneWuensche={zelle === "X79" ? [{ id: "wu-1", ziel: "X79", folder_id: pm.folderId, name: pm.name, art: "auswahl", auswahl: ["03_UNREAL"], at: Date.now() }] : []}
+        offeneWuensche={zelle === "X79" ? [{ id: "wu-1", ziel: "X79", folder_id: pm.folderId, name: pm.name, art: "auswahl", auswahl: ["03_UNREAL"], vorher: [], at: Date.now() }] : []}
         onZeile={() => {}}
         onAbonnieren={() => {}}
         onRechner={() => {}}
@@ -148,7 +148,7 @@ function Vorschau() {
           rolle="arbeitsplatz"
           zeile={abo ? zeile : pm}
           spalte={spalten.find((x) => x.id === (abo ? "I9" : zelle))!}
-          offenerWunsch={zelle === "X79" ? { id: "wu-1", ziel: "X79", folder_id: pm.folderId, name: pm.name, art: "auswahl", auswahl: ["03_UNREAL", "04_SHOTS/SQ010"], at: Date.now() } : null}
+          offenerWunsch={zelle === "X79" ? { id: "wu-1", ziel: "X79", folder_id: pm.folderId, name: pm.name, art: "auswahl", auswahl: ["03_UNREAL", "04_SHOTS/SQ010"], vorher: [], at: Date.now() } : null}
           ergebnisVomZiel={null}
           laeuftHier={false}
           onSenden={() => {}}
