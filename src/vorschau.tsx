@@ -32,6 +32,7 @@ const spalten: Spalte[] = rechner.map(([id, name, rolle, frei, online], i) => ({
   rolle,
   freiD: id === "MAC" ? null : frei,
   kannWuensche: id !== "RND5",
+  dFs: id === "MAC" ? null : id === "X39" ? "exFAT" : "NTFS",
 }));
 const namen = [
   "PM_MEDITERRANEAN", "INTERN_BURNED", "TKB_IMAGEFILM", "VERKEHRSHAUS_VR", "EXLIBRIS_SPOT", "XSENS_DEMO",

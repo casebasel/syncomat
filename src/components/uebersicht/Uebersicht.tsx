@@ -356,7 +356,17 @@ export function Uebersicht({
                       )}
                     </span>
                     <span className="sm-zahl font-mono text-[11px] text-[var(--sm-text2)] truncate max-w-full">
-                      {s.freiD != null ? `${gb(s.freiD)} frei` : s.ich ? "kein D:" : "\u00a0"}
+                      {s.dFs && !/^ntfs$/i.test(s.dFs) ? (
+                        <span className="font-semibold text-[var(--sm-ocker-text)]" title={`D: ist ${s.dFs} — Abos brauchen NTFS`}>
+                          D: {s.dFs}
+                        </span>
+                      ) : s.freiD != null ? (
+                        `${gb(s.freiD)} frei`
+                      ) : s.ich ? (
+                        "kein D:"
+                      ) : (
+                        "\u00a0"
+                      )}
                     </span>
                   </button>
                 </th>

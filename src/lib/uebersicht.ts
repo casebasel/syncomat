@@ -78,6 +78,8 @@ export type Spalte = {
   freiD: number | null;
   /** nimmt Wünsche anderer Rechner an (syncomat ≥ v0.9.27) */
   kannWuensche: boolean;
+  /** Dateisystem von D: (Abos nur auf NTFS); null = unbekannt / kein D: */
+  dFs: string | null;
   /** zuletzt verbunden (ms), wenn gerade nicht verbunden */
   zuletzt?: number | null;
 };
@@ -88,6 +90,8 @@ type AboNotiz = {
   at: number;
   rolle: GeraeteRolle;
   frei_d: number | null;
+  /** Dateisystem von D: */
+  d_fs?: string | null;
   abos: AboNotizEintrag[];
   /** Protokoll der Wünsche (fehlt = ältere Version, nimmt keine an) */
   kann_wuensche?: number;
@@ -151,7 +155,7 @@ export function useUebersicht({
   const [status, setStatus] = useState<Record<string, FolderStatus | null>>({});
   const [remote, setRemote] = useState<Record<string, Record<DeviceID, Zelle>>>({});
   const [notizen, setNotizen] = useState<Record<DeviceID, AboNotiz>>({});
-  const [frei, setFrei] = useState<{ frei: number; total: number } | null>(null);
+  const [frei, setFrei] = useState<{ frei: number; total: number; fs: string } | null>(null);
   /** Wirklich geltende Auswahl je eigenem Abo (aus der .stignore). */
   const [auswahlHier, setAuswahlHier] = useState<Record<string, string[] | null>>({});
   const [ungesichert, setUngesichert] = useState<Record<string, { anzahl: number; beispiele: string[] }>>({});
@@ -296,7 +300,7 @@ export function useUebersicht({
       ...(auswahlHier[f.id] ? { auswahl: auswahlHier[f.id]! } : {}),
     }));
   const erledigt = erledigtHier ?? ladeErledigt();
-  const eigeneKey = JSON.stringify({ rolle, frei: frei ? Math.round(frei.frei / 1e9) : null, eigeneAbos, erledigt, myName });
+  const eigeneKey = JSON.stringify({ rolle, fs: frei?.fs ?? null, frei: frei ? Math.round(frei.frei / 1e9) : null, eigeneAbos, erledigt, myName });
   useEffect(() => {
     if (!ready || !myID || !intern) return;
     let cancelled = false;
@@ -307,6 +311,7 @@ export function useUebersicht({
           at: Date.now(),
           rolle,
           frei_d: frei?.frei ?? null,
+          d_fs: frei?.fs ?? null,
           abos: eigeneAbos,
           kann_wuensche: WUNSCH_PROTOKOLL,
           ...(myName ? { name: myName } : {}),
@@ -347,7 +352,7 @@ export function useUebersicht({
   // ── Modell zusammensetzen ──
   const spalten: Spalte[] = [];
   if (myID) {
-    spalten.push({ id: myID, name: myName || "Dieser Rechner", ich: true, online: true, rolle, freiD: frei?.frei ?? null, kannWuensche: true });
+    spalten.push({ id: myID, name: myName || "Dieser Rechner", ich: true, online: true, rolle, freiD: frei?.frei ?? null, dFs: frei?.fs ?? null, kannWuensche: true });
   }
   for (const d of config?.devices ?? []) {
     if (d.deviceID === myID || ohneSyncomat.has(d.deviceID)) continue;
@@ -359,6 +364,7 @@ export function useUebersicht({
       online: !!connections[d.deviceID]?.connected,
       rolle: n?.rolle ?? null,
       freiD: n?.frei_d ?? null,
+      dFs: n?.d_fs ?? null,
       kannWuensche: (n?.kann_wuensche ?? 0) >= WUNSCH_PROTOKOLL,
       zuletzt: connections[d.deviceID]?.connected ? null : (zuletzt[d.deviceID] ?? null),
     });

@@ -525,12 +525,12 @@ export async function abonnieren(
 }
 
 /** Freier Platz auf D: (für Kopfzeile und Spaltenkopf). null = kein D:. */
-export async function freiAufD(): Promise<{ frei: number; total: number } | null> {
+export async function freiAufD(): Promise<{ frei: number; total: number; fs: string } | null> {
   const w = projekteWurzel();
   if (!w) return null;
   try {
-    const d = (await invoke("disk_info", { path: w })) as { available_bytes: number; total_bytes: number };
-    return { frei: d.available_bytes, total: d.total_bytes };
+    const d = (await invoke("disk_info", { path: w })) as { available_bytes: number; total_bytes: number; file_system: string };
+    return { frei: d.available_bytes, total: d.total_bytes, fs: d.file_system || "" };
   } catch {
     return null;
   }

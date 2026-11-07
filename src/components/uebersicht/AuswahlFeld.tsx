@@ -200,11 +200,19 @@ export function AuswahlFeld({
   useEffect(() => {
     if (vorschauBaum || !ep || !myID) return;
     let cancelled = false;
+    setBaum(null);
+    setBaumFehler(null);
     const holen = zeile.hier
       ? baumVonOrdner(ep, zeile.folderId)
       : zeile.angebot
         ? inhaltHolen(ep, zeile.angebot, myID)
-        : Promise.reject(new Error("Dieser Rechner bekommt das Projekt nicht angeboten — der Ordnerbaum ist hier nicht abrufbar. „Alles“ geht trotzdem."));
+        : Promise.reject(
+            new Error(
+              spalte.ich
+                ? "Das NAS bietet dieses Projekt diesem Rechner (noch) nicht an — freigeben auf der Seite des Speicher-Wächters. Sobald das Angebot da ist, erscheint hier der Ordnerbaum."
+                : "Dieser Rechner bekommt das Projekt nicht angeboten — der Ordnerbaum ist hier nicht abrufbar. „Alles“ lässt sich trotzdem senden.",
+            ),
+          );
     holen
       .then((b) => !cancelled && setBaum(b))
       .catch((e) => !cancelled && setBaumFehler(e instanceof Error ? e.message : String(e)));
@@ -212,7 +220,7 @@ export function AuswahlFeld({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zeile.folderId, !!zeile.hier]);
+  }, [zeile.folderId, !!zeile.hier, !!zeile.angebot]);
 
   const neu = benutzer ? normalisiereAuswahl(sel) : [];
   const vorher = normalisiereAuswahl(zelle.auswahl ?? []);
@@ -254,7 +262,9 @@ export function AuswahlFeld({
     });
 
   const name = spalte.ich ? "diesem Rechner" : spalte.name;
-  const kannHier = spalte.ich && windows;
+  // Abos nur auf NTFS (Konzept E3). Bekannt aus disk_info (hier) bzw. der Notiz (andere).
+  const fsFalsch = !!spalte.dFs && !/^ntfs$/i.test(spalte.dFs);
+  const kannHier = spalte.ich && windows && !(fsFalsch && !zeile.hier);
   // Was der Sender beim Ziel sieht — reist mit dem Wunsch (Gegenprobe am Ziel).
   const vorherFern: string[] | null | undefined = abonniert ? zelle.auswahl : null;
   const kannFern = !spalte.ich && spalte.kannWuensche && vorherFern !== undefined;
@@ -303,6 +313,11 @@ export function AuswahlFeld({
         {!spalte.ich && !spalte.kannWuensche && (
           <p className="text-[14px] font-semibold text-[var(--sm-ocker-text)]">
             {spalte.name} läuft mit einer älteren syncomat-Version und nimmt noch keine Auswahl von anderen Rechnern an.
+          </p>
+        )}
+        {fsFalsch && !abonniert && (
+          <p className="text-[13px] font-semibold text-[var(--sm-ocker-text)]">
+            D: {spalte.ich ? "dieses Rechners" : `von ${spalte.name}`} ist {spalte.dFs} — Abos brauchen NTFS. Erst D: als NTFS formatieren (vorher alles davon sichern).
           </p>
         )}
         {spalte.ich && !windows && (
@@ -491,7 +506,7 @@ export function AuswahlFeld({
                   setMeldung({ ok: false, text: e instanceof Error ? e.message : String(e) });
                 }
               }}
-              disabled={!kannFern || leer || (!geaendert && !offenerWunsch)}
+              disabled={!kannFern || leer || (!geaendert && !offenerWunsch) || (fsFalsch && !abonniert)}
               className="flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-white text-[14px] font-semibold disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
             >
               An {spalte.name} senden
