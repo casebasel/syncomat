@@ -38,8 +38,8 @@ const ROLLE_LS = "syncomat.geraet.rolle";
 const POLL_MS = 30_000;
 const LAEUFT_MIN_MS = 60_000; // Fortschritt höchstens einmal je Minute und Auftrag
 /** Reserve auf dem Ziel-Laufwerk nach dem Abo: max(100 GB, 10 % der Grösse). */
-const RESERVE_MIN = 100 * 1024 ** 3;
-const RESERVE_ANTEIL = 0.1;
+export const RESERVE_MIN = 100 * 1024 ** 3;
+export const RESERVE_ANTEIL = 0.1;
 
 export type GeraeteRolle = "arbeitsplatz" | "render";
 export type AboZustand = "angenommen" | "laeuft" | "fertig" | "abgelehnt" | "abgebrochen";
@@ -101,7 +101,7 @@ export const ROLLEN_SCHICHT: Record<GeraeteRolle, string[]> = {
   render: ["Saved"],
 };
 
-const NAME_RE = /^[A-Za-z0-9_-]{1,64}$/;
+export const NAME_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** Vollständige .stignore eines Abo-Ordners: Basis → Rolle → Auswahl.
  * Syncthing nimmt das ERSTE passende Muster, darum stehen die Ausschlüsse der

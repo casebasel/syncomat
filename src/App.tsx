@@ -61,6 +61,7 @@ import { useUpdateAll } from "./lib/updateAll";
 import { useInternFolder } from "./lib/internChannel";
 import { isAboFolderId, useDatenzentrale } from "./lib/datenzentrale";
 import { useAboAusfuehrung, useGeraeteRolle } from "./lib/abo";
+import { aboBeenden, abonnieren, nasProjekte as nasProjekteAus, type NasProjekt } from "./lib/nasProjekte";
 import {
   setFolderIgnores,
   tuneFolderForSize,
@@ -286,6 +287,31 @@ function App() {
   );
   // Pinnt die schnellen Adressen aus der gemergten Karte (wenn aktiv); Fallback bleibt.
   usePrefer10GbE_apply(endpoint, ready, devices, prefer10.enabled, netHints);
+  // Projekte, die der NAS anbietet — ein Klick in der Seitenleiste abonniert.
+  const nasProjekte = useMemo(
+    () => nasProjekteAus(pendingFolders.data ?? [], config.data?.folders ?? []),
+    [pendingFolders.data, config.data?.folders],
+  );
+  const [aboLauf, setAboLauf] = useState<Record<string, { schritt?: string; fehler?: string }>>({});
+  const onAbonnieren = async (p: NasProjekt) => {
+    if (!endpoint || !myID) return;
+    const set = (v: { schritt?: string; fehler?: string } | null) =>
+      setAboLauf((prev) => {
+        const next = { ...prev };
+        if (v) next[p.folderId] = v;
+        else delete next[p.folderId];
+        return next;
+      });
+    set({ schritt: "Prüfe Laufwerk D: …" });
+    try {
+      await abonnieren(endpoint, p, myID, geraeteRolle.rolle, (schritt) => set({ schritt }));
+      set(null);
+      setSelectedFolderId(p.folderId);
+    } catch (e) {
+      set({ fehler: e instanceof Error ? e.message : String(e) });
+    }
+  };
+
   const datenzentrale = useDatenzentrale();
   const geraeteRolle = useGeraeteRolle();
   const dzGueltig =
@@ -509,6 +535,9 @@ function App() {
             <Sidebar
               folders={folders}
               pending={visiblePending}
+              nasProjekte={nasProjekte}
+              aboLauf={aboLauf}
+              onAbonnieren={onAbonnieren}
               tagsByFolderID={tagsByFolderID}
               devices={devices}
               connections={connectionsByID}
@@ -674,6 +703,9 @@ function App() {
                 onShowSettings={(f) => setPanel({ kind: "folder-settings", folder: f })}
                 onShowConflicts={(f) => setPanel({ kind: "folder-conflicts", folder: f })}
                 onShowErrors={(f) => setPanel({ kind: "folder-errors", folder: f })}
+                onAboBeenden={
+                  endpoint && myID ? (f) => aboBeenden(endpoint, f, myID) : undefined
+                }
               />
             ) : (
               <NoSelectionView

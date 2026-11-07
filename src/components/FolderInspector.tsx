@@ -29,6 +29,7 @@ import type {
   FolderStatus,
 } from "../lib/syncthing";
 import { describeFolderError, folderError } from "../lib/syncthing";
+import { isAboFolderId } from "../lib/datenzentrale";
 import { useSharedFolderStatus as useFolderStatus } from "../lib/folderStatusStore";
 import { useFolderConflicts } from "../lib/conflicts";
 import { usePluginPresetHint } from "../lib/folderSettings";
@@ -45,6 +46,7 @@ export function FolderInspector({
   onShowSettings,
   onShowConflicts,
   onShowErrors,
+  onAboBeenden,
 }: {
   folder: Folder;
   endpoint: Endpoint | null;
@@ -57,6 +59,9 @@ export function FolderInspector({
   onShowSettings: (f: Folder) => void;
   onShowConflicts: (f: Folder) => void;
   onShowErrors: (f: Folder) => void;
+  /** Nur bei Abo-Ordnern (dz-…): Abo auf diesem Rechner beenden. Gibt die
+   * Meldung zurück oder wirft mit dem Grund. */
+  onAboBeenden?: (f: Folder) => Promise<string>;
 }) {
   const { data: status } = useFolderStatus(endpoint, ready, folder.id);
   const { count: conflictCount } = useFolderConflicts(folder.path);
@@ -68,6 +73,9 @@ export function FolderInspector({
 
   const errorCount = status?.errors ?? 0;
   const folderErr = folderError(status);
+  const istAbo = isAboFolderId(folder.id);
+  const [aboMeldung, setAboMeldung] = useState<{ ok: boolean; text: string } | null>(null);
+  const [aboBusy, setAboBusy] = useState(false);
   const folderErrInfo = folderErr ? describeFolderError(folderErr) : null;
   // Erstes offline-peer für "Wartet auf X" Label
   const offlinePeerName = (() => {
@@ -202,6 +210,42 @@ export function FolderInspector({
               Ansehen
             </span>
           </button>
+        )}
+
+        {/* Abo vom NAS: hier beenden */}
+        {istAbo && onAboBeenden && (
+          <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-2.5 flex items-start gap-3">
+            <div className="flex-1 text-xs">
+              <div className="font-semibold text-neutral-900 dark:text-neutral-100">Abonniert vom NAS</div>
+              <div className="text-neutral-500 dark:text-neutral-400 mt-0.5">
+                Arbeitskopie auf diesem Rechner, abgeglichen mit dem Projekt auf dem NAS.
+              </div>
+              {aboMeldung && (
+                <div
+                  className={`mt-1 ${aboMeldung.ok ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                >
+                  {aboMeldung.text}
+                </div>
+              )}
+            </div>
+            <button
+              disabled={aboBusy}
+              onClick={async () => {
+                setAboBusy(true);
+                setAboMeldung(null);
+                try {
+                  setAboMeldung({ ok: true, text: await onAboBeenden(folder) });
+                } catch (e) {
+                  setAboMeldung({ ok: false, text: e instanceof Error ? e.message : String(e) });
+                } finally {
+                  setAboBusy(false);
+                }
+              }}
+              className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
+            >
+              Abo beenden
+            </button>
+          </div>
         )}
 
         {/* Plugin-Ordner mit Projekt-Preset: DLLs fehlen auf den anderen Geräten */}

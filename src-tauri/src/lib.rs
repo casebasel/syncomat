@@ -147,6 +147,7 @@ pub fn run() {
             abo::disk_info,
             abo::path_state,
             abo::create_abo_dir,
+            abo::remove_unused_abo_dir,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

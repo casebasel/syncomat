@@ -3,7 +3,9 @@ import {
   Activity,
   ChevronDown,
   ChevronRight,
+  Download,
   KeyRound,
+  Loader2,
   Plus,
   RefreshCw,
 } from "lucide-react";
@@ -18,11 +20,13 @@ import type {
   PendingFolder,
 } from "../lib/syncthing";
 import { folderError } from "../lib/syncthing";
+import type { NasProjekt } from "../lib/nasProjekte";
 import { useSharedFolderStatus as useFolderStatus } from "../lib/folderStatusStore";
 import { useFolderConflicts } from "../lib/conflicts";
 
 const UNTAGGED_KEY = "__untagged__";
 const PENDING_KEY = "__pending__";
+const NAS_KEY = "__nas__";
 const LS_COLLAPSED_KEY = "syncomat.sidebar.collapsedGroups";
 export const GLOBAL_ACTIVITY_KEY = "__all__";
 
@@ -46,6 +50,9 @@ function saveCollapsed(s: Set<string>) {
 export function Sidebar({
   folders,
   pending,
+  nasProjekte = [],
+  aboLauf = {},
+  onAbonnieren,
   tagsByFolderID,
   devices,
   connections,
@@ -64,6 +71,11 @@ export function Sidebar({
 }: {
   folders: Folder[];
   pending: PendingFolder[];
+  /** Projekte, die der NAS anbietet und die hier noch nicht abonniert sind. */
+  nasProjekte?: NasProjekt[];
+  /** Laufendes Abonnieren je folderId: Schritt-Text oder Fehler. */
+  aboLauf?: Record<string, { schritt?: string; fehler?: string }>;
+  onAbonnieren?: (p: NasProjekt) => void;
   tagsByFolderID: Record<string, string[]>;
   devices: Device[];
   connections: Record<DeviceID, Connection>;
@@ -175,6 +187,21 @@ export function Sidebar({
           {folders.length}
         </span>
       </button>
+
+      {/* Projekte auf dem NAS: ein Klick = abonnieren */}
+      {nasProjekte.length > 0 && (
+        <Group
+          label="Projekte auf dem NAS"
+          count={nasProjekte.length}
+          collapsed={collapsed.has(NAS_KEY)}
+          onToggle={() => toggle(NAS_KEY)}
+          accent="blue"
+        >
+          {nasProjekte.map((p) => (
+            <NasProjektItem key={p.folderId} p={p} lauf={aboLauf[p.folderId]} onAbonnieren={onAbonnieren} />
+          ))}
+        </Group>
+      )}
 
       {/* Pending folders */}
       {pending.length > 0 && (
@@ -326,13 +353,15 @@ function Group({
   count: number;
   collapsed: boolean;
   onToggle: () => void;
-  accent?: "amber";
+  accent?: "amber" | "blue";
   children: React.ReactNode;
 }) {
   const accentCls =
     accent === "amber"
       ? "text-amber-700 dark:text-amber-300"
-      : "text-neutral-500 dark:text-neutral-400";
+      : accent === "blue"
+        ? "text-blue-700 dark:text-blue-300"
+        : "text-neutral-500 dark:text-neutral-400";
   return (
     <div className="border-t border-neutral-200 dark:border-neutral-800 first:border-t-0">
       <button
@@ -475,4 +504,38 @@ function deriveSyncState(
   }
   if (!peerOnline) return "waiting-peer";
   return "synced";
+}
+
+function NasProjektItem({
+  p,
+  lauf,
+  onAbonnieren,
+}: {
+  p: NasProjekt;
+  lauf?: { schritt?: string; fehler?: string };
+  onAbonnieren?: (p: NasProjekt) => void;
+}) {
+  const busy = !!lauf?.schritt && !lauf.fehler;
+  return (
+    <div className="px-2 py-1.5 rounded-md">
+      <div className="flex items-center gap-2">
+        <span className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100 truncate flex-1">
+          {p.name}
+        </span>
+        <button
+          disabled={busy || !onAbonnieren}
+          onClick={() => onAbonnieren?.(p)}
+          className="shrink-0 text-[11px] font-semibold px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+        >
+          {busy ? <Loader2 className="size-3 animate-spin" /> : <Download className="size-3" />}
+          Abonnieren
+        </button>
+      </div>
+      {lauf?.fehler ? (
+        <div className="text-[10px] text-rose-600 dark:text-rose-400 mt-0.5">{lauf.fehler}</div>
+      ) : lauf?.schritt ? (
+        <div className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">{lauf.schritt}</div>
+      ) : null}
+    </div>
+  );
 }

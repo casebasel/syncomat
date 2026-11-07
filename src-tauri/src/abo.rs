@@ -59,6 +59,31 @@ pub fn create_abo_dir(path: String) -> Result<(), String> {
     }
 }
 
+/// Einen Abo-Ordner wieder wegräumen, der nie Daten bekommen hat (z. B. Platz
+/// reichte nicht): nur wenn darin höchstens `.stfolder`/`.stignore` liegen.
+/// Sonst bleibt alles, wie es ist.
+#[tauri::command]
+pub fn remove_unused_abo_dir(path: String) -> Result<bool, String> {
+    let p = Path::new(&path);
+    if !p.is_dir() {
+        return Ok(false);
+    }
+    let names: Vec<String> = fs::read_dir(p)
+        .map_err(|e| format!("lesen {path}: {e}"))?
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    if names.iter().any(|n| n != ".stfolder" && n != ".stignore") {
+        return Ok(false);
+    }
+    for n in &names {
+        let q = p.join(n);
+        let _ = if q.is_dir() { fs::remove_dir_all(&q) } else { fs::remove_file(&q) };
+    }
+    fs::remove_dir(p).map_err(|e| format!("entfernen {path}: {e}"))?;
+    Ok(true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -81,5 +106,19 @@ mod tests {
         assert_eq!(path_state(p.clone()).unwrap(), "belegt");
         assert!(create_abo_dir(p.clone()).is_err());
         fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn remove_unused_only_when_empty() {
+        let base = std::env::temp_dir().join(format!("syncomat-abo-rm-{}", std::process::id()));
+        let p = base.to_string_lossy().into_owned();
+        fs::create_dir_all(base.join(".stfolder")).unwrap();
+        fs::write(base.join(".stignore"), b"*").unwrap();
+        fs::write(base.join("daten.bin"), b"1").unwrap();
+        assert!(!remove_unused_abo_dir(p.clone()).unwrap());
+        assert!(base.join("daten.bin").exists());
+        fs::remove_file(base.join("daten.bin")).unwrap();
+        assert!(remove_unused_abo_dir(p.clone()).unwrap());
+        assert!(!base.exists());
     }
 }
