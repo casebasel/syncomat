@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import {
   folderError,
+  getFolderIgnores,
   getFolderStatus,
   getRemoteCompletion,
   type Config,
@@ -14,8 +15,9 @@ import {
 } from "./syncthing";
 import { isAboFolderId } from "./datenzentrale";
 import { projektFarbe, projektIdAusFolderId } from "./projektFarbe";
-import { aboAuswahl, freiAufD, nasProjekte, type NasProjekt } from "./nasProjekte";
-import type { GeraeteRolle } from "./abo";
+import { freiAufD, istInhaltOrdner, nasProjekte, type NasProjekt } from "./nasProjekte";
+import { auswahlAusIgnores, type GeraeteRolle } from "./abo";
+import { WUNSCH_PROTOKOLL, ladeErledigt, type WunschErgebnis } from "./wuensche";
 
 // ── Übersicht Projekte × Rechner ─────────────────────────────────
 //
@@ -37,6 +39,8 @@ export type Zelle = {
   /** Rechner gerade nicht verbunden (letzter bekannter Stand) */
   offline?: boolean;
   grund?: string;
+  /** gewählte Unterordner ([] = ganzes Projekt; fehlt = unbekannt) */
+  auswahl?: string[];
 };
 
 export type Zeile = {
@@ -62,6 +66,8 @@ export type Spalte = {
   online: boolean;
   rolle: GeraeteRolle | null;
   freiD: number | null;
+  /** nimmt Wünsche anderer Rechner an (syncomat ≥ v0.9.27) */
+  kannWuensche: boolean;
 };
 
 type AboNotizEintrag = { folder_id: string; name: string } & Zelle;
@@ -71,6 +77,9 @@ type AboNotiz = {
   rolle: GeraeteRolle;
   frei_d: number | null;
   abos: AboNotizEintrag[];
+  /** Protokoll der Wünsche (fehlt = ältere Version, nimmt keine an) */
+  kann_wuensche?: number;
+  wuensche_erledigt?: WunschErgebnis[];
 };
 
 const KIND = "abos";
@@ -105,6 +114,7 @@ export function useUebersicht({
   intern,
   ohneSyncomat,
   rolle,
+  erledigtHier,
 }: {
   ep: Endpoint | null;
   ready: boolean;
@@ -117,14 +127,18 @@ export function useUebersicht({
   /** Geräte ohne syncomat (z. B. NAS-Hub) — keine Spalte. */
   ohneSyncomat: Set<DeviceID>;
   rolle: GeraeteRolle;
+  /** Ergebnisse der an diesen Rechner gerichteten Wünsche (useWuensche). */
+  erledigtHier?: WunschErgebnis[];
 }) {
   const [status, setStatus] = useState<Record<string, FolderStatus | null>>({});
   const [remote, setRemote] = useState<Record<string, Record<DeviceID, Zelle>>>({});
   const [notizen, setNotizen] = useState<Record<DeviceID, AboNotiz>>({});
   const [frei, setFrei] = useState<{ frei: number; total: number } | null>(null);
+  /** Wirklich geltende Auswahl je eigenem Abo (aus der .stignore). */
+  const [auswahlHier, setAuswahlHier] = useState<Record<string, string[] | null>>({});
   const lastNoteRef = useRef("");
 
-  const folders = (config?.folders ?? []).filter((f) => f.id !== intern?.id);
+  const folders = (config?.folders ?? []).filter((f) => f.id !== intern?.id && !istInhaltOrdner(f));
   const folderKey = folders.map((f) => `${f.id}:${f.paused ? 1 : 0}:${f.devices.length}`).join(",");
 
   // Eigener Stand der Ordner (schnell) + freier Platz auf D:
@@ -138,6 +152,17 @@ export function useUebersicht({
     };
     void run();
     const id = setInterval(() => void run(), TAKT_MS);
+    const aw = async () => {
+      const m: Record<string, string[] | null> = {};
+      for (const f of folders.filter((x) => isAboFolderId(x.id))) {
+        m[f.id] = await getFolderIgnores(ep, f.id)
+          .then((r) => auswahlAusIgnores(r.ignore))
+          .catch(() => null);
+      }
+      if (!cancelled) setAuswahlHier(m);
+    };
+    void aw();
+    const id3 = setInterval(() => void aw(), NOTIZ_MS);
     const fd = () => void freiAufD().then((v) => !cancelled && setFrei(v));
     fd();
     const id2 = setInterval(fd, 60_000);
@@ -145,6 +170,7 @@ export function useUebersicht({
       cancelled = true;
       clearInterval(id);
       clearInterval(id2);
+      clearInterval(id3);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ep?.url, ep?.api_key, ready, folderKey]);
@@ -188,15 +214,25 @@ export function useUebersicht({
       folder_id: f.id,
       name: f.label || f.id,
       ...grob(zelleAusStatus(status[f.id] ?? null, f)),
-      teil: aboAuswahl(f.id).length > 0,
+      teil: (auswahlHier[f.id] ?? []).length > 0,
+      ...(auswahlHier[f.id] ? { auswahl: auswahlHier[f.id]! } : {}),
     }));
-  const eigeneKey = JSON.stringify({ rolle, frei: frei ? Math.round(frei.frei / 1e9) : null, eigeneAbos });
+  const erledigt = erledigtHier ?? ladeErledigt();
+  const eigeneKey = JSON.stringify({ rolle, frei: frei ? Math.round(frei.frei / 1e9) : null, eigeneAbos, erledigt });
   useEffect(() => {
     if (!ready || !myID || !intern) return;
     let cancelled = false;
     const run = async () => {
       if (eigeneKey !== lastNoteRef.current) {
-        const notiz: AboNotiz = { by: myID, at: Date.now(), rolle, frei_d: frei?.frei ?? null, abos: eigeneAbos };
+        const notiz: AboNotiz = {
+          by: myID,
+          at: Date.now(),
+          rolle,
+          frei_d: frei?.frei ?? null,
+          abos: eigeneAbos,
+          kann_wuensche: WUNSCH_PROTOKOLL,
+          wuensche_erledigt: erledigt,
+        };
         await invoke("device_note_write", {
           folderPath: intern.path,
           kind: KIND,
@@ -232,7 +268,7 @@ export function useUebersicht({
   // ── Modell zusammensetzen ──
   const spalten: Spalte[] = [];
   if (myID) {
-    spalten.push({ id: myID, name: myName || "Dieser Rechner", ich: true, online: true, rolle, freiD: frei?.frei ?? null });
+    spalten.push({ id: myID, name: myName || "Dieser Rechner", ich: true, online: true, rolle, freiD: frei?.frei ?? null, kannWuensche: true });
   }
   for (const d of config?.devices ?? []) {
     if (d.deviceID === myID || ohneSyncomat.has(d.deviceID)) continue;
@@ -244,6 +280,7 @@ export function useUebersicht({
       online: !!connections[d.deviceID]?.connected,
       rolle: n?.rolle ?? null,
       freiD: n?.frei_d ?? null,
+      kannWuensche: (n?.kann_wuensche ?? 0) >= WUNSCH_PROTOKOLL,
     });
   }
 
@@ -274,7 +311,11 @@ export function useUebersicht({
     for (const sp of spalten) {
       if (sp.ich) {
         z.zellen[sp.id] = z.hier
-          ? { ...zelleAusStatus(status[z.folderId] ?? null, z.hier), teil: aboAuswahl(z.folderId).length > 0 }
+          ? {
+              ...zelleAusStatus(status[z.folderId] ?? null, z.hier),
+              teil: (auswahlHier[z.folderId] ?? []).length > 0,
+              ...(auswahlHier[z.folderId] ? { auswahl: auswahlHier[z.folderId]! } : {}),
+            }
           : { zustand: "nicht" };
         continue;
       }
@@ -282,7 +323,7 @@ export function useUebersicht({
       const frisch = n && Date.now() - n.at < NOTIZ_ALT_MS;
       const eintrag = n?.abos?.find((a) => a.folder_id === z.folderId);
       let zelle: Zelle = eintrag
-        ? { zustand: eintrag.zustand, prozent: eintrag.prozent, teil: eintrag.teil, grund: eintrag.grund }
+        ? { zustand: eintrag.zustand, prozent: eintrag.prozent, teil: eintrag.teil, grund: eintrag.grund, auswahl: eintrag.auswahl }
         : n
           ? { zustand: "nicht" }
           : { zustand: "unbekannt" };
@@ -318,7 +359,11 @@ export function useUebersicht({
   );
   const hier = sortiert.filter((z) => z.hier).length;
 
+  const erledigtVon: Record<DeviceID, WunschErgebnis[]> = {};
+  for (const n of Object.values(notizen)) if (n.wuensche_erledigt) erledigtVon[n.by] = n.wuensche_erledigt;
+
   return {
+    erledigtVon,
     spalten,
     projekte: sortiert,
     plugins,

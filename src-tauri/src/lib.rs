@@ -5,6 +5,7 @@ mod folder_settings;
 mod folder_stats;
 mod invites;
 mod abo;
+mod auswahl;
 mod datenzentrale;
 mod network_hints;
 mod reveal;
@@ -149,6 +150,9 @@ pub fn run() {
             abo::create_abo_dir,
             abo::remove_unused_abo_dir,
             abo::status_datei_write,
+            auswahl::auswahl_pruefen,
+            auswahl::auswahl_entfernen,
+            auswahl::inhalt_ordner_pfad,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

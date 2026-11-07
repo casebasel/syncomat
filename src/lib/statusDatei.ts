@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
 import { getFolderStatus, folderError, type DeviceID, type Endpoint, type Folder } from "./syncthing";
 import { isAboFolderId } from "./datenzentrale";
+import { aboAuswahl } from "./nasProjekte";
 
 // ── Lokale Statusdatei ───────────────────────────────────────────
 //
@@ -27,6 +28,8 @@ export type StatusAbo = {
   needItems: number;
   localBytes: number;
   fehler: string | null;
+  /** Gewählte Unterordner (leer = ganzes Projekt). Ab v0.9.27. */
+  auswahl: string[];
 };
 
 export type StatusDatei = {
@@ -75,6 +78,7 @@ export function useStatusDatei({
           needItems: (s as unknown as { needFiles?: number } | null)?.needFiles ?? 0,
           localBytes: s?.localBytes ?? 0,
           fehler: folderError(s),
+          auswahl: aboAuswahl(f.id),
         });
       }
       if (cancelled) return;

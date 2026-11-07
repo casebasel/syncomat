@@ -62,7 +62,8 @@ import { useInternFolder } from "./lib/internChannel";
 import { isAboFolderId, useDatenzentrale } from "./lib/datenzentrale";
 import { useAboAusfuehrung, useGeraeteRolle } from "./lib/abo";
 import { useStatusDatei } from "./lib/statusDatei";
-import { aboBeenden } from "./lib/nasProjekte";
+import { aboBeenden, istInhaltOrdner } from "./lib/nasProjekte";
+import { useWuensche } from "./lib/wuensche";
 import {
   setFolderIgnores,
   tuneFolderForSize,
@@ -71,7 +72,7 @@ import { LinkFolderModal, type LinkConfirmOptions } from "./components/LinkFolde
 import { pickStignoreForWorkload } from "./lib/unreal";
 import { Leiste, type Ansicht } from "./components/uebersicht/Leiste";
 import { Uebersicht } from "./components/uebersicht/Uebersicht";
-import { AboFeld } from "./components/uebersicht/AboFeld";
+import { AuswahlFeld } from "./components/uebersicht/AuswahlFeld";
 import { useUebersicht } from "./lib/uebersicht";
 import { FolderInspector } from "./components/FolderInspector";
 import { GlobalActivityView } from "./components/GlobalActivityView";
@@ -109,7 +110,7 @@ function App() {
   // Der interne Kanal (syncomat-intern) ist kein Nutzer-Ordner: nirgends
   // anzeigen, nicht warten, nicht auto-sharen (er pflegt seine Geräte selbst).
   const folders = useMemo(
-    () => (config.data?.folders ?? []).filter((f) => f.id !== INTERN_FOLDER_ID),
+    () => (config.data?.folders ?? []).filter((f) => f.id !== INTERN_FOLDER_ID && !istInhaltOrdner(f)),
     [config.data?.folders],
   );
   const devices = config.data?.devices ?? [];
@@ -335,6 +336,17 @@ function App() {
     ohneSyncomat: updateAll.noChannel,
     rolle: geraeteRolle.rolle,
   });
+  const wuensche = useWuensche({
+    ep: endpoint,
+    ready,
+    config: config.data ?? null,
+    pending: pendingFolders.data ?? [],
+    intern: internFolder,
+    myID,
+    rolle: geraeteRolle.rolle,
+    erledigtVon: uebersicht.erledigtVon,
+    connections: connectionsByID,
+  });
   useNotificationTriggers({
     enabled: notifications.enabled,
     connections: connectionsByID,
@@ -378,11 +390,18 @@ function App() {
   // geht an die Sidebar fürs Highlight, damit der Default-Ordner markiert bleibt.
   // Hauptbereiche (Leiste links) und die gewählte Zeile der Übersicht.
   const [ansicht, setAnsicht] = useState<Ansicht>("uebersicht");
-  const [gewaehlt, setGewaehlt] = useState<string | null>(null);
+  const [gewaehlt, setGewaehltRoh] = useState<string | null>(null);
+  /** Gewählter Schnittpunkt Projekt × Rechner (Auswahlfeld rechts). */
+  const [gewaehltRechner, setGewaehltRechner] = useState<string | null>(null);
+  const setGewaehlt = (v: string | null | ((g: string | null) => string | null)) => {
+    setGewaehltRoh(v);
+    setGewaehltRechner(null);
+  };
   const setSelectedFolderId = (id: string | null) => {
     setGewaehlt(id);
     setAnsicht("uebersicht");
   };
+  const gewaehltSpalte = gewaehltRechner ? (uebersicht.spalten.find((s) => s.id === gewaehltRechner) ?? null) : null;
   const gewaehlteZeile = gewaehlt
     ? ([...uebersicht.projekte, ...uebersicht.plugins].find((z) => z.folderId === gewaehlt) ?? null)
     : null;
@@ -682,7 +701,17 @@ function App() {
                   lage={uebersicht.lage}
                   gewaehlt={gewaehlt}
                   onZeile={(z) => setGewaehlt((g) => (g === z.folderId ? null : z.folderId))}
-                  onAbonnieren={(z) => setGewaehlt(z.folderId)}
+                  onAbonnieren={(z) => {
+                    setGewaehltRoh(z.folderId);
+                    setGewaehltRechner(myID);
+                  }}
+                  gewaehltRechner={gewaehltRechner}
+                  onZelle={(z, s) => {
+                    const gleich = gewaehlt === z.folderId && gewaehltRechner === s.id;
+                    setGewaehltRoh(gleich ? null : z.folderId);
+                    setGewaehltRechner(gleich ? null : s.id);
+                  }}
+                  offeneWuensche={wuensche.eigene}
                   onRechner={(id) => (id === myID ? setAnsicht("einstellungen") : setPanel({ kind: "device-detail", deviceID: id }))}
                   onRechnerKoppeln={() => setPanel({ kind: "code-show" })}
                   onCodeEinloesen={() => setPanel({ kind: "code-redeem" })}
@@ -694,7 +723,32 @@ function App() {
                     onVerknuepfen: () => onLink(pf),
                   }))}
                 />
-                {gewaehlteZeile?.hier ? (
+                {gewaehlteZeile && gewaehltSpalte && gewaehlteZeile.art === "projekt" ? (
+                  <AuswahlFeld
+                    key={`${gewaehlteZeile.folderId}|${gewaehltSpalte.id}`}
+                    ep={endpoint}
+                    myID={myID}
+                    rolle={geraeteRolle.rolle}
+                    zeile={gewaehlteZeile}
+                    spalte={gewaehltSpalte}
+                    offenerWunsch={
+                      wuensche.eigene.find((w) => w.ziel === gewaehltSpalte.id && w.folder_id === gewaehlteZeile.folderId) ?? null
+                    }
+                    ergebnisVomZiel={(() => {
+                      const w = wuensche.neueste.get(`${gewaehltSpalte.id}|${gewaehlteZeile.folderId}`);
+                      return (w && uebersicht.erledigtVon[gewaehltSpalte.id]?.find((e) => e.id === w.id)) ?? null;
+                    })()}
+                    laeuftHier={
+                      !!wuensche.laeuft &&
+                      [...wuensche.neueste.values()].some((w) => w.id === wuensche.laeuft && w.folder_id === gewaehlteZeile.folderId)
+                    }
+                    onSenden={(art, auswahl) =>
+                      wuensche.senden({ ziel: gewaehltSpalte.id, folder_id: gewaehlteZeile.folderId, name: gewaehlteZeile.name, art, auswahl })
+                    }
+                    onZuruecknehmen={wuensche.zuruecknehmen}
+                    onSchliessen={() => setGewaehlt(null)}
+                  />
+                ) : gewaehlteZeile?.hier ? (
                   <aside className="w-[380px] shrink-0 border-l border-[var(--sm-linie)] flex overflow-hidden">
                     <FolderInspector
                       folder={gewaehlteZeile.hier}
@@ -721,16 +775,6 @@ function App() {
                       }
                     />
                   </aside>
-                ) : gewaehlteZeile?.angebot && endpoint && myID ? (
-                  <AboFeld
-                    key={gewaehlteZeile.folderId}
-                    ep={endpoint}
-                    myID={myID}
-                    rolle={geraeteRolle.rolle}
-                    zeile={gewaehlteZeile}
-                    onFertig={() => undefined}
-                    onSchliessen={() => setGewaehlt(null)}
-                  />
                 ) : null}
               </>
             )}

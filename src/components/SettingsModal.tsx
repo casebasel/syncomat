@@ -196,6 +196,7 @@ export function SettingsPanel({
                 request={updateRequest}
                 onRequestAll={onRequestUpdateAll}
                 peers={peers}
+                connections={connections}
                 myID={myID}
               />
             )}
@@ -362,6 +363,7 @@ function UpdatesTab({
   request,
   onRequestAll,
   peers,
+  connections,
   myID,
 }: {
   updateState: UpdateState;
@@ -373,6 +375,7 @@ function UpdatesTab({
   request: { version: string; by: DeviceID } | null;
   onRequestAll: () => void;
   peers: Device[];
+  connections: Record<DeviceID, Connection>;
   myID: DeviceID | null;
 }) {
   const checking = updateState.kind === "checking";
@@ -481,6 +484,7 @@ function UpdatesTab({
         request={request}
         onRequestAll={onRequestAll}
         peers={peers}
+        connections={connections}
         myID={myID}
       />
     </div>
@@ -739,6 +743,7 @@ function AllDevicesUpdate({
   request,
   onRequestAll,
   peers,
+  connections,
   myID,
 }: {
   version: string | null;
@@ -748,16 +753,21 @@ function AllDevicesUpdate({
   request: { version: string; by: DeviceID } | null;
   onRequestAll: () => void;
   peers: Device[];
+  connections: Record<DeviceID, Connection>;
   myID: DeviceID | null;
 }) {
   const rows = [
-    ...(myID ? [{ id: myID, name: "Dieses Gerät" }] : []),
-    ...peers.map((p) => ({ id: p.deviceID, name: p.name?.trim() || p.deviceID.slice(0, 7) })),
+    ...(myID ? [{ id: myID, name: "Dieses Gerät", online: true }] : []),
+    ...peers.map((p) => ({
+      id: p.deviceID,
+      name: p.name?.trim() || p.deviceID.slice(0, 7),
+      online: !!connections[p.deviceID]?.connected,
+    })),
   ];
   const nameOf = (id: DeviceID) => rows.find((r) => r.id === id)?.name ?? id.slice(0, 7);
   const requested = !!(request && version && compareVersions(request.version, version) >= 0);
-  // Fortschritt: Geräte mit syncomat, die die verlangte Version noch nicht melden.
-  const waitingFor =
+  // Noch nicht auf der verlangten Version (Geräte mit syncomat).
+  const pending =
     requested && request
       ? rows.filter((r) => {
           if (noChannel.has(r.id)) return false;
@@ -765,6 +775,11 @@ function AllDevicesUpdate({
           return !v || compareVersions(v, request.version) < 0;
         })
       : [];
+  // Fortschritt nur über eingeschaltete Geräte. Ausgeschaltete lesen die
+  // Aufforderung beim nächsten Start aus dem internen Kanal und holen das
+  // Update dann selbst — auf sie wird hier nicht gewartet.
+  const waitingFor = pending.filter((r) => r.online);
+  const later = pending.filter((r) => !r.online);
   const behindCount = version
     ? rows.filter((r) => {
         const v = notes[r.id]?.version;
@@ -781,6 +796,7 @@ function AllDevicesUpdate({
           const v = notes[r.id]?.version;
           const old = !v || (version ? compareVersions(v, version) < 0 : false);
           const updating = waitingFor.some((w) => w.id === r.id);
+          const folgt = later.some((w) => w.id === r.id);
           const justDone =
             requested && !!request && !!v && compareVersions(v, request.version) >= 0;
           return (
@@ -790,6 +806,10 @@ function AllDevicesUpdate({
                 <span className="shrink-0 flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
                   <Loader2 className="size-3 animate-spin" />
                   wird aktualisiert…
+                </span>
+              ) : folgt ? (
+                <span className="shrink-0 text-neutral-500 dark:text-neutral-400">
+                  ausgeschaltet · holt es beim Start
                 </span>
               ) : (
                 <span
@@ -810,7 +830,7 @@ function AllDevicesUpdate({
         })}
       </div>
       {(() => {
-        const target = rows.filter((r) => !noChannel.has(r.id)).length;
+        const target = rows.filter((r) => !noChannel.has(r.id) && !later.some((w) => w.id === r.id)).length;
         const inProgress = requested && waitingFor.length > 0;
         const allDone = requested && waitingFor.length === 0;
         if (inProgress) {
@@ -821,6 +841,17 @@ function AllDevicesUpdate({
             >
               <Loader2 className="size-3.5 animate-spin" />
               Updates werden installiert … {target - waitingFor.length} von {target}
+            </div>
+          );
+        }
+        if (allDone && later.length > 0) {
+          return (
+            <div
+              role="status"
+              className="mt-2.5 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 flex items-center justify-center gap-1.5"
+            >
+              <CheckCircle2 className="size-3.5" />
+              Alle eingeschalteten Geräte auf v{request?.version}
             </div>
           );
         }
@@ -849,8 +880,10 @@ function AllDevicesUpdate({
       <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
         {requested && request
           ? waitingFor.length > 0
-            ? `Angefordert: v${request.version} (von ${nameOf(request.by)}). Warte auf: ${waitingFor.map((r) => r.name).join(", ")} — jedes Gerät lädt, installiert und startet neu, das dauert 1–2 Minuten; ausgeschaltete Geräte, sobald sie wieder laufen.`
-            : `Alle Geräte melden v${request.version}.`
+            ? `Angefordert: v${request.version} (von ${nameOf(request.by)}). Warte auf: ${waitingFor.map((r) => r.name).join(", ")} — jedes Gerät lädt, installiert und startet neu, das dauert 1–2 Minuten.${later.length > 0 ? ` Ausgeschaltet: ${later.map((r) => r.name).join(", ")} — holen das Update beim nächsten Start.` : ""}`
+            : later.length > 0
+              ? `Ausgeschaltet: ${later.map((r) => r.name).join(", ")} — holen v${request.version} beim nächsten Start selbst.`
+              : `Alle Geräte melden v${request.version}.`
           : !upToDate
             ? "Erst dieses Gerät aktualisieren — der Knopf verteilt die Version, die hier läuft."
             : "Geräte mit älterer Version laden das signierte Release, installieren es und starten neu. „unbekannt“ = Gerät läuft noch eine Version ohne diese Funktion (einmal von Hand aktualisieren). „kein syncomat oder alt“ = reines Syncthing (z. B. der NAS-Hub) oder syncomat älter als v0.9.17."}

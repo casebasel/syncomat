@@ -5,7 +5,7 @@ import ReactDOM from "react-dom/client";
 import "./App.css";
 import { Leiste } from "./components/uebersicht/Leiste";
 import { Uebersicht } from "./components/uebersicht/Uebersicht";
-import { AboFeld } from "./components/uebersicht/AboFeld";
+import { AuswahlFeld } from "./components/uebersicht/AuswahlFeld";
 import { FolderInspector } from "./components/FolderInspector";
 import { Statusbar } from "./components/Statusbar";
 import type { Spalte, Zeile, Zelle } from "./lib/uebersicht";
@@ -30,6 +30,7 @@ const spalten: Spalte[] = rechner.map(([id, name, rolle, frei, online], i) => ({
   online,
   rolle,
   freiD: id === "MAC" ? null : frei,
+  kannWuensche: id !== "RND5",
 }));
 const namen = [
   "PM_MEDITERRANEAN", "INTERN_BURNED", "TKB_IMAGEFILM", "VERKEHRSHAUS_VR", "EXLIBRIS_SPOT", "XSENS_DEMO",
@@ -51,7 +52,10 @@ const projekte: Zeile[] = namen.map((n, i) => {
   }
   if (n === "VERKEHRSHAUS_VR") zellen["I9"] = { zustand: "laedt", prozent: 64 };
   if (n === "EXLIBRIS_SPOT") zellen["RND2"] = { zustand: "angehalten", grund: "Ordner-Marke .stfolder fehlt" };
-  if (n === "PM_MEDITERRANEAN") zellen["I9"] = { zustand: "aktuell", teil: true };
+  if (n === "PM_MEDITERRANEAN") {
+    zellen["I9"] = { zustand: "aktuell", teil: true, auswahl: ["03_UNREAL", "04_SHOTS/SQ010/SH0010", "04_SHOTS/SQ010/SH0020"] };
+    zellen["X79"] = { zustand: "aktuell", offline: true, auswahl: [] };
+  }
   if (n === "TEST_SYNCOMAT") zellen["I9"] = { zustand: "nicht" };
   const hier = zellen["I9"]!.zustand !== "nicht";
   return {
@@ -83,6 +87,28 @@ function Vorschau() {
   const q = new URLSearchParams(location.search);
   const abo = q.has("abo");
   const detail = q.has("detail");
+  const zelle = q.get("zelle"); // z. B. ?zelle=I9 oder ?zelle=X79
+  const baum = {
+    globalBytes: 1.84e12,
+    baum: [
+      { name: "00_PRODUKTION", pfad: "00_PRODUKTION", bytes: 2.1e9, kinder: [] },
+      { name: "01_REFERENZ", pfad: "01_REFERENZ", bytes: 48e9, kinder: [] },
+      { name: "02_ASSETS", pfad: "02_ASSETS", bytes: 310e9, kinder: [
+        { name: "Charaktere", pfad: "02_ASSETS/Charaktere", bytes: 120e9, kinder: [] },
+        { name: "Umgebung", pfad: "02_ASSETS/Umgebung", bytes: 190e9, kinder: [] },
+      ] },
+      { name: "03_UNREAL", pfad: "03_UNREAL", bytes: 420e9, kinder: [] },
+      { name: "04_SHOTS", pfad: "04_SHOTS", bytes: 980e9, kinder: [
+        { name: "SQ010", pfad: "04_SHOTS/SQ010", bytes: 410e9, kinder: [
+          { name: "SH0010", pfad: "04_SHOTS/SQ010/SH0010", bytes: 120e9, kinder: [] },
+          { name: "SH0020", pfad: "04_SHOTS/SQ010/SH0020", bytes: 140e9, kinder: [] },
+          { name: "SH0030", pfad: "04_SHOTS/SQ010/SH0030", bytes: 150e9, kinder: [] },
+        ] },
+        { name: "SQ020", pfad: "04_SHOTS/SQ020", bytes: 570e9, kinder: [] },
+      ] },
+      { name: "05_ÜBERGABE", pfad: "05_ÜBERGABE", bytes: 80e9, kinder: [] },
+    ],
+  };
   const pm = projekte.find((p) => p.name === "PM_MEDITERRANEAN")!;
   const zeile = projekte.find((p) => p.name === "TEST_SYNCOMAT")!;
   return (
@@ -102,7 +128,10 @@ function Vorschau() {
         projekte={projekte}
         plugins={plugins}
         lage={{ freiD: 412e9, abosHier: projekte.filter((p) => p.hier).length, stoerungen: 1 }}
-        gewaehlt={abo ? zeile.folderId : detail ? pm.folderId : null}
+        gewaehlt={abo ? zeile.folderId : detail || zelle ? pm.folderId : null}
+        gewaehltRechner={abo ? "I9" : zelle}
+        onZelle={() => {}}
+        offeneWuensche={zelle === "X79" ? [{ id: "wu-1", ziel: "X79", folder_id: pm.folderId, name: pm.name, art: "auswahl", auswahl: ["03_UNREAL"], at: Date.now() }] : []}
         onZeile={() => {}}
         onAbonnieren={() => {}}
         onRechner={() => {}}
@@ -112,25 +141,20 @@ function Vorschau() {
         pruefe={false}
         angeboteneOrdner={[]}
       />
-      {abo && (
-        <AboFeld
-          ep={{ url: "", api_key: "" } as never}
+      {(abo || zelle) && (
+        <AuswahlFeld
+          ep={null}
           myID="I9"
           rolle="arbeitsplatz"
-          zeile={zeile}
-          onFertig={() => {}}
+          zeile={abo ? zeile : pm}
+          spalte={spalten.find((x) => x.id === (abo ? "I9" : zelle))!}
+          offenerWunsch={zelle === "X79" ? { id: "wu-1", ziel: "X79", folder_id: pm.folderId, name: pm.name, art: "auswahl", auswahl: ["03_UNREAL", "04_SHOTS/SQ010"], at: Date.now() } : null}
+          ergebnisVomZiel={null}
+          laeuftHier={false}
+          onSenden={() => {}}
+          onZuruecknehmen={() => {}}
           onSchliessen={() => {}}
-          vorschau={{
-            ziel: "D:\\TEST_SYNCOMAT",
-            totalBytes: 2e12,
-            globalBytes: 4.3e6,
-            dateienOben: 0,
-            ordner: [
-              { name: "00_PRODUKTION", bytes: 1200 },
-              { name: "03_UNREAL", bytes: 3.3e6 },
-              { name: "04_SHOTS", bytes: 1.0e6 },
-            ],
-          }}
+          vorschauBaum={baum}
         />
       )}
       {detail && (

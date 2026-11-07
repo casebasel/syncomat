@@ -1,5 +1,21 @@
 # Roadmap
 
+> **🧩 Stand 2026-11-07 — Unterordner je Rechner (Branch `feat-ui-uebersicht`, v0.9.27).**
+> Klick auf einen Schnittpunkt Projekt × Rechner → „Alles“ oder „Benutzerdefiniert“ mit
+> Ordnerbaum. Für jeden Rechner von jedem Rechner aus. Sicherheitsregeln (live auf i9 geprüft):
+> - Verkleinern nur, wenn das NAS alles von hier hat; dann Ignore setzen, scannen, Gegenprobe
+>   (`/rest/db/file` → `ignored`), dann HIER löschen, was abgeglichen war und jetzt abgewählt ist
+>   (`src-tauri/src/auswahl.rs`). Eine neuere Datei → nichts gelöscht, alte Auswahl zurück.
+>   Geschütztes (Autosaves, `.waechter`, Rolle) bleibt immer.
+> - Vergrössern nur, wo lokal nichts liegt (sonst könnten alte lokale Dateien neuere auf dem NAS
+>   überschreiben).
+> - Andere Rechner: Wunsch über den internen Kanal (`.syncomat/wunsch/<ID>.json`), neuester je
+>   Projekt gewinnt, Ausführung am Zielrechner mit dessen Prüfungen, Ergebnis in seiner
+>   Abos-Notiz. Der NAS-Hub trägt `syncomat-intern` (empfangend, seit 07.11.), darum holen
+>   ausgeschaltete Rechner beim Start alles nach.
+> - Die geltende Auswahl steht in der `.stignore` (Quelle der Wahrheit), die Notiz meldet sie
+>   allen (`abos[].auswahl`), `status.json` ebenso.
+
 > **🧭 Stand 2026-11-02 (abends) — syncomat wird Datenagent der Datenzentrale.**
 > Massgebend: Repo `casebasel/datenzentrale`, `docs/KONZEPT.md` bis Commit c86b938 —
 > Kapitel 9, 11, 17a (E1–E35), 18. Das geht allem darunter vor.

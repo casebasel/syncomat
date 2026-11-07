@@ -146,13 +146,20 @@ export function useUpdateAll({
         }
       }
       merged[myID] = own;
-      // Wer den internen Kanal nicht teilt, hat kein (aktuelles) syncomat —
-      // z. B. der NAS-Hub mit reinem Syncthing.
+      // Ohne syncomat (oder älter als v0.9.17) ist, wer den internen Kanal
+      // nicht teilt — oder ihn zwar trägt, aber nie eine Versionsnotiz
+      // schreibt: der NAS-Hub (reines Syncthing) hält syncomat-intern nur
+      // bereit, damit ausgeschaltete Rechner beim Start alles nachholen.
+      // Jedes syncomat ab v0.9.17 schreibt seine Notiz beim Start.
       const intern = folders.find((f) => f.id === INTERN_FOLDER_ID);
       const without = new Set<DeviceID>();
       if (endpoint && intern) {
         for (const d of intern.devices) {
           if (d.deviceID === myID || cancelled) continue;
+          if (!merged[d.deviceID]) {
+            without.add(d.deviceID);
+            continue;
+          }
           try {
             const c = await getRemoteCompletion(endpoint, INTERN_FOLDER_ID, d.deviceID);
             if (c.remoteState === "notSharing") without.add(d.deviceID);

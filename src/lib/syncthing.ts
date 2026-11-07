@@ -310,6 +310,60 @@ export function sumBrowseTopLevel(tree: unknown): { name: string; bytes: number;
   return [];
 }
 
+export type BaumKnoten = { name: string; pfad: string; bytes: number; kinder: BaumKnoten[] };
+
+/** Ordnerbaum (nur Ordner) mit Grössen aus getBrowse, bis zu `tiefe` Ebenen. */
+export function baumAusBrowse(tree: unknown, tiefe = 8): BaumKnoten[] {
+  type Roh = { name: string; ordner: boolean; bytes: number; kinder: unknown };
+  const eintraege = (node: unknown): Roh[] => {
+    if (Array.isArray(node)) {
+      return node.map((e) => {
+        const o = e as Record<string, unknown>;
+        const ordner = String(o.type).includes("DIRECTORY");
+        return { name: String(o.name), ordner, bytes: ordner ? 0 : Number(o.size) || 0, kinder: o.children ?? [] };
+      });
+    }
+    if (node && typeof node === "object") {
+      return Object.entries(node as Record<string, unknown>).map(([name, v]) =>
+        Array.isArray(v) && v.length === 2 && typeof v[1] === "number"
+          ? { name, ordner: false, bytes: v[1] as number, kinder: [] }
+          : { name, ordner: true, bytes: 0, kinder: v },
+      );
+    }
+    return [];
+  };
+  const bau = (node: unknown, prefix: string, rest: number): { knoten: BaumKnoten[]; bytes: number } => {
+    let summe = 0;
+    const knoten: BaumKnoten[] = [];
+    for (const e of eintraege(node)) {
+      if (!e.ordner) {
+        summe += e.bytes;
+        continue;
+      }
+      const pfad = prefix ? `${prefix}/${e.name}` : e.name;
+      const unten = bau(e.kinder, pfad, rest - 1);
+      summe += unten.bytes;
+      if (!e.name.startsWith(".")) knoten.push({ name: e.name, pfad, bytes: unten.bytes, kinder: rest > 1 ? unten.knoten : [] });
+    }
+    knoten.sort((a, b) => a.name.localeCompare(b.name, "de"));
+    return { knoten, bytes: summe };
+  };
+  return bau(tree, "", tiefe).knoten;
+}
+
+/** Bytes einer Auswahl im Baum (leere Auswahl = alles). */
+export function bytesDerAuswahl(baum: BaumKnoten[], auswahl: string[], gesamt: number): number {
+  if (auswahl.length === 0) return gesamt;
+  const finde = (k: BaumKnoten[], pfad: string): BaumKnoten | null => {
+    for (const n of k) {
+      if (n.pfad === pfad) return n;
+      if (pfad.startsWith(n.pfad + "/")) return finde(n.kinder, pfad);
+    }
+    return null;
+  };
+  return auswahl.reduce((a, p) => a + (finde(baum, p)?.bytes ?? 0), 0);
+}
+
 export const scanFolder = (ep: Endpoint, id: FolderID) =>
   api<void>(ep, `/rest/db/scan?folder=${encodeURIComponent(id)}`, {
     method: "POST",
@@ -389,6 +443,14 @@ export const getFolderErrors = (ep: Endpoint, folderID: FolderID) =>
     ep,
     `/rest/folder/errors?folder=${encodeURIComponent(folderID)}&perpage=200`,
   );
+
+/** Eintrag einer Datei in der Datenbank (lokal und global). */
+export type DbDatei = {
+  local?: { ignored?: boolean; invalid?: boolean; localFlags?: number; deleted?: boolean } | null;
+  global?: { deleted?: boolean; size?: number } | null;
+};
+export const getDbFile = (ep: Endpoint, folderID: FolderID, file: string) =>
+  api<DbDatei>(ep, `/rest/db/file?folder=${encodeURIComponent(folderID)}&file=${encodeURIComponent(file)}`);
 
 export const getFolderIgnores = (ep: Endpoint, folderID: FolderID) =>
   api<FolderIgnores>(ep, `/rest/db/ignores?folder=${encodeURIComponent(folderID)}`);

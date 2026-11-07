@@ -1,0 +1,412 @@
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, Loader2, X } from "lucide-react";
+import { bytesDerAuswahl, type BaumKnoten, type DeviceID, type Endpoint } from "../../lib/syncthing";
+import type { Spalte, Zeile } from "../../lib/uebersicht";
+import { istAuswahlPfad, normalisiereAuswahl, projekteWurzel, type GeraeteRolle } from "../../lib/abo";
+import {
+  aboAbbrechen,
+  aboAuswahlAendern,
+  aboBeenden,
+  aboStarten,
+  aboVorbereiten,
+  baumVonOrdner,
+  gb,
+  inhaltHolen,
+} from "../../lib/nasProjekte";
+import type { Wunsch, WunschArt, WunschErgebnis } from "../../lib/wuensche";
+
+// ── Auswahl je Projekt × Rechner ─────────────────────────────────
+//
+// Ein Klick auf einen Schnittpunkt der Übersicht: was von diesem Projekt auf
+// diesem Rechner liegt — „Alles“ oder „Benutzerdefiniert“ mit Ordnerbaum.
+// Für diesen Rechner wird direkt ausgeführt; für einen anderen Rechner geht
+// ein Wunsch über den internen Kanal, den der Rechner selbst (mit seinen
+// eigenen Prüfungen) ausführt, sobald er läuft.
+
+type Baum = { baum: BaumKnoten[]; globalBytes: number };
+
+const abgedeckt = (sel: string[], pfad: string) => sel.some((s) => pfad === s || pfad.startsWith(s + "/"));
+const teilweise = (sel: string[], pfad: string) => !abgedeckt(sel, pfad) && sel.some((s) => s.startsWith(pfad + "/"));
+
+function finde(baum: BaumKnoten[], pfad: string): BaumKnoten | null {
+  for (const n of baum) {
+    if (n.pfad === pfad) return n;
+    if (pfad.startsWith(n.pfad + "/")) return finde(n.kinder, pfad);
+  }
+  return null;
+}
+
+/** Einen Ordner an- oder abwählen. Ist ein Elternordner gewählt, wird er beim
+ * Abwählen in seine übrigen Unterordner aufgeteilt. */
+export function umschalten(sel: string[], k: BaumKnoten, baum: BaumKnoten[]): string[] {
+  if (!abgedeckt(sel, k.pfad)) {
+    return normalisiereAuswahl([...sel.filter((s) => !s.startsWith(k.pfad + "/")), k.pfad]);
+  }
+  const ahn = sel.find((s) => k.pfad === s || k.pfad.startsWith(s + "/"))!;
+  const neu = sel.filter((s) => s !== ahn);
+  let n = finde(baum, ahn);
+  while (n && n.pfad !== k.pfad) {
+    const weiter: BaumKnoten | undefined = n.kinder.find((c) => k.pfad === c.pfad || k.pfad.startsWith(c.pfad + "/"));
+    for (const c of n.kinder) if (c !== weiter) neu.push(c.pfad);
+    n = weiter ?? null;
+  }
+  return normalisiereAuswahl(neu);
+}
+
+function Knoten({
+  k,
+  sel,
+  aktiv,
+  offen,
+  onOffen,
+  onWahl,
+  tiefe,
+}: {
+  k: BaumKnoten;
+  sel: string[];
+  aktiv: boolean;
+  offen: Set<string>;
+  onOffen: (p: string) => void;
+  onWahl: (k: BaumKnoten) => void;
+  tiefe: number;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const an = abgedeckt(sel, k.pfad);
+  const halb = teilweise(sel, k.pfad);
+  const waehlbar = istAuswahlPfad(k.pfad);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = aktiv && halb;
+  }, [aktiv, halb]);
+  const auf = offen.has(k.pfad);
+  return (
+    <li>
+      <div className="flex items-center gap-1 h-8" style={{ paddingLeft: tiefe * 16 }}>
+        {k.kinder.length > 0 ? (
+          <button
+            onClick={() => onOffen(k.pfad)}
+            aria-label={auf ? `${k.name} zuklappen` : `${k.name} aufklappen`}
+            aria-expanded={auf}
+            className="size-6 shrink-0 rounded flex items-center justify-center text-[var(--sm-text2)] hover:text-[var(--sm-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+          >
+            {auf ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+          </button>
+        ) : (
+          <span className="size-6 shrink-0" />
+        )}
+        <label
+          className={`flex-1 min-w-0 flex items-center gap-2 h-8 ${aktiv && waehlbar ? "cursor-pointer" : ""}`}
+          title={waehlbar ? undefined : "Name enthält Zeichen, die sich nicht wählen lassen"}
+        >
+          <input
+            ref={ref}
+            type="checkbox"
+            disabled={!aktiv || !waehlbar}
+            checked={aktiv ? an : true}
+            onChange={() => onWahl(k)}
+            className="accent-[var(--sm-blau)] shrink-0"
+          />
+          <span className={`flex-1 min-w-0 truncate font-mono text-[12px] ${waehlbar ? "" : "text-[var(--sm-text2)] line-through"}`} dir="auto">
+            {k.name}
+          </span>
+          <span className="sm-zahl font-mono text-[11px] text-[var(--sm-text2)] shrink-0">{gb(k.bytes)}</span>
+        </label>
+      </div>
+      {auf && k.kinder.length > 0 && (
+        <ul>
+          {k.kinder.map((c) => (
+            <Knoten key={c.pfad} k={c} sel={sel} aktiv={aktiv} offen={offen} onOffen={onOffen} onWahl={onWahl} tiefe={tiefe + 1} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+export function AuswahlFeld({
+  ep,
+  myID,
+  rolle,
+  zeile,
+  spalte,
+  offenerWunsch,
+  ergebnisVomZiel,
+  laeuftHier,
+  onSenden,
+  onZuruecknehmen,
+  onSchliessen,
+  vorschauBaum,
+}: {
+  ep: Endpoint | null;
+  myID: DeviceID | null;
+  rolle: GeraeteRolle;
+  zeile: Zeile;
+  spalte: Spalte;
+  /** Gesendeter, noch nicht erledigter Wunsch für diesen Schnittpunkt. */
+  offenerWunsch: Wunsch | null;
+  /** Ergebnis, das der Zielrechner für den letzten Wunsch gemeldet hat. */
+  ergebnisVomZiel: WunschErgebnis | null;
+  /** Dieser Rechner führt gerade einen Wunsch für dieses Projekt aus. */
+  laeuftHier: boolean;
+  onSenden: (art: WunschArt, auswahl: string[]) => void;
+  onZuruecknehmen: (id: string) => void;
+  onSchliessen: () => void;
+  /** Nur für die Vorschau-Seite. */
+  vorschauBaum?: Baum;
+}) {
+  const zelle = zeile.zellen[spalte.id] ?? { zustand: "unbekannt" as const };
+  const abonniert = spalte.ich ? !!zeile.hier : zelle.zustand !== "nicht" && zelle.zustand !== "unbekannt";
+  const startAuswahl = offenerWunsch?.art === "auswahl" ? offenerWunsch.auswahl : (zelle.auswahl ?? []);
+  const [benutzer, setBenutzer] = useState(startAuswahl.length > 0);
+  const [sel, setSel] = useState<string[]>(startAuswahl);
+  const [baum, setBaum] = useState<Baum | null>(vorschauBaum ?? null);
+  const [baumFehler, setBaumFehler] = useState<string | null>(null);
+  const [offen, setOffen] = useState<Set<string>>(() => new Set(startAuswahl.flatMap((p) => p.split("/").slice(0, -1).map((_, i, t) => t.slice(0, i + 1).join("/")))));
+  const [busy, setBusy] = useState<string | null>(null);
+  const [meldung, setMeldung] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // Ordnerbaum holen: aus dem eigenen Abo, sonst nur das Inhaltsverzeichnis vom NAS.
+  useEffect(() => {
+    if (vorschauBaum || !ep || !myID) return;
+    let cancelled = false;
+    const holen = zeile.hier
+      ? baumVonOrdner(ep, zeile.folderId)
+      : zeile.angebot
+        ? inhaltHolen(ep, zeile.angebot, myID)
+        : Promise.reject(new Error("Dieser Rechner bekommt das Projekt nicht angeboten — der Ordnerbaum ist hier nicht abrufbar. „Alles“ geht trotzdem."));
+    holen
+      .then((b) => !cancelled && setBaum(b))
+      .catch((e) => !cancelled && setBaumFehler(e instanceof Error ? e.message : String(e)));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zeile.folderId, !!zeile.hier]);
+
+  const neu = benutzer ? normalisiereAuswahl(sel) : [];
+  const vorher = normalisiereAuswahl(zelle.auswahl ?? []);
+  const geaendert = !abonniert || neu.join("\n") !== vorher.join("\n") || (zelle.auswahl === undefined && abonniert);
+  const bytes = baum ? bytesDerAuswahl(baum.baum, neu, baum.globalBytes) : null;
+  const leer = benutzer && neu.length === 0;
+  const windows = !!projekteWurzel();
+
+  const ausfuehren = async (was: string, f: () => Promise<string>) => {
+    setBusy(was);
+    setMeldung(null);
+    try {
+      setMeldung({ ok: true, text: await f() });
+    } catch (e) {
+      setMeldung({ ok: false, text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const hierUebernehmen = () =>
+    ausfuehren("Übernehmen …", async () => {
+      if (!ep || !myID) throw new Error("Syncthing nicht bereit.");
+      if (zeile.hier) return aboAuswahlAendern(ep, zeile.hier, neu, rolle, myID, (t) => setBusy(t));
+      if (!zeile.angebot) throw new Error("Das NAS bietet dieses Projekt hier nicht an.");
+      const v = await aboVorbereiten(ep, zeile.angebot, myID, rolle, (t) => setBusy(t));
+      try {
+        await aboStarten(ep, zeile.angebot, v, neu, rolle);
+      } catch (e) {
+        await aboAbbrechen(ep, zeile.angebot.folderId, v.ziel);
+        throw e;
+      }
+      return "Abonniert. Die Daten kommen jetzt vom NAS.";
+    });
+  const hierBeenden = () =>
+    ausfuehren("Abo beenden …", async () => {
+      if (!ep || !myID || !zeile.hier) throw new Error("Nicht abonniert.");
+      return aboBeenden(ep, zeile.hier, myID);
+    });
+
+  const name = spalte.ich ? "diesem Rechner" : spalte.name;
+  const kannHier = spalte.ich && windows;
+  const kannFern = !spalte.ich && spalte.kannWuensche;
+
+  return (
+    <aside
+      aria-labelledby="auswahl-titel"
+      className="w-[380px] shrink-0 border-l border-[var(--sm-linie)] bg-[var(--sm-grund)] text-[var(--sm-text)] flex flex-col"
+    >
+      <header className="h-12 shrink-0 pl-0 pr-2 flex items-center gap-2.5 bg-[var(--sm-kopf)] text-[var(--sm-kopf-text)]">
+        <span aria-hidden className="self-stretch w-[3px]" style={{ background: zeile.farbe ?? "transparent" }} />
+        <h2 id="auswahl-titel" className="flex-1 min-w-0 truncate text-[15px] font-bold" dir="auto">
+          {zeile.name}
+          <span className="font-normal text-[var(--sm-kopf-text2)]"> · {spalte.ich ? "dieser Rechner" : spalte.name}</span>
+        </h2>
+        <button
+          onClick={onSchliessen}
+          aria-label="Schliessen"
+          className="size-8 rounded flex items-center justify-center text-[var(--sm-kopf-text2)] hover:text-[var(--sm-kopf-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+        >
+          <X className="size-4" />
+        </button>
+      </header>
+
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <p className="text-[13px] text-[var(--sm-text2)]">
+          {abonniert
+            ? `Was von ${zeile.name} auf ${name} liegt. Nicht Gewähltes bleibt auf dem NAS.`
+            : `${zeile.name} ist auf ${name} nicht abonniert.`}
+          {!spalte.ich && " Ausgeführt wird am Rechner selbst, mit seinen Prüfungen — ist er aus, sobald er läuft."}
+        </p>
+
+        {!spalte.ich && !spalte.kannWuensche && (
+          <p className="text-[13px] font-semibold text-[var(--sm-ocker-text)]">
+            {spalte.name} läuft mit einer älteren syncomat-Version und nimmt noch keine Auswahl von anderen Rechnern an.
+          </p>
+        )}
+        {spalte.ich && !windows && (
+          <p className="text-[13px] font-semibold text-[var(--sm-ocker-text)]">
+            Abos gibt es nur auf den Windows-Rechnern (Laufwerk D:). Von hier aus lässt sich die Auswahl der anderen Rechner festlegen.
+          </p>
+        )}
+
+        <fieldset className="space-y-1" disabled={!!busy}>
+          <legend className="text-[11px] font-bold uppercase tracking-wide text-[var(--sm-text2)] mb-1.5">Umfang</legend>
+          <label className="flex items-center gap-2.5 h-9 px-2 -mx-2 rounded hover:bg-[var(--sm-flaeche)] cursor-pointer">
+            <input type="radio" name="umfang" checked={!benutzer} onChange={() => setBenutzer(false)} className="accent-[var(--sm-blau)]" />
+            <span className="flex-1 text-[13px] font-semibold">Alles</span>
+            {baum && <span className="sm-zahl font-mono text-[12px] text-[var(--sm-text2)]">{gb(baum.globalBytes)}</span>}
+          </label>
+          <label className="flex items-center gap-2.5 h-9 px-2 -mx-2 rounded hover:bg-[var(--sm-flaeche)] cursor-pointer">
+            <input
+              type="radio"
+              name="umfang"
+              checked={benutzer}
+              onChange={() => setBenutzer(true)}
+              disabled={!baum || baum.baum.length === 0}
+              className="accent-[var(--sm-blau)]"
+            />
+            <span className="flex-1 text-[13px] font-semibold">Benutzerdefiniert</span>
+          </label>
+
+          {!baum && !baumFehler && (
+            <p className="flex items-center gap-2 text-[12px] text-[var(--sm-text2)] pl-1" role="status">
+              <Loader2 className="size-3.5 animate-spin text-[var(--sm-blau)]" />
+              Ordnerbaum vom NAS holen (es wird nichts geladen) …
+            </p>
+          )}
+          {baumFehler && <p className="text-[12px] text-[var(--sm-text2)] pl-1">{baumFehler}</p>}
+          {baum && (
+            <ul className={`mt-1 border-l border-[var(--sm-linie)] ml-1 ${benutzer ? "" : "opacity-50"}`}>
+              {baum.baum.map((k) => (
+                <Knoten
+                  key={k.pfad}
+                  k={k}
+                  sel={sel}
+                  aktiv={benutzer}
+                  offen={offen}
+                  tiefe={0}
+                  onOffen={(p) =>
+                    setOffen((o) => {
+                      const n = new Set(o);
+                      if (n.has(p)) n.delete(p);
+                      else n.add(p);
+                      return n;
+                    })
+                  }
+                  onWahl={(k) => setSel((s) => umschalten(s, k, baum.baum))}
+                />
+              ))}
+              {baum.baum.length === 0 && <li className="text-[12px] text-[var(--sm-text2)] py-1 pl-3">Keine Unterordner.</li>}
+            </ul>
+          )}
+          {benutzer && (
+            <p className="text-[11px] text-[var(--sm-text2)] pt-1">
+              Lose Dateien direkt im Projekt und in übergeordneten Ordnern kommen bei einer Auswahl nicht mit.
+            </p>
+          )}
+        </fieldset>
+
+        {offenerWunsch && (
+          <div className="rounded-md border border-[var(--sm-linie)] bg-[var(--sm-flaeche)] px-3 py-2 text-[12px] space-y-1" role="status">
+            <p>
+              <span className="font-semibold">Gesendet</span> ·{" "}
+              {offenerWunsch.art === "beenden"
+                ? "Abo beenden"
+                : offenerWunsch.auswahl.length === 0
+                  ? "Alles"
+                  : `${offenerWunsch.auswahl.length} Ordner`}{" "}
+              · {spalte.online ? `${spalte.name} führt es aus …` : `${spalte.name} ist aus und führt es beim Start aus.`}
+            </p>
+            <button onClick={() => onZuruecknehmen(offenerWunsch.id)} className="text-[var(--sm-blau)] font-semibold hover:underline">
+              Zurücknehmen
+            </button>
+          </div>
+        )}
+        {!offenerWunsch && ergebnisVomZiel && !spalte.ich && (
+          <p className={`text-[12px] ${ergebnisVomZiel.ok ? "text-[var(--sm-text2)]" : "font-semibold text-[var(--sm-ocker-text)]"}`} role="status">
+            {spalte.name}: {ergebnisVomZiel.text}
+          </p>
+        )}
+        {laeuftHier && (
+          <p className="flex items-center gap-2 text-[12px]" role="status">
+            <Loader2 className="size-3.5 animate-spin text-[var(--sm-blau)]" />
+            Ein anderer Rechner hat eine Änderung geschickt — wird gerade ausgeführt.
+          </p>
+        )}
+        {meldung && (
+          <p role={meldung.ok ? "status" : "alert"} className={`text-[13px] ${meldung.ok ? "" : "font-semibold text-[var(--sm-ocker-text)]"}`}>
+            {meldung.text}
+          </p>
+        )}
+      </div>
+
+      <footer className="shrink-0 border-t border-[var(--sm-linie)] px-4 py-3 space-y-2">
+        <p className="sm-zahl text-[12px] text-[var(--sm-text2)]">
+          {bytes != null ? (
+            <>
+              braucht <span className="font-semibold text-[var(--sm-text)]">{gb(bytes)}</span>
+            </>
+          ) : (
+            "Grösse unbekannt"
+          )}
+          {spalte.freiD != null && <> · frei auf D: {gb(spalte.freiD)}</>}
+        </p>
+        {busy && (
+          <p className="flex items-center gap-2 text-[12px]" role="status">
+            <Loader2 className="size-3.5 animate-spin text-[var(--sm-blau)]" />
+            {busy}
+          </p>
+        )}
+        <div className="flex gap-2">
+          {spalte.ich ? (
+            <button
+              onClick={() => void hierUebernehmen()}
+              disabled={!kannHier || !!busy || leer || !geaendert || laeuftHier || (!zeile.hier && !zeile.angebot)}
+              className="flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-white text-[13px] font-semibold disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
+            >
+              {zeile.hier ? "Übernehmen" : "Abonnieren"}
+            </button>
+          ) : (
+            <button
+              onClick={() => onSenden("auswahl", neu)}
+              disabled={!kannFern || leer || (!geaendert && !offenerWunsch)}
+              className="flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-white text-[13px] font-semibold disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
+            >
+              An {spalte.name} senden
+            </button>
+          )}
+          {abonniert && (
+            <button
+              onClick={() => (spalte.ich ? void hierBeenden() : onSenden("beenden", []))}
+              disabled={spalte.ich ? !zeile.hier || !!busy || laeuftHier : !kannFern}
+              className="h-8 px-3 rounded-md border border-[var(--sm-linie)] text-[13px] hover:bg-[var(--sm-flaeche)] disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+            >
+              Abo beenden
+            </button>
+          )}
+        </div>
+        {leer && <p className="text-[11px] text-[var(--sm-ocker-text)]">Mindestens einen Ordner wählen — oder „Alles“.</p>}
+        {!abonniert && bytes != null && spalte.freiD != null && bytes > spalte.freiD && (
+          <p className="text-[11px] font-semibold text-[var(--sm-ocker-text)]">
+            Passt nicht auf D: von {spalte.ich ? "diesem Rechner" : spalte.name} — weniger Ordner wählen.
+          </p>
+        )}
+      </footer>
+    </aside>
+  );
+}

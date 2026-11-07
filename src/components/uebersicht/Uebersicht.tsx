@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, KeyRound, Plus, RefreshCw, Search } from "lucide-react";
 import type { Spalte, Zeile } from "../../lib/uebersicht";
+import type { Wunsch } from "../../lib/wuensche";
 import { ZellSymbol, zellText } from "./ZellSymbol";
 
 type Filter = "alle" | "hier" | "stoerung";
@@ -16,7 +17,10 @@ export function Uebersicht({
   plugins,
   lage,
   gewaehlt,
+  gewaehltRechner,
   onZeile,
+  onZelle,
+  offeneWuensche,
   onAbonnieren,
   onRechner,
   onRechnerKoppeln,
@@ -30,7 +34,13 @@ export function Uebersicht({
   plugins: Zeile[];
   lage: { freiD: number | null; abosHier: number; stoerungen: number };
   gewaehlt: string | null;
+  /** gewählter Rechner im gewählten Projekt (Schnittpunkt) */
+  gewaehltRechner: string | null;
   onZeile: (z: Zeile) => void;
+  /** Klick auf einen Schnittpunkt Projekt × Rechner → Auswahlfeld */
+  onZelle: (z: Zeile, s: Spalte) => void;
+  /** Von hier gesendete, noch offene Wünsche (Markierung in der Zelle) */
+  offeneWuensche: Wunsch[];
   onAbonnieren: (z: Zeile) => void;
   onRechner: (id: string) => void;
   onRechnerKoppeln: () => void;
@@ -132,6 +142,8 @@ export function Uebersicht({
           const vorher = prevRef.current.get(k);
           naechste.set(k, sig);
           const gewechselt = vorher !== undefined && vorher !== sig;
+          const istZelle = istGewaehlt && gewaehltRechner === s.id;
+          const wunsch = z.art === "projekt" ? offeneWuensche.find((w) => w.ziel === s.id && w.folder_id === z.folderId) : undefined;
           return (
             <td key={`${s.id}:${sig}`} className={`p-0 text-center ${s.ich ? "bg-[var(--sm-ich)]/60" : ""} ${gewechselt ? "sm-wechsel" : ""}`}>
               <button
@@ -141,12 +153,16 @@ export function Uebersicht({
                 title={
                   abonnierbar
                     ? `${z.name} auf diesem Rechner abonnieren`
-                    : `${z.name} · ${s.name}: ${text}${s.ich || z.hier ? "" : zelle.zustand === "nicht" ? " — abonnieren am Rechner selbst" : ""}`
+                    : `${z.name} · ${s.name}: ${text}${wunsch ? " · Änderung gesendet, wartet" : ""}${z.art === "projekt" ? " — Klick: Auswahl festlegen" : ""}`
                 }
-                aria-label={`${z.name}, ${s.ich ? "dieser Rechner" : s.name}: ${abonnierbar ? "nicht abonniert, abonnieren" : text}`}
-                onClick={() => (abonnierbar ? onAbonnieren(z) : onZeile(z))}
-                className="w-full h-9 inline-flex items-center justify-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--sm-blau)]"
+                aria-label={`${z.name}, ${s.ich ? "dieser Rechner" : s.name}: ${abonnierbar ? "nicht abonniert, abonnieren" : text}${wunsch ? ", Änderung gesendet" : ""}`}
+                aria-pressed={z.art === "projekt" ? istZelle : undefined}
+                onClick={() => (abonnierbar ? onAbonnieren(z) : z.art === "projekt" ? onZelle(z, s) : onZeile(z))}
+                className={`relative w-full h-9 inline-flex items-center justify-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--sm-blau)] ${istZelle ? "ring-2 ring-inset ring-[var(--sm-blau)]" : ""}`}
               >
+                {wunsch && (
+                  <span aria-hidden className="absolute top-1.5 right-2 size-1.5 rounded-full bg-[var(--sm-blau)]" />
+                )}
                 {abonnierbar ? (
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--sm-text2)] group-hover:text-[var(--sm-blau)] [button:focus-visible_&]:text-[var(--sm-blau)]">
                     <Plus className="size-3.5" strokeWidth={2.25} />

@@ -108,13 +108,94 @@ export const NAME_RE = /^[A-Za-z0-9_-]{1,64}$/;
  * Basis vor den Negationen der Auswahl (Intermediate bleibt auch in einem
  * gewählten Unterordner ignoriert). Auswahl nie mit (?d). */
 export function composeAboIgnores(auswahl: string[], rolle: GeraeteRolle): string[] {
-  const out = [...ABO_BASIS, `// Rolle: ${rolle}`, ...ROLLEN_SCHICHT[rolle]];
-  if (auswahl.length > 0) {
-    out.push("// Auswahl dieses Rechners (lokal, reist nicht mit)", "!/.syncomat");
-    for (const a of auswahl) out.push(`!/${a}`);
-    out.push("/*");
+  return [...ABO_BASIS, `// Rolle: ${rolle}`, ...ROLLEN_SCHICHT[rolle], ...auswahlSchicht(auswahl)];
+}
+
+/** Ein Auswahl-Pfad: relativ zum Projekt, Teile mit „/“ getrennt, jeder Teil
+ * ein gültiger Name (kein „..“, kein „\“, nichts Verstecktes). */
+export const AUSWAHL_PFAD_RE = /^[\p{L}\p{N}_\- .()+&,']{1,128}(\/[\p{L}\p{N}_\- .()+&,']{1,128}){0,15}$/u;
+export function istAuswahlPfad(p: string): boolean {
+  return AUSWAHL_PFAD_RE.test(p) && !p.split("/").some((t) => t === "." || t === ".." || t.startsWith(".") || t.trim() !== t);
+}
+
+/** Wirft, wenn ein Pfad der Auswahl ungültig ist — nie still weglassen:
+ * eine dadurch LEERE Auswahl hiesse „ganzes Projekt“. */
+export function pruefeAuswahl(auswahl: string[]): void {
+  const schlecht = auswahl.map((p) => p.replace(/^\/+|\/+$/g, "")).filter((p) => !istAuswahlPfad(p));
+  if (schlecht.length > 0) {
+    throw new Error(`Ordnername nicht wählbar: „${schlecht[0]}“ (Sonderzeichen wie * ? [ ] ! # oder führender Punkt).`);
   }
+}
+
+/** Auswahl bereinigen: doppelte und in einem gewählten Ordner liegende Pfade weg. */
+export function normalisiereAuswahl(auswahl: string[]): string[] {
+  const sauber = [...new Set(auswahl.map((p) => p.replace(/^\/+|\/+$/g, "")))].filter(istAuswahlPfad).sort();
+  return sauber.filter((p) => !sauber.some((q) => q !== p && p.startsWith(q + "/")));
+}
+
+/** Lokale Auswahl-Schicht für Syncthing (erstes passendes Muster gewinnt; jedes
+ * Muster gilt auch für den Inhalt). Für „a/b/c“ entsteht:
+ *   !/a/b/c    gewählt (mit Inhalt)
+ *   /a/b/*     Geschwister in a/b aus
+ *   !/a/b      a/b selbst durchlassen
+ *   /a/*  !/a  /*
+ * Ebenen von tief nach flach. Nie mit (?d): nicht Gewähltes wird nur nicht
+ * abgeglichen, nie gelöscht. Leere Auswahl = ganzes Projekt. */
+export const AUSWAHL_KOPF = "// Auswahl dieses Rechners (lokal, reist nicht mit)";
+
+export function auswahlSchicht(auswahl: string[]): string[] {
+  const sel = normalisiereAuswahl(auswahl);
+  if (sel.length === 0) return [];
+  const out = [AUSWAHL_KOPF, "!/.syncomat"];
+  for (const p of sel) out.push(`!/${p}`);
+  const ahnen = new Set<string>();
+  for (const p of sel) {
+    const t = p.split("/");
+    for (let i = 1; i < t.length; i++) ahnen.add(t.slice(0, i).join("/"));
+  }
+  const nachTiefe = [...ahnen].sort((a, b) => b.split("/").length - a.split("/").length || a.localeCompare(b));
+  for (const a of nachTiefe) out.push(`/${a}/*`, `!/${a}`);
+  out.push("/*");
   return out;
+}
+
+/** Die Auswahl, die in einer .stignore WIRKLICH gilt — Quelle der Wahrheit
+ * beim Ändern (nicht der gemerkte Wert im Browser-Speicher).
+ * [] = ganzes Projekt; null = nicht von syncomat erzeugt, noch in Vorbereitung
+ * („*“) oder von Hand geändert → dann wird nichts geändert. */
+export function auswahlAusIgnores(lines: string[] | null | undefined): string[] | null {
+  if (!lines || lines[0] !== ABO_BASIS[0] || lines.includes("*")) return null;
+  const i = lines.indexOf(AUSWAHL_KOPF);
+  const auswahlMuster = (l: string) => !l.startsWith("//") && (l.startsWith("!") || l.startsWith("/"));
+  if (i < 0) return lines.some(auswahlMuster) ? null : [];
+  const schicht = lines.slice(i);
+  const gewaehlt = schicht
+    .filter((l) => l.startsWith("!/") && l !== "!/.syncomat")
+    .map((l) => l.slice(2))
+    .filter((p) => !schicht.includes(`/${p}/*`));
+  const sel = normalisiereAuswahl(gewaehlt);
+  if (sel.length !== gewaehlt.length) return null;
+  const nachgebaut = auswahlSchicht(sel);
+  if (nachgebaut.length !== schicht.length || nachgebaut.some((l, k) => l !== schicht[k])) return null;
+  if (lines.slice(0, i).some(auswahlMuster)) return null;
+  return sel;
+}
+
+/** Muster vor der Auswahl-Schicht: mit (?d) = Wegwerf (Caches, OS-Reste),
+ * ohne = geschützt (nur lokal, nie anfassen: Autosaves, .waechter, Rolle). */
+export function schutzRegeln(...listen: string[][]): { schutz: string[]; wegwerf: string[] } {
+  const schutz = new Set<string>();
+  const wegwerf = new Set<string>();
+  for (const lines of listen) {
+    const ende = lines.indexOf(AUSWAHL_KOPF);
+    for (const l of ende < 0 ? lines : lines.slice(0, ende)) {
+      const t = l.trim();
+      if (!t || t.startsWith("//") || t.startsWith("!") || t.startsWith("/") || t === "*") continue;
+      (t.includes("(?d)") ? wegwerf : schutz).add(t);
+    }
+  }
+  // Was irgendwo geschützt ist, ist nie Wegwerf.
+  return { schutz: [...schutz], wegwerf: [...wegwerf].filter((w) => !schutz.has(w.replace(/\(\?d\)/g, ""))) };
 }
 
 // ── Prüfung des Auftrags ─────────────────────────────────────────
@@ -139,10 +220,10 @@ export function parseAngaben(a: DzAuftrag): AboAngaben | string {
     return `Ungültige folder_id „${folderId}“ (erwartet dz-…).`;
   }
   const auswahlRaw = g.auswahl ?? [];
-  if (!Array.isArray(auswahlRaw) || !auswahlRaw.every((x) => typeof x === "string" && NAME_RE.test(x))) {
+  if (!Array.isArray(auswahlRaw) || !auswahlRaw.every((x) => typeof x === "string" && istAuswahlPfad(x))) {
     return "Ungültige Auswahl (nur Namen von Unterordnern im Projekt, ohne / oder ..).";
   }
-  const auswahl = [...new Set(auswahlRaw as string[])];
+  const auswahl = normalisiereAuswahl(auswahlRaw as string[]);
   const rolle = typeof g.rolle === "string" ? g.rolle : "projekte";
   if (rolle !== "projekte") return `Unbekannte Laufwerksrolle „${rolle}“.`;
   const bytes = typeof g.bytes_erwartet === "number" && g.bytes_erwartet >= 0 ? g.bytes_erwartet : -1;
