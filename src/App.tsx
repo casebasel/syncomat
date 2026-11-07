@@ -60,6 +60,7 @@ import { useUpdater } from "./lib/updater";
 import { useUpdateAll } from "./lib/updateAll";
 import { useInternFolder } from "./lib/internChannel";
 import { isAboFolderId, useDatenzentrale } from "./lib/datenzentrale";
+import { useAboAusfuehrung, useGeraeteRolle } from "./lib/abo";
 import {
   setFolderIgnores,
   tuneFolderForSize,
@@ -123,9 +124,13 @@ function App() {
   );
 
   const aggregate = useAggregateStatus(endpoint, ready, folders);
-  useFolderSettingsReplication(endpoint, ready, folders, myID);
+  // Abo-Ordner (dz-…) verwaltet nur die Abo-Ausführung: ihre .stignore hat eine
+  // LOKALE Auswahl-Schicht, die nie in die gemeinsame Ignore-Liste und nie über
+  // folder-defaults/net-hints/Versionsnotizen in das Projekt geschrieben wird.
+  const userFolders = useMemo(() => folders.filter((f) => !isAboFolderId(f.id)), [folders]);
+  useFolderSettingsReplication(endpoint, ready, userFolders, myID);
   // Einmalige Wartung: setLowPriority aus, (?d)-Migration, ignorePerms, weakHash.
-  useSyncMaintenance(endpoint, ready, folders);
+  useSyncMaintenance(endpoint, ready, userFolders);
   const tags = useFolderTags(folders);
   const tagsByFolderID = tags.byID;
   // Alle existierenden Tags für Autocomplete im TagEditor
@@ -272,7 +277,7 @@ function App() {
   const netHints = useNetworkHints(
     endpoint,
     ready,
-    folders,
+    userFolders,
     myID,
     connectionsByID,
     netManual.manual,
@@ -282,10 +287,22 @@ function App() {
   // Pinnt die schnellen Adressen aus der gemergten Karte (wenn aktiv); Fallback bleibt.
   usePrefer10GbE_apply(endpoint, ready, devices, prefer10.enabled, netHints);
   const datenzentrale = useDatenzentrale();
+  const geraeteRolle = useGeraeteRolle();
+  const dzGueltig =
+    !!datenzentrale.state.connection && (datenzentrale.state.check?.problems.length ?? 1) === 0;
+  const abo = useAboAusfuehrung({
+    ep: endpoint,
+    ready,
+    config: config.data ?? null,
+    myID,
+    rechner: dzGueltig ? datenzentrale.state.connection!.rechner : null,
+    auftraege: datenzentrale.state.auftraege,
+    rolle: geraeteRolle.rolle,
+  });
   const updateAll = useUpdateAll({
     endpoint,
     ready,
-    folders: internFolder ? [internFolder, ...folders] : folders,
+    folders: internFolder ? [internFolder, ...userFolders] : userFolders,
     myID,
     version,
     updateState: updater.state,
@@ -522,6 +539,8 @@ function App() {
                 onRecheckUpdates={updater.recheck}
                 onInstallUpdate={updater.installAndRestart}
                 datenzentrale={datenzentrale}
+                abo={abo}
+                geraeteRolle={geraeteRolle}
                 updateNotes={updateAll.notes}
                 updateNoChannel={updateAll.noChannel}
                 updateRequest={updateAll.request}

@@ -4,6 +4,7 @@ mod firstrun;
 mod folder_settings;
 mod folder_stats;
 mod invites;
+mod abo;
 mod datenzentrale;
 mod network_hints;
 mod reveal;
@@ -143,6 +144,9 @@ pub fn run() {
             datenzentrale::dz_credentials_load,
             datenzentrale::dz_credentials_clear,
             datenzentrale::computer_name,
+            abo::disk_info,
+            abo::path_state,
+            abo::create_abo_dir,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

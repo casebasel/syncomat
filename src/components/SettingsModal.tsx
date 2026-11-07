@@ -24,6 +24,7 @@ import type {
 import type { UpdateState } from "../lib/updater";
 import { compareVersions, type UpdateNote } from "../lib/updateAll";
 import type { DzAuftrag, useDatenzentrale } from "../lib/datenzentrale";
+import type { AboEintrag, useAboAusfuehrung, useGeraeteRolle } from "../lib/abo";
 import { classifyPath, type NetPath } from "../lib/network";
 
 type Tab = "general" | "network" | "updates" | "datenzentrale" | "notifications" | "power-user";
@@ -41,6 +42,8 @@ export function SettingsPanel({
   onRecheckUpdates,
   onInstallUpdate,
   datenzentrale,
+  abo,
+  geraeteRolle,
   updateNotes,
   updateNoChannel,
   updateRequest,
@@ -68,6 +71,8 @@ export function SettingsPanel({
   onRecheckUpdates: () => void;
   onInstallUpdate: () => void;
   datenzentrale: ReturnType<typeof useDatenzentrale>;
+  abo: ReturnType<typeof useAboAusfuehrung>;
+  geraeteRolle: ReturnType<typeof useGeraeteRolle>;
   updateNotes: Record<DeviceID, UpdateNote>;
   updateNoChannel: Set<DeviceID>;
   updateRequest: { version: string; by: DeviceID } | null;
@@ -194,7 +199,9 @@ export function SettingsPanel({
                 myID={myID}
               />
             )}
-            {tab === "datenzentrale" && <DatenzentraleTab dz={datenzentrale} />}
+            {tab === "datenzentrale" && (
+              <DatenzentraleTab dz={datenzentrale} abo={abo} geraeteRolle={geraeteRolle} />
+            )}
             {tab === "notifications" && (
               <NotificationsTab
                 enabled={notificationsEnabled}
@@ -853,7 +860,15 @@ function AllDevicesUpdate({
 }
 
 /** Verbindung zur Datenzentrale + Aufträge dieses Rechners (Release 1: nur lesen). */
-function DatenzentraleTab({ dz }: { dz: ReturnType<typeof useDatenzentrale> }) {
+function DatenzentraleTab({
+  dz,
+  abo,
+  geraeteRolle,
+}: {
+  dz: ReturnType<typeof useDatenzentrale>;
+  abo: ReturnType<typeof useAboAusfuehrung>;
+  geraeteRolle: ReturnType<typeof useGeraeteRolle>;
+}) {
   const { state } = dz;
   const [text, setText] = useState("");
   const [preview, setPreview] = useState<
@@ -979,26 +994,50 @@ function DatenzentraleTab({ dz }: { dz: ReturnType<typeof useDatenzentrale> }) {
       </section>
 
       <section>
+        <SectionHeading>Rolle dieses Rechners</SectionHeading>
+        <div className="flex gap-2">
+          {(["arbeitsplatz", "render"] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => geraeteRolle.setRolle(r)}
+              className={`text-xs px-3 py-1.5 rounded-lg border ${
+                geraeteRolle.rolle === r
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold"
+                  : "border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              }`}
+            >
+              {r === "arbeitsplatz" ? "Arbeitsplatz" : "Render-Rechner"}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+          Bestimmt, was ein Abo auf diesem Rechner auslässt: Arbeitsplatz ohne Saved/Config und
+          Saved/Concert, Render-Rechner ohne ganz Saved/. Gilt für neue Abos.
+        </p>
+      </section>
+
+      <section>
         <SectionHeading>Aufträge für diesen Rechner</SectionHeading>
         {state.auftraege.length === 0 ? (
           <p className="text-xs text-neutral-500 dark:text-neutral-400">Keine Aufträge.</p>
         ) : (
           <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-800">
             {state.auftraege.map((a) => (
-              <AuftragRow key={a.id} a={a} />
+              <AuftragRow key={a.id} a={a} lokal={abo.zustand[a.id]} />
             ))}
           </div>
         )}
         <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
-          Aufträge legt die Datenzentrale an (Seite des Speicher-Wächters). Syncomat zeigt sie
-          hier an; ausgeführt werden sie ab der nächsten Ausbaustufe.
+          Aufträge legt die Datenzentrale an (Seite des Speicher-Wächters). Syncomat führt
+          „Abonnieren“ selbst aus: Projekt nach D:\&lt;NAME&gt;, nur mit dem NAS abgeglichen, nur in
+          ein leeres Ziel, mit Platzprüfung. Abo beenden und Pausieren folgen.
         </p>
       </section>
     </div>
   );
 }
 
-function AuftragRow({ a }: { a: DzAuftrag }) {
+function AuftragRow({ a, lokal }: { a: DzAuftrag; lokal?: AboEintrag }) {
   const g = (a.angaben ?? {}) as Record<string, unknown>;
   const name = typeof g.name === "string" ? g.name : typeof g.projekt_id === "string" ? g.projekt_id : "";
   const auswahl = Array.isArray(g.auswahl) && g.auswahl.length > 0 ? (g.auswahl as string[]).join(", ") : "ganz";
@@ -1012,8 +1051,37 @@ function AuftragRow({ a }: { a: DzAuftrag }) {
           {a.art === "abonnieren" ? ` · ${auswahl}` : ""}
         </div>
         <div className="font-mono text-[10px] text-neutral-500 dark:text-neutral-500 truncate">{a.id}</div>
+        {lokal?.grund && (
+          <div
+            className={`text-[11px] mt-0.5 ${
+              lokal.zustand === "abgelehnt" || lokal.zustand === "abgebrochen"
+                ? "text-rose-600 dark:text-rose-400"
+                : "text-neutral-500 dark:text-neutral-400"
+            }`}
+          >
+            {lokal.grund}
+          </div>
+        )}
       </div>
-      <span className="shrink-0 text-neutral-500 dark:text-neutral-400">{a.zustand}</span>
+      <span
+        className={`shrink-0 ${
+          lokal?.zustand === "fertig"
+            ? "text-emerald-600 dark:text-emerald-400"
+            : lokal?.zustand === "abgelehnt" || lokal?.zustand === "abgebrochen"
+              ? "text-rose-600 dark:text-rose-400"
+              : "text-neutral-500 dark:text-neutral-400"
+        }`}
+      >
+        {lokal ? ZUSTAND_TEXT[lokal.zustand] : a.zustand}
+      </span>
     </div>
   );
 }
+
+const ZUSTAND_TEXT: Record<AboEintrag["zustand"], string> = {
+  angenommen: "angenommen",
+  laeuft: "läuft",
+  fertig: "fertig",
+  abgelehnt: "abgelehnt",
+  abgebrochen: "abgebrochen",
+};
