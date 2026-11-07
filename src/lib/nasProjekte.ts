@@ -425,7 +425,10 @@ async function auswahlAendernEinmal(
     let grund: string | null = "noch nicht geprüft";
     for (let i = 0; i < 30 && grund; i++) {
       const s = await warteBisRuhig(ep, f.id);
-      const fehler = (await getFolderErrors(ep, f.id).catch(() => null))?.errors ?? null;
+      // Syncthing meldet „keine Fehler“ als `errors: null` (live auf i9) —
+      // nur eine gescheiterte Abfrage gilt als „nicht lesbar“.
+      const antwort = await getFolderErrors(ep, f.id).catch(() => undefined);
+      const fehler = antwort === undefined ? null : (antwort.errors ?? []);
       grund =
         s.needFiles !== 0 || s.needDeletes !== 0 || s.needBytes > 0 || s.error
           ? "Hier fehlen noch Dateien vom NAS."

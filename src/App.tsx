@@ -715,6 +715,7 @@ function App() {
                   onRechner={(id) => (id === myID ? setAnsicht("einstellungen") : setPanel({ kind: "device-detail", deviceID: id }))}
                   onRechnerKoppeln={() => setPanel({ kind: "code-show" })}
                   onCodeEinloesen={() => setPanel({ kind: "code-redeem" })}
+                  onOrdnerAnlegen={() => setPanel({ kind: "create-folder" })}
                   onNeuPruefen={() => void onScan()}
                   pruefe={scanning}
                   angeboteneOrdner={visiblePending.map((pf) => ({

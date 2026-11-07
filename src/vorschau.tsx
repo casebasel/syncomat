@@ -137,6 +137,7 @@ function Vorschau() {
         onRechner={() => {}}
         onRechnerKoppeln={() => {}}
         onCodeEinloesen={() => {}}
+        onOrdnerAnlegen={() => {}}
         onNeuPruefen={() => {}}
         pruefe={false}
         angeboteneOrdner={[]}

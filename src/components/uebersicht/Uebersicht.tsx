@@ -4,7 +4,7 @@ import type { Spalte, Zeile } from "../../lib/uebersicht";
 import type { Wunsch } from "../../lib/wuensche";
 import { ZellSymbol, zellText } from "./ZellSymbol";
 
-type Filter = "alle" | "hier" | "stoerung";
+type Filter = "alle" | "hier" | "stoerung" | "plugins";
 
 const gb = (n: number | null) => (n == null ? "—" : n >= 1e12 ? `${(n / 1e12).toFixed(1)} TB` : `${Math.round(n / 1e9)} GB`);
 const rolleKurz = (r: Spalte["rolle"]) => (r === "render" ? "Render" : r ? "Arbeitsplatz" : null);
@@ -25,6 +25,7 @@ export function Uebersicht({
   onRechner,
   onRechnerKoppeln,
   onCodeEinloesen,
+  onOrdnerAnlegen,
   onNeuPruefen,
   pruefe,
   angeboteneOrdner,
@@ -45,6 +46,8 @@ export function Uebersicht({
   onRechner: (id: string) => void;
   onRechnerKoppeln: () => void;
   onCodeEinloesen: () => void;
+  /** Neuen Ordner „an alle“ anlegen (Plugins u. ä.) */
+  onOrdnerAnlegen: () => void;
   onNeuPruefen: () => void;
   pruefe: boolean;
   /** Ordner, die ein anderer Rechner anbietet (keine Projekte) — von Hand verknüpfen. */
@@ -52,7 +55,23 @@ export function Uebersicht({
 }) {
   const [filter, setFilter] = useState<Filter>("alle");
   const [suche, setSuche] = useState("");
-  const [pluginsOffen, setPluginsOffen] = useState(false);
+  const [pluginsOffen, setPluginsOffenRoh] = useState(() => {
+    try {
+      return localStorage.getItem("syncomat.uebersicht.pluginsZu") !== "1";
+    } catch {
+      return true;
+    }
+  });
+  const setPluginsOffen = (f: (o: boolean) => boolean) =>
+    setPluginsOffenRoh((o) => {
+      const n = f(o);
+      try {
+        localStorage.setItem("syncomat.uebersicht.pluginsZu", n ? "0" : "1");
+      } catch {
+        /* nur Bequemlichkeit */
+      }
+      return n;
+    });
   const sucheRef = useRef<HTMLInputElement>(null);
   const tabelleRef = useRef<HTMLTableElement>(null);
   const ich = spalten.find((s) => s.ich);
@@ -74,6 +93,7 @@ export function Uebersicht({
     if (suche && !z.name.toLowerCase().includes(suche.toLowerCase())) return false;
     if (filter === "hier") return !!z.hier;
     if (filter === "stoerung") return z.stoerung;
+    if (filter === "plugins") return z.art === "plugin";
     return true;
   };
   const sichtbar = useMemo(() => projekte.filter(passt), [projekte, filter, suche]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -210,7 +230,7 @@ export function Uebersicht({
       </header>
 
       {/* Suche, Filter, Legende */}
-      <div className="h-11 shrink-0 px-5 flex items-center gap-3 border-b border-[var(--sm-linie)] whitespace-nowrap overflow-hidden">
+      <div className="min-h-11 shrink-0 px-5 py-2 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--sm-linie)] whitespace-nowrap">
         <label className="relative flex items-center">
           <Search className="absolute left-2 size-3.5 text-[var(--sm-text2)]" aria-hidden />
           <input
@@ -219,15 +239,16 @@ export function Uebersicht({
             onChange={(e) => setSuche(e.target.value)}
             placeholder="Projekt suchen   /"
             aria-label="Projekt suchen"
-            className="w-56 h-7 pl-7 pr-2 text-[13px] rounded-md bg-[var(--sm-flaeche)] border border-[var(--sm-linie)] placeholder:text-[var(--sm-text2)] outline-none focus:border-[var(--sm-blau)] focus:ring-2 focus:ring-[var(--sm-blau)]/25"
+            className="w-40 xl:w-56 h-7 pl-7 pr-2 text-[13px] rounded-md bg-[var(--sm-flaeche)] border border-[var(--sm-linie)] placeholder:text-[var(--sm-text2)] outline-none focus:border-[var(--sm-blau)] focus:ring-2 focus:ring-[var(--sm-blau)]/25"
           />
         </label>
-        <div role="radiogroup" aria-label="Filter" className="flex h-7 rounded-md border border-[var(--sm-linie)] overflow-hidden text-[12px]">
+        <div role="radiogroup" aria-label="Filter" className="shrink-0 flex h-7 rounded-md border border-[var(--sm-linie)] overflow-hidden text-[12px]">
           {(
             [
               ["alle", "Alle"],
               ["hier", "Auf diesem Rechner"],
               ["stoerung", "Mit Störung"],
+              ["plugins", "Plugins"],
             ] as const
           ).map(([k, label]) => (
             <button
@@ -252,6 +273,34 @@ export function Uebersicht({
           <RefreshCw className={`size-3.5 ${pruefe ? "animate-spin" : ""}`} />
           Neu prüfen
         </button>
+        {/* Immer sichtbar — nicht hinter den Rechner-Spalten (bei vielen
+            Rechnern lagen die Knöpfe rechts ausserhalb, Marlon 07.11.2026). */}
+        <span className="ml-auto inline-flex items-center gap-1">
+          <button
+            onClick={onOrdnerAnlegen}
+            title="Einen Ordner (z. B. Plugins) mit allen Rechnern abgleichen"
+            className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold inline-flex items-center gap-1 hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+          >
+            <Plus className="size-3.5" strokeWidth={2.25} />
+            Ordner an alle
+          </button>
+          <button
+            onClick={onRechnerKoppeln}
+            title="Einen neuen Rechner ins Netz holen: Code anzeigen"
+            className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold text-[var(--sm-blau)] inline-flex items-center gap-1 hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+          >
+            <Plus className="size-3.5" strokeWidth={2.25} />
+            Rechner koppeln
+          </button>
+          <button
+            onClick={onCodeEinloesen}
+            title="Code eines anderen Rechners eingeben"
+            className="h-7 px-2.5 rounded-md text-[12px] font-semibold text-[var(--sm-text2)] inline-flex items-center gap-1 hover:bg-[var(--sm-flaeche)] hover:text-[var(--sm-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+          >
+            <KeyRound className="size-3.5" />
+            Code einlösen
+          </button>
+        </span>
       </div>
 
       {angeboteneOrdner.length > 0 && (
@@ -302,22 +351,7 @@ export function Uebersicht({
                   </button>
                 </th>
               ))}
-              <th scope="col" className="w-full align-bottom pb-2 pl-2 text-left">
-                <button
-                  onClick={onRechnerKoppeln}
-                  className="inline-flex items-center gap-1 h-6 px-2 rounded text-[11px] font-semibold text-[var(--sm-blau)] outline-none hover:bg-[var(--sm-flaeche)] focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
-                >
-                  <Plus className="size-3" strokeWidth={2.5} />
-                  Rechner koppeln
-                </button>
-                <button
-                  onClick={onCodeEinloesen}
-                  className="ml-1 inline-flex items-center gap-1 h-6 px-2 rounded text-[11px] font-semibold text-[var(--sm-text2)] outline-none hover:bg-[var(--sm-flaeche)] hover:text-[var(--sm-text)] focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
-                >
-                  <KeyRound className="size-3" />
-                  Code einlösen
-                </button>
-              </th>
+              <th scope="col" className="w-full" aria-hidden />
             </tr>
           </thead>
           <tbody>
@@ -329,7 +363,14 @@ export function Uebersicht({
               </tr>
             )}
             {sichtbar.map(zeileRender)}
-            {sichtbar.length === 0 && (
+            {filter === "plugins" && pluginsSichtbar.length === 0 && (
+              <tr>
+                <td colSpan={spalten.length + 2} className="px-3 py-6 text-[13px] text-[var(--sm-text2)]">
+                  Noch kein Ordner, der mit allen Rechnern abgeglichen wird. Oben „Ordner an alle“ wählt einen aus.
+                </td>
+              </tr>
+            )}
+            {sichtbar.length === 0 && filter !== "plugins" && (
               <tr>
                 <td colSpan={spalten.length + 2} className="px-3 py-6 text-[13px] text-[var(--sm-text2)]">
                   {projekte.length === 0
@@ -360,7 +401,7 @@ export function Uebersicht({
                 </th>
               </tr>
             )}
-            {pluginsOffen && pluginsSichtbar.map(zeileRender)}
+            {(pluginsOffen || filter === "plugins") && pluginsSichtbar.map(zeileRender)}
           </tbody>
         </table>
       </div>
