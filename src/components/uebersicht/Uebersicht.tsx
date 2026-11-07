@@ -232,7 +232,7 @@ export function Uebersicht({
         <h1 className="text-[16px] font-bold">Übersicht</h1>
         <p className="sm-zahl text-[14px]">
           <span className="font-semibold">{gb(lage.freiD)}</span>
-          <span className="text-[var(--sm-kopf-text2)]"> frei auf D: · </span>
+          <span className="text-[var(--sm-kopf-text2)]">{/Win/i.test(navigator.userAgent) ? " frei auf D: · " : " frei · "}</span>
           <span className="font-semibold">{lage.abosHier}</span>
           <span className="text-[var(--sm-kopf-text2)]"> {lage.abosHier === 1 ? "Abo" : "Abos"} hier</span>
           {lage.stoerungen > 0 && (
@@ -366,7 +366,7 @@ export function Uebersicht({
                       ) : s.freiD != null ? (
                         `${gb(s.freiD)} frei`
                       ) : s.ich ? (
-                        "kein D:"
+                        /Win/i.test(navigator.userAgent) ? "kein D:" : "kein Projektordner"
                       ) : (
                         "\u00a0"
                       )}

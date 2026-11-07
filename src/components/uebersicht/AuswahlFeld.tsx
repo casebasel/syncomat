@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { ChevronDown, ChevronRight, Loader2, X } from "lucide-react";
 import { bytesDerAuswahl, type BaumKnoten, type DeviceID, type Endpoint } from "../../lib/syncthing";
 import type { Spalte, Zeile } from "../../lib/uebersicht";
@@ -7,8 +8,10 @@ import {
   aboDateisystemErlaubt,
   istAuswahlPfad,
   istExfat,
+  istWindows,
   normalisiereAuswahl,
   projekteWurzel,
+  setzeProjekteWurzel,
   type GeraeteRolle,
 } from "../../lib/abo";
 import {
@@ -235,7 +238,22 @@ export function AuswahlFeld({
   const geaendert = !abonniert || neu.join("\n") !== vorher.join("\n") || (zelle.auswahl === undefined && abonniert);
   const bytes = baum ? bytesDerAuswahl(baum.baum, neu, baum.globalBytes) : null;
   const leer = benutzer && neu.length === 0;
-  const windows = !!projekteWurzel();
+  // Wo Projekte hier liegen: Windows D:\, Mac ein gewählter Ordner.
+  const [wurzel, setWurzel] = useState(projekteWurzel);
+  useEffect(() => {
+    const neu = () => setWurzel(projekteWurzel());
+    window.addEventListener("syncomat-wurzel", neu);
+    return () => window.removeEventListener("syncomat-wurzel", neu);
+  }, []);
+  const windows = !!wurzel;
+  const wurzelWaehlen = async () => {
+    try {
+      const pfad = await open({ directory: true, title: "Ordner für Projekte (statt Laufwerk D:)" });
+      if (typeof pfad === "string") setzeProjekteWurzel(pfad);
+    } catch (e) {
+      setMeldung({ ok: false, text: e instanceof Error ? e.message : String(e) });
+    }
+  };
 
   const ausfuehren = async (was: string, f: () => Promise<string>) => {
     setBusy(was);
@@ -357,10 +375,30 @@ export function AuswahlFeld({
             </button>
           </div>
         )}
-        {spalte.ich && !windows && (
-          <p className="text-[14px] font-semibold text-[var(--sm-ocker-text)]">
-            Abos gibt es nur auf den Windows-Rechnern (Laufwerk D:). Von hier aus lässt sich die Auswahl der anderen Rechner festlegen.
-          </p>
+        {spalte.ich && !istWindows() && (
+          <div className="rounded-md border border-[var(--sm-linie)] px-3 py-2 text-[13px] space-y-1.5">
+            <p className="font-semibold">Ordner für Projekte</p>
+            {wurzel ? (
+              <p>
+                Abos kommen nach <span className="font-mono break-all">{wurzel}{zeile.name}</span> — auf diesem Mac anstelle von Laufwerk D:.{" "}
+                <button onClick={() => void wurzelWaehlen()} className="text-[var(--sm-blau)] font-semibold hover:underline">
+                  ändern
+                </button>
+              </p>
+            ) : (
+              <>
+                <p className="text-[var(--sm-text2)]">
+                  Auf dem Mac gibt es kein Laufwerk D:. Wähle einmal einen Ordner (z. B. „Projekte“ im Benutzerordner oder auf einer externen SSD) — darin liegen die Projekte wie unter Windows in D:.
+                </p>
+                <button
+                  onClick={() => void wurzelWaehlen()}
+                  className="h-7 px-2.5 rounded-md bg-[var(--sm-blau)] text-white text-[13px] font-semibold"
+                >
+                  Ordner wählen …
+                </button>
+              </>
+            )}
+          </div>
         )}
 
         {(zelle.zustand === "angehalten" || zelle.konflikte || zelle.dateifehler) && (
@@ -517,7 +555,7 @@ export function AuswahlFeld({
           ) : (
             "Grösse unbekannt"
           )}
-          {spalte.freiD != null && <> · frei auf D: {gb(spalte.freiD)}</>}
+          {spalte.freiD != null && <> · frei {spalte.ich && !istWindows() ? "im Projektordner" : "auf D:"} {gb(spalte.freiD)}</>}
         </p>
         {busy && (
           <p className="flex items-center gap-2 text-[13px]" role="status">
@@ -603,7 +641,7 @@ export function AuswahlFeld({
         )}
         {!abonniert && bytes != null && spalte.freiD != null && bytes > spalte.freiD && (
           <p className="text-[12px] font-semibold text-[var(--sm-ocker-text)]">
-            Passt nicht auf D: von {spalte.ich ? "diesem Rechner" : spalte.name} — weniger Ordner wählen.
+            Passt nicht aufs Laufwerk von {spalte.ich ? "diesem Rechner" : spalte.name} — weniger Ordner wählen.
           </p>
         )}
       </footer>

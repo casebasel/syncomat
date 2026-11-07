@@ -20,6 +20,7 @@
 //! samt Inhalt), `*` als einziger Platzhalter, `(?i)` für Gross/klein egal.
 
 use serde::Serialize;
+use unicode_normalization::UnicodeNormalization;
 use std::{
     fs,
     path::{Component, Path, PathBuf},
@@ -199,7 +200,8 @@ fn dateien(wurzel: &Path) -> Result<Vec<Datei>, String> {
         let eintraege = fs::read_dir(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         for e in eintraege {
             let e = e.map_err(|e| format!("{}: {e}", dir.display()))?;
-            let name = e.file_name().to_string_lossy().into_owned();
+            // NFC wie im Syncthing-Index — macOS liefert Namen teils zerlegt (NFD).
+            let name: String = e.file_name().to_string_lossy().nfc().collect();
             if rel.is_empty() && matches!(name.as_str(), ".stfolder" | ".stversions" | ".stignore") {
                 continue;
             }
@@ -340,6 +342,8 @@ pub fn auswahl_pruefen(
 ) -> Result<AuswahlPruefung, String> {
     auswahl_gueltig(&alt)?;
     auswahl_gueltig(&neu)?;
+    let alt: Vec<String> = alt.iter().map(|p| p.nfc().collect()).collect();
+    let neu: Vec<String> = neu.iter().map(|p| p.nfc().collect()).collect();
     let w = wurzel(&root)?;
     let d = dateien(&w)?;
     Ok(pruefen_intern(&d, &alt, &neu, &Regeln::neu(&schutz, &wegwerf)?, index.as_ref(), toleranz(toleranz_ms)).0)
@@ -377,12 +381,10 @@ pub fn auswahl_entfernen(
 ) -> Result<AuswahlEntfernt, String> {
     auswahl_gueltig(&alt)?;
     auswahl_gueltig(&neu)?;
-    // macOS liefert Namen zerlegt (NFD), Syncthing vergleicht zusammengesetzt
-    // (NFC) — ohne Normalisierung könnte ein gewählter Pfad als abgewählt
-    // gelten. Abos gibt es nur auf den Windows-Rechnern (D:).
-    if cfg!(target_os = "macos") {
-        return Err("Auswahl ändern geht nur auf den Windows-Rechnern.".into());
-    }
+    // Namen kommen NFC-normalisiert aus `dateien` (macOS: NFD auf der Platte),
+    // die Auswahl ebenso — Vergleich wie bei Syncthing.
+    let alt: Vec<String> = alt.iter().map(|p| p.nfc().collect()).collect();
+    let neu: Vec<String> = neu.iter().map(|p| p.nfc().collect()).collect();
     if alt == neu {
         return Ok(AuswahlEntfernt::default());
     }
@@ -679,6 +681,25 @@ mod tests {
         assert!(r.join("09_Café/Straße/f.txt").exists());
         assert!(!r.join("05_ÜBERGABE/lose.txt").exists());
         assert!(!r.join("08_A&B, Co's").exists());
+    }
+
+    #[test]
+    fn zerlegte_namen_auf_der_platte() {
+        let t = Tmp::neu();
+        let r = t.path();
+        let nfd: String = "05_ÜBERGABE".nfd().collect();
+        for f in [".stfolder/x".to_string(), format!("{nfd}/a.txt"), "06_X/b.txt".to_string()] {
+            let p = r.join(&f);
+            fs::create_dir_all(p.parent().unwrap()).unwrap();
+            fs::write(p, b"x").unwrap();
+        }
+        let root = r.to_string_lossy().into_owned();
+        let ix = index_von(&t);
+        assert!(ix.contains_key("05_ÜBERGABE/a.txt"), "Index-Schlüssel in NFC: {:?}", ix.keys());
+        // Auswahl in NFC: die NFD-Datei auf der Platte gilt als gewählt, wird nicht gelöscht.
+        let r2 = auswahl_entfernen(root, vec![], s(&["05_ÜBERGABE"]), schutz(), wegwerf(), ix, None).unwrap();
+        assert_eq!(r2.geloescht, 1); // nur 06_X/b.txt
+        assert!(r.join(format!("{nfd}/a.txt")).exists());
     }
 
     #[test]

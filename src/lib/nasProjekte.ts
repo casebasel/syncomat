@@ -128,15 +128,15 @@ async function aboVorbereitenEinmal(
 ): Promise<AboVorbereitung> {
   if (!NAME_RE.test(p.name)) throw new Error(`Projektname „${p.name}“ ist als Ordnername ungültig.`);
   const wurzel = projekteWurzel();
-  if (!wurzel) throw new Error("Abonnieren geht nur auf den Windows-Rechnern (Laufwerk D:).");
+  if (!wurzel) throw new Error("Erst einen Ordner für Projekte wählen (auf dem Mac statt Laufwerk D:).");
   const ziel = wurzel + p.name;
   let disk: { file_system: string; total_bytes: number };
   try {
     disk = await invoke("disk_info", { path: ziel });
   } catch {
-    throw new Error("Laufwerk D: nicht gefunden.");
+    throw new Error(`Laufwerk für Projekte (${wurzel}) nicht gefunden — angeschlossen?`);
   }
-  if (!aboDateisystemErlaubt(disk.file_system)) throw new Error(`D: ist ${disk.file_system || "unbekannt"} — nötig ist NTFS oder exFAT.`);
+  if (!aboDateisystemErlaubt(disk.file_system)) throw new Error(`${wurzel} ist ${disk.file_system || "unbekannt"} — nötig ist NTFS, APFS oder exFAT.`);
   const st = await invoke<string>("path_state", { path: ziel });
   if (st !== "fehlt" && st !== "leer") throw new Error(`${ziel} gibt es schon und ist nicht leer. Bitte umbenennen oder löschen.`);
 

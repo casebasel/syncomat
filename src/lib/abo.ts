@@ -105,7 +105,7 @@ export const ROLLEN_SCHICHT: Record<GeraeteRolle, string[]> = {
 /** Dateisysteme für Abos: NTFS/APFS; exFAT erlaubt (Marlon 07.11.2026, mit
  * einmaligem Hinweis — kein Journal). FAT32 nie (4-GB-Grenze, 2-s-Zeiten). */
 export function aboDateisystemErlaubt(fs: string | null | undefined): boolean {
-  return /^(ntfs|apfs|exfat)$/i.test(fs ?? "");
+  return /^(ntfs|apfs|exfat|hfs\+?)$/i.test(fs ?? "");
 }
 export const istExfat = (fs: string | null | undefined) => /^exfat$/i.test(fs ?? "");
 /** Hinweis für exFAT (einmal zeigen, nie sperren). */
@@ -255,9 +255,35 @@ export function parseAngaben(a: DzAuftrag): AboAngaben | string {
 }
 
 /** Wurzel der Rolle „projekte“ auf diesem Rechner (E3: D:). */
+const WURZEL_LS = "syncomat.projekte.wurzel";
+export const istWindows = () => typeof navigator !== "undefined" && /Win/i.test(navigator.userAgent);
+
+/** Wo die Arbeitskopien der Projekte liegen (Rolle „projekte“): unter Windows
+ * immer `D:\`; auf dem Mac ein einmal gewählter Ordner (z. B. ~/Projekte oder
+ * eine externe SSD), der dort die Rolle von D: übernimmt (Marlon 08.11.2026).
+ * null = auf diesem Rechner (noch) keiner. Endet immer mit dem Trenner. */
 export function projekteWurzel(): string | null {
-  const win = typeof navigator !== "undefined" && /Win/i.test(navigator.userAgent);
-  return win ? "D:\\" : null;
+  if (istWindows()) return "D:\\";
+  try {
+    const w = localStorage.getItem(WURZEL_LS);
+    if (!w) return null;
+    return w.endsWith("/") ? w : w + "/";
+  } catch {
+    return null;
+  }
+}
+
+/** Projektordner auf dem Mac festlegen (null = zurücksetzen). Wirkt nur für
+ * neue Abos — bestehende bleiben, wo sie sind. */
+export function setzeProjekteWurzel(pfad: string | null): void {
+  if (istWindows()) return;
+  try {
+    if (pfad) localStorage.setItem(WURZEL_LS, pfad.replace(/\/+$/, ""));
+    else localStorage.removeItem(WURZEL_LS);
+  } catch {
+    /* ohne Speicher kein Projektordner — Abonnieren meldet das */
+  }
+  window.dispatchEvent(new Event("syncomat-wurzel"));
 }
 
 // ── Speicher ─────────────────────────────────────────────────────
@@ -375,14 +401,14 @@ export function useAboAusfuehrung({
       return ablehnen(a, "Der NAS-Hub ist mit diesem Rechner nicht gekoppelt.");
     }
     const wurzel = projekteWurzel();
-    if (!wurzel) return ablehnen(a, "Rolle „projekte“ ist auf diesem Rechner nicht eingerichtet (nur Windows: D:).");
+    if (!wurzel) return ablehnen(a, "Kein Ordner für Projekte auf diesem Rechner (Mac: in syncomat einmal wählen).");
     const ziel = wurzel + g.name;
 
     let disk: { file_system: string; total_bytes: number; available_bytes: number };
     try {
       disk = await invoke("disk_info", { path: ziel });
     } catch (e) {
-      return ablehnen(a, `Laufwerk D: nicht gefunden (${String(e)}).`);
+      return ablehnen(a, `Laufwerk für Projekte nicht gefunden (${String(e)}).`);
     }
     if (!aboDateisystemErlaubt(disk.file_system)) {
       return ablehnen(a, `D: ist ${disk.file_system || "unbekannt"}, erwartet NTFS oder exFAT.`);

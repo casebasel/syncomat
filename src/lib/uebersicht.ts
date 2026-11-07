@@ -245,10 +245,13 @@ export function useUebersicht({
     const fd = () => void freiAufD().then((v) => !cancelled && setFrei(v));
     fd();
     const id2 = setInterval(fd, 60_000);
+    // Mac: Projektordner gewählt/geändert → Platz gleich neu lesen.
+    window.addEventListener("syncomat-wurzel", fd);
     return () => {
       cancelled = true;
       clearInterval(id);
       clearInterval(id2);
+      window.removeEventListener("syncomat-wurzel", fd);
       clearInterval(id3);
       clearInterval(id4);
       clearInterval(id5);
