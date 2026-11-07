@@ -210,9 +210,12 @@ export function AuswahlFeld({
   // Ordnerbaum holen: aus dem eigenen Abo, sonst nur das Inhaltsverzeichnis vom NAS.
   useEffect(() => {
     if (vorschauBaum || !ep || !myID) return;
+    // Schon geladen (z. B. Angebot kurz weg und wieder da): nicht neu holen —
+    // sonst entsteht mit dem Neuverbinden eine Schleife (v0.9.31).
+    const quelle = zeile.hier ? "hier" : zeile.angebot ? "angebot" : null;
+    if (baum && quelle !== "hier") return;
     let cancelled = false;
-    setBaum(null);
-    setBaumFehler(null);
+    if (quelle) setBaumFehler(null);
     const holen = zeile.hier
       ? baumVonOrdner(ep, zeile.folderId)
       : zeile.angebot

@@ -55,16 +55,28 @@ export type NasProjekt = { folderId: string; name: string; anbieter: DeviceID[] 
 
 /** Angebote des NAS (und anderer Rechner) für Abo-Ordner, die hier noch nicht
  * eingerichtet sind — eine Zeile je Projekt. */
+/** Angebote, die syncomat selbst kurz „verbraucht“ hat (Ordnerbaum holen:
+ * Syncthing streicht das Angebot, sobald hier ein Ordner derselben ID
+ * angelegt wird, und zeigt es erst nach einem neuen Verbindungsaufbau
+ * wieder). Solange gemerkt, bleibt das Projekt abonnierbar — ohne Schleife. */
+const gemerkteAngebote = new Map<string, { p: NasProjekt; bis: number }>();
+const MERKEN_MS = 30 * 60_000;
+
 export function nasProjekte(pending: PendingFolder[], folders: Folder[]): NasProjekt[] {
-  const vorhanden = new Set(folders.map((f) => f.id));
-  return pending
-    .filter((p) => isAboFolderId(p.folderID) && !vorhanden.has(p.folderID))
-    .map((p) => {
-      const anbieter = Object.keys(p.offeredBy) as DeviceID[];
-      const label = Object.values(p.offeredBy)[0]?.label || p.folderID;
-      return { folderId: p.folderID, name: label, anbieter };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name, "de"));
+  const vorhanden = new Set(folders.filter((f) => !istInhaltOrdner(f)).map((f) => f.id));
+  const aus = new Map<string, NasProjekt>();
+  for (const p of pending) {
+    if (!isAboFolderId(p.folderID) || vorhanden.has(p.folderID)) continue;
+    const anbieter = Object.keys(p.offeredBy) as DeviceID[];
+    const label = Object.values(p.offeredBy)[0]?.label || p.folderID;
+    aus.set(p.folderID, { folderId: p.folderID, name: label, anbieter });
+  }
+  const jetzt = Date.now();
+  for (const [id, g] of gemerkteAngebote) {
+    if (g.bis < jetzt) gemerkteAngebote.delete(id);
+    else if (!aus.has(id) && !vorhanden.has(id)) aus.set(id, g.p);
+  }
+  return [...aus.values()].sort((a, b) => a.name.localeCompare(b.name, "de"));
 }
 
 export const gb = (n: number) =>
@@ -216,12 +228,23 @@ export const istInhaltOrdner = (f: Pick<Folder, "label">) => f.label === INHALT_
  * Auswahl für einen anderen Rechner zu bestimmen): kurz einen Ordner in den
  * App-Daten anlegen, der alles ignoriert, Inhaltsverzeichnis abwarten, Baum
  * lesen, Ordner wieder entfernen. Es werden keine Daten übertragen. */
+/** Geholte Ordnerbäume (10 min) — nicht bei jedem Öffnen neu holen. */
+const baumPuffer = new Map<string, { b: { baum: BaumKnoten[]; globalBytes: number }; at: number }>();
+const BAUM_PUFFER_MS = 10 * 60_000;
+
 export function inhaltHolen(
   ep: Endpoint,
   p: NasProjekt,
   myID: DeviceID,
 ): Promise<{ baum: BaumKnoten[]; globalBytes: number }> {
-  return mitSperre(p.folderId, () => inhaltHolenEinmal(ep, p, myID));
+  const gepuffert = baumPuffer.get(p.folderId);
+  if (gepuffert && Date.now() - gepuffert.at < BAUM_PUFFER_MS) return Promise.resolve(gepuffert.b);
+  // Angebot merken, bevor Syncthing es beim Anlegen des Ordners streicht.
+  gemerkteAngebote.set(p.folderId, { p, bis: Date.now() + MERKEN_MS });
+  return mitSperre(p.folderId, () => inhaltHolenEinmal(ep, p, myID)).then((b) => {
+    baumPuffer.set(p.folderId, { b, at: Date.now() });
+    return b;
+  });
 }
 
 async function inhaltHolenEinmal(
@@ -564,7 +587,9 @@ async function aboBeendenEinmal(ep: Endpoint, f: Folder, myID: DeviceID): Promis
     throw new Error("Noch nicht alles von hier ist auf dem NAS. Abo bleibt, bis der Abgleich fertig ist.");
   }
   await deleteFolder(ep, f.id);
-  // Das Angebot des NAS erscheint sonst erst nach dem nächsten Verbindungsaufbau wieder.
+  // Das Angebot des NAS erscheint sonst erst nach dem nächsten Verbindungsaufbau
+  // wieder — bis dahin gemerkt, damit das Projekt gleich wieder abonnierbar ist.
+  gemerkteAngebote.set(f.id, { p: { folderId: f.id, name: f.label || f.id, anbieter: andere }, bis: Date.now() + MERKEN_MS });
   await neuVerbinden(ep, andere);
   return `Abo beendet. Die Dateien liegen weiter in ${f.path} — du kannst den Ordner löschen.`;
 }

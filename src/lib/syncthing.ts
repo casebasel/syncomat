@@ -463,7 +463,14 @@ export const getDbFile = (ep: Endpoint, folderID: FolderID, file: string) =>
  * schickt es seine Ordnerliste neu — nötig, damit ein Angebot wieder als
  * „ausstehend“ erscheint, nachdem hier ein Ordner derselben ID entfernt wurde
  * (Syncthing merkt sich Angebote nur beim Verbindungsaufbau; live auf render). */
-export async function neuVerbinden(ep: Endpoint, deviceIDs: DeviceID[]): Promise<void> {
+const zuletztNeuVerbunden = new Map<DeviceID, number>();
+/** Höchstens alle 2 min je Gerät — nie eine Schleife (v0.9.31 auf render). */
+const NEU_VERBINDEN_PAUSE_MS = 120_000;
+export async function neuVerbinden(ep: Endpoint, alle: DeviceID[]): Promise<void> {
+  const jetzt = Date.now();
+  const deviceIDs = alle.filter((d) => jetzt - (zuletztNeuVerbunden.get(d) ?? 0) > NEU_VERBINDEN_PAUSE_MS);
+  if (deviceIDs.length === 0) return;
+  for (const d of deviceIDs) zuletztNeuVerbunden.set(d, jetzt);
   for (const d of deviceIDs) {
     await api<void>(ep, `/rest/system/pause?device=${encodeURIComponent(d)}`, { method: "POST" }).catch(() => {});
   }
