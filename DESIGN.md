@@ -1,159 +1,309 @@
-# Design
+---
+name: syncomat
+description: Projekte × Rechner als dichtes, ruhiges Formular. Gemeinsame Grundwerte mit der Seite des Speicher-Wächters (07.11.2026).
+colors:
+  grund: "#ffffff"
+  flaeche: "#f4f5f7"
+  linie: "#d9dce1"
+  linie-fein: "#eceef1"
+  text: "#111317"
+  text2: "#5b616b"
+  kopf: "#111317"
+  kopf-text: "#ffffff"
+  kopf-text2: "#b8bec8"
+  blau: "oklch(0.55 0.2 262)"
+  blau-flaeche: "oklch(0.95 0.03 262)"
+  ocker: "oklch(0.62 0.13 75)"
+  ocker-flaeche: "oklch(0.95 0.04 80)"
+  ocker-text: "oklch(0.5 0.11 70)"
+  rot: "oklch(0.55 0.2 27)"
+  ich: "oklch(0.97 0.012 262)"
+  grund-dunkel: "#0e0f12"
+  flaeche-dunkel: "#17191d"
+  linie-dunkel: "#2a2d33"
+  linie-fein-dunkel: "#1e2126"
+  text-dunkel: "#eceef1"
+  text2-dunkel: "#9aa1ac"
+  kopf-dunkel: "#000000"
+  kopf-text2-dunkel: "#9aa1ac"
+  blau-dunkel: "oklch(0.66 0.17 262)"
+  blau-flaeche-dunkel: "oklch(0.27 0.06 262)"
+  ocker-dunkel: "oklch(0.72 0.13 75)"
+  ocker-flaeche-dunkel: "oklch(0.28 0.05 75)"
+  ocker-text-dunkel: "oklch(0.76 0.13 75)"
+  rot-dunkel: "oklch(0.65 0.19 27)"
+  ich-dunkel: "oklch(0.2 0.02 262)"
+  projekt-00-lindgruen: "oklch(0.60 0.15 128)"
+  projekt-01-gruen: "oklch(0.58 0.15 148)"
+  projekt-02-smaragd: "oklch(0.60 0.13 165)"
+  projekt-03-tuerkis: "oklch(0.60 0.11 190)"
+  projekt-04-petrol: "oklch(0.56 0.10 210)"
+  projekt-05-stahlblau: "oklch(0.58 0.09 232)"
+  projekt-06-indigo: "oklch(0.55 0.15 280)"
+  projekt-07-violett: "oklch(0.58 0.16 300)"
+  projekt-08-purpur: "oklch(0.58 0.16 318)"
+  projekt-09-pflaume: "oklch(0.58 0.15 338)"
+  projekt-10-oliv: "oklch(0.60 0.11 108)"
+  projekt-11-moos: "oklch(0.50 0.09 140)"
+typography:
+  title:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"Segoe UI\", system-ui, sans-serif"
+    fontSize: "15px"
+    fontWeight: 700
+    letterSpacing: "-0.025em"
+  body:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"Segoe UI\", system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
+  body-strong:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"Segoe UI\", system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 600
+  control:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"Segoe UI\", system-ui, sans-serif"
+    fontSize: "12px"
+    fontWeight: 400
+  secondary:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"Segoe UI\", system-ui, sans-serif"
+    fontSize: "11px"
+    fontWeight: 400
+  label:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"Segoe UI\", system-ui, sans-serif"
+    fontSize: "11px"
+    fontWeight: 700
+    letterSpacing: "0.025em"
+  mono:
+    fontFamily: "ui-monospace, \"SF Mono\", \"SFMono-Regular\", Menlo, Consolas, monospace"
+    fontSize: "11px"
+    fontWeight: 400
+    fontFeature: "\"tnum\" 1"
+rounded:
+  sm: "0.25rem"
+  md: "0.375rem"
+  voll: "9999px"
+spacing:
+  zeile: "2.25rem"
+  kopf: "3rem"
+  werkzeug: "2.75rem"
+  bedienung: "1.75rem"
+  rand: "1.25rem"
+  feld-rand: "1rem"
+  leiste: "80px"
+  feld-breite: "360px"
+  projektkante: "3px"
+components:
+  kopfzeile:
+    backgroundColor: "{colors.kopf}"
+    textColor: "{colors.kopf-text}"
+    typography: "{typography.title}"
+    height: "{spacing.kopf}"
+    padding: "0 1.25rem"
+  button-handlung:
+    backgroundColor: "{colors.blau}"
+    textColor: "{colors.kopf-text}"
+    typography: "{typography.body-strong}"
+    rounded: "{rounded.md}"
+    height: "2rem"
+  button-neben:
+    backgroundColor: "{colors.grund}"
+    textColor: "{colors.text}"
+    typography: "{typography.control}"
+    rounded: "{rounded.md}"
+    height: "{spacing.bedienung}"
+    padding: "0 0.625rem"
+  button-neben-hover:
+    backgroundColor: "{colors.flaeche}"
+  filter-aktiv:
+    backgroundColor: "{colors.text}"
+    textColor: "{colors.grund}"
+    typography: "{typography.control}"
+    height: "{spacing.bedienung}"
+  suche:
+    backgroundColor: "{colors.flaeche}"
+    textColor: "{colors.text}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    height: "{spacing.bedienung}"
+    width: "14rem"
+  tabellenzeile:
+    backgroundColor: "{colors.grund}"
+    typography: "{typography.body-strong}"
+    height: "{spacing.zeile}"
+  tabellenzeile-gewaehlt:
+    backgroundColor: "{colors.blau-flaeche}"
+  leiste:
+    backgroundColor: "{colors.kopf}"
+    textColor: "{colors.kopf-text2}"
+    width: "{spacing.leiste}"
+  abofeld:
+    backgroundColor: "{colors.grund}"
+    textColor: "{colors.text}"
+    width: "{spacing.feld-breite}"
+---
 
-Token-System für Syncomat ab v0.2.0 (Direction C, Arc-Sidebar + Tower-Activity-Feed).
-Konsumiert via Tailwind v4 utility-classes. Was hier definiert ist, ist die *eine* Quelle für Status-Farben, Sidebar-Maße und Typo-Skala.
+# Design System: syncomat
 
-## Color tokens
+## Overview
 
-Light + Dark via `prefers-color-scheme`. Alle Farben sind über Tailwind-Defaults gemappt; eigene Custom-Werte nur wenn nötig.
+**Creative North Star: "Das ruhige Formular"**
 
-### Surface
+syncomat zeigt eine Lage, keinen Feed. Die Hauptfläche ist eine Tabelle Projekte × Rechner, dicht gesetzt wie ein Formular: Rang entsteht aus Gewicht, Linie und Grossbuchstaben, nicht aus Grösse. Eine schwarze Kopfzeile pro Bereich sagt die Lage in zwei Zahlen, darunter liegt eine weisse (bzw. fast schwarze) Fläche mit feinen Graphit-Linien. Zustände tragen sich über Formen, nicht über Farbe; Farbe ist knapp und jede Farbe hat genau eine Bedeutung.
 
-| Token | Light | Dark |
-|---|---|---|
-| `surface.base` | `bg-neutral-50` (#fafafa) | `bg-neutral-950` (#0a0a0a) |
-| `surface.elevated` | `bg-white` | `bg-neutral-900` |
-| `surface.sidebar` | `bg-neutral-100/60` | `bg-neutral-950/40` |
-| `surface.hover` | `hover:bg-neutral-100` | `hover:bg-neutral-800/60` |
-| `surface.selected` | `bg-blue-100/70` + `ring-1 ring-blue-200` | `bg-blue-950/60` + `ring-1 ring-blue-500/30` |
+Die Welt teilt ihre Grundwerte mit der Seite des Speicher-Wächters (abgestimmt 07.11.2026): dieselben Neutraltöne, dieselbe Handlungsfarbe, dieselbe Projektfarbe pro projekt.id. Hell und Dunkel folgen dem System (`prefers-color-scheme`), Bedienelemente bleiben Standard-Bedienelemente (Radio, Checkbox, Segment, Suchfeld). Abgelehnt ist das Karten-Dashboard mit Seitenleiste voller Ordner und Geräte.
 
-### Border / Divider
+Texte sind sachlich: keine Bilder, keine Analogien. Die festen Wörter sind Projekte auf dem NAS, Abonnieren, Abo beenden, Arbeitskopie, Rechner, NAS.
 
-| Token | Light | Dark |
-|---|---|---|
-| `border.default` | `border-neutral-200` | `border-neutral-800` |
-| `border.subtle` | `border-neutral-100` | `border-neutral-900` |
-| `divider` | `divide-neutral-200` | `divide-neutral-800` |
+**Key Characteristics:**
+- Tabelle als Hauptfläche, Zeilen 2.25rem hoch, nur Haarlinien als Trennung.
+- Schwarze Kopfzeile je Bereich: Titel links, zwei Zahlen rechts.
+- Zustand als Form (Punkt, Ring, Halbpunkt, Strich, leer, gestrichelter Kreis), Wort immer daneben oder als Tooltip.
+- Vier Farbbedeutungen: Blau Handlung, Ocker angehalten, Rot Datenverlust, Projektfarbe Erkennung.
+- System-Grotesk für alles, Mono mit Tabellenziffern für Grössen und Pfade.
+- Flach: keine Schatten, Tiefe nur über Kopfzeilen-Schwarz und Linien.
 
-### Text
+## Colors
 
-| Token | Light | Dark |
-|---|---|---|
-| `text.primary` | `text-neutral-900` (#171717) | `text-neutral-100` |
-| `text.secondary` | `text-neutral-500` | `text-neutral-400` |
-| `text.tertiary` | `text-neutral-400` | `text-neutral-500` |
-| `text.disabled` | `text-neutral-300` | `text-neutral-700` |
-| `text.brand` | `text-blue-700` | `text-blue-300` |
+Neutral und fast farblos; Farbe tritt nur auf, wenn sie etwas bedeutet.
 
-### Brand
+### Primary
+- **Handlungsblau** (`blau`, dunkel `blau-dunkel`): Primärknopf (Abonnieren, Akzeptieren), Textlinks und Zellen-Hover „Abonnieren“, Fokusring aller Bedienelemente, und der Ring einer Zelle, die gerade lädt (die laufende Handlung). Sonst nirgends.
+- **Handlungsfläche** (`blau-flaeche`): gewählte Tabellenzeile, Textauswahl, Anfangsfarbe des Zellwechsel-Signals.
 
-| Token | Wert |
-|---|---|
-| `brand.primary` | `bg-blue-600` (#2563eb) — App-Icon, primäre Actions |
-| `brand.primary.hover` | `bg-blue-700` |
-| `brand.text-on-primary` | `text-white` |
-| `brand.accent` | `text-blue-600 / text-blue-400` für Links und sekundäre Highlights |
+### Secondary
+- **Ocker** (`ocker`): angehalten. Als Fläche oder Form: der Strich in der Zelle, Zahl-Marke in der Leiste, Rahmen der Hinweisboxen, Ocker-Knopf mit schwarzer Schrift. Auf der schwarzen Kopfzeile auch als Schrift („1 angehalten“).
+- **Ocker-Schrift** (`ocker-text`): Ocker als Text oder Symbol auf heller Fläche, dunkler gestellt, damit 11–13 px mindestens 4.5:1 halten.
+- **Ocker-Fläche** (`ocker-flaeche`): Hintergrund der Hinweisboxen im Detail.
 
-### Status
+### Tertiary
+- **Verlustrot** (`rot`): ausschliesslich drohender oder eingetretener Datenverlust. Fehler, Offline, Konflikte und Warnungen sind nicht rot.
+- **Projektfarben** (`projekt-00` … `projekt-11`, Lindgrün bis Moos): je Projekt ein fester Ton. Index = FNV-1a 32 Bit über die UTF-8-Bytes der projekt.id, mod 12 (`src/lib/projektFarbe.ts`, identisch in der Seite des Speicher-Wächters). Alle Töne mindestens 3.3:1 gegen `#ffffff` und `#0e0f12`. Erscheint nur als 3-px-Kante.
 
-Status-Pillen + Dots haben strikt definierte Farben damit die Ampel WCAG-AA hält. Text auf Pille kontrastiert ≥4.5:1 gegen Pillen-Background.
+### Neutral
+- **Grund** (`grund`): Arbeitsfläche, Tabelle, Felder.
+- **Fläche** (`flaeche`): Hover, Suchfeld, Hinweiszeile unter der Werkzeugleiste.
+- **Linie** (`linie`): Kopf- und Bereichsgrenzen, Rahmen von Bedienelementen. **Feine Linie** (`linie-fein`): Zeilentrennung in der Tabelle.
+- **Text** (`text`) und **Zweittext** (`text2`): Inhalt und alles Sekundäre (Grössen, Spaltenköpfe, Legende).
+- **Kopf** (`kopf`, dunkel reines Schwarz) mit **Kopfschrift** (`kopf-text`) und **Kopf-Zweitschrift** (`kopf-text2`): Kopfzeilen und Leiste.
+- **Dieser Rechner** (`ich`): leichte Blau-Tönung der Spalte des eigenen Rechners (Kopf voll, Zellen 60 %).
 
-| State | Dot | Pillen-BG | Pillen-Text | Bedeutung |
-|---|---|---|---|---|
-| `synced` | `bg-emerald-500` | `bg-emerald-100 / bg-emerald-950/40` | `text-emerald-700 / text-emerald-300` | Synct + Peer online + ok |
-| `syncing` | `bg-blue-500 animate-pulse` | `bg-blue-100 / bg-blue-950/40` | `text-blue-700 / text-blue-300` | Bytes fließen |
-| `scanning` | `bg-blue-400 animate-pulse` | dito | dito | Lokaler Rescan |
-| `waiting-peer` | `bg-amber-500` | `bg-amber-100 / bg-amber-950/40` | `text-amber-700 / text-amber-300` | Peer offline |
-| `waiting-data` | `bg-amber-500 animate-pulse` | dito | dito | Peer online, Bytes ausstehend |
-| `error` | `bg-rose-500` | `bg-rose-100 / bg-rose-950/40` | `text-rose-700 / text-rose-300` | Datei-Fehler |
-| `conflicts` | `bg-amber-600` | dito | dito | Sync-Conflict-Files |
-| `paused` | `bg-neutral-400 / bg-neutral-600` | `bg-neutral-200 / bg-neutral-800` | `text-neutral-600 / text-neutral-400` | User-paused |
-| `local-only` | `bg-neutral-300 / bg-neutral-700` | `bg-neutral-100 / bg-neutral-900` | `text-neutral-500` | Keine Peers |
+### Named Rules
+**The Rot-nur-für-Verlust Rule.** Rot steht ausschliesslich für Datenverlust. Wer Rot für einen Fehler, eine Warnung oder „offline“ nimmt, entwertet das einzige Signal, das sofort gelesen werden muss.
 
-`@media (prefers-reduced-motion: reduce)` → alle `animate-pulse`-Klassen werden via Tailwind base-styles zu opacity-static.
+**The Ok-ist-farblos Rule.** „Aktuell“ hat keine Farbe: ein gefüllter Punkt in Textfarbe. Kein Grün für den Normalfall.
 
-### Tags (Hash-Palette)
+**The Eine-Handlungsfarbe Rule.** Blau heisst „hier kann oder wird gehandelt“. Ocker heisst angehalten, sonst nichts.
 
-Tags behalten 8-Farben-Pastell-Palette aus v0.1.20 (`lib/tags.ts`). Wird NUR auf Tag-Chips angewendet, NICHT auf Sidebar-Gruppen-Headings oder andere Brand-Surfaces.
-
-## Spacing
-
-| Token | Wert |
-|---|---|
-| `sidebar.width` | `w-56` (224 px) |
-| `sidebar.padding.x` | `px-1.5` (group items) / `px-3` (group headings) |
-| `inspector.padding.x` | `px-6` |
-| `inspector.section.gap` | `space-y-5` (20 px zwischen Sektionen) |
-| `activity.row.padding` | `px-3 py-2` |
-| `activity.row.gap` | `gap-3` zwischen Time / Direction / Peer / Path / Size |
-| `gutter.title-to-meta` | `mt-1` (8 px) |
-
-Sidebar ist dicht (kein extra Whitespace), Main-Bereich atmet (20 px Sektion-Gaps).
+**The Projektfarbe-nur-für-Projekte Rule.** Nur Projekte bekommen eine Farbe, immer als 3-px-Kante direkt am Namen. Plugins, eigene Ordner und offene Ordner bekommen keine.
 
 ## Typography
 
-Stack: `-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif` (Mac + Win native, kein web-font-Download).
+**Display Font:** keine; der Titel ist die grösste Stufe.
+**Body Font:** System-Grotesk (`-apple-system`, SF Pro Text, Segoe UI, system-ui)
+**Label/Mono Font:** `ui-monospace` (SF Mono, Menlo, Consolas) mit Tabellenziffern
 
-Mono: `ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace`.
+**Character:** Native Formularschrift ohne eigene Stimme. Die Skala ist eng (11 / 12 / 13 / 15 px); Unterschiede entstehen über Gewicht und Grossbuchstaben.
 
-| Token | Tailwind | Pixel | Wo |
-|---|---|---|---|
-| `text.title` | `text-lg font-bold` | 18 px / 700 | Folder-Header Name |
-| `text.section` | `text-sm font-bold` | 14 px / 700 | Sidebar Brand, Modal-Title |
-| `text.body` | `text-xs` | 12 px / 400 | Folder-Items, Status-Pillen |
-| `text.body.medium` | `text-xs font-medium` | 12 px / 500 | Sidebar Items |
-| `text.meta` | `text-[11px]` | 11 px / 400 | Aktivitäts-Zeilen, Footer |
-| `text.eyebrow` | `text-[10px] uppercase tracking-wider font-semibold` | 10 px / 600 | Sidebar Group-Headings, Inspector-Section-Headings |
-| `text.tabular` | `font-mono text-[11px] tabular-nums` | 11 px mono | Activity-Pfade, Byte-Werte |
+### Hierarchy
+- **Title** (700, 15px, leicht enger): Bereichstitel in der Kopfzeile („Übersicht“, Projektname im Detail und im Abonnieren-Feld).
+- **Body** (400, 13px): Inhalt, Sätze im Feld, Kopfzeilen-Zahlen. **Body-strong** (600, 13px): Projektnamen in der Tabelle, Optionen im Abonnieren-Feld, Primärknopf.
+- **Control** (400, 12px): Filter-Segment, Nebenknöpfe, Rechnername im Spaltenkopf (600, eigener Rechner 700).
+- **Secondary** (400–600, 11px): Grössen, Legende, Tastaturhinweis, Statusleiste, Zustandswort „angehalten“ (600, `ocker-text`).
+- **Label** (700, 11px, Grossbuchstaben, 0.025em): Spalten- und Gruppenköpfe der Tabelle („Projekt“, „Projekte auf dem NAS 20“, „Plugins“) und Feld-Legenden („Was abonnieren“). Eine angehängte Zahl bleibt in normaler Schreibung.
+- **Mono** (400, 10–12px, Tabellenziffern): Grössen (GB/TB), freier Platz pro Rechner, Pfade (`D:\…`), Prozent im Ladering, Version.
 
-**Hierarchie-Verhältnis**: 18 / 14 / 12 / 11 / 10 — Faktor 1.2–1.3 zwischen Steps. Kein Flat-Scale.
+### Named Rules
+**The Gewicht-statt-Grösse Rule.** Rang über Gewicht, Linie und Grossbuchstaben. Keine Stufe über 15 px.
 
-`text-wrap: balance` auf alle h1–h3.
+**The Ziffern-stehen-still Rule.** Jede Zahl, die sich ändert oder in einer Spalte steht, trägt Tabellenziffern (`.sm-zahl` bzw. Mono).
+
+## Layout
+
+Fensteraufbau von links nach rechts: **Leiste** (80px, schwarz; 80 statt 56 px, damit „Einstellungen“ unter dem Symbol ganz lesbar ist) mit drei Bereichen (Übersicht, Aktivität, Einstellungen unten). Dann die **Hauptfläche**: Kopfzeile (3rem), Werkzeugleiste (2.75rem: Suche 14rem, Filter-Segment Alle · Auf diesem Rechner · Mit Störung, „Neu prüfen“), Tabelle, Fusszeile mit Legende und Tastaturhinweis. Rechts klappt das **Abonnieren-Feld** bzw. das **Detail** ein (360px), mit eigener schwarzer Kopfzeile. Ganz unten die Statusleiste.
+
+Die Tabelle: erste Spalte sticky (280px) mit Projektkante, Name, Grösse; danach „Dieser Rechner“ (getönt), dann je Rechner eine Spalte (90–132px) mit Kopf aus Online-Punkt, Name, Rolle, „frei“ in Mono. Kopfzeile der Tabelle sticky. Zeilen 2.25rem, getrennt durch die feine Linie. Gruppen „Projekte auf dem NAS“ und „Plugins“ (eingeklappt) als Label-Zeilen.
+
+Rhythmus: Seitenrand 1.25rem in Kopf, Werkzeug- und Fusszeile; 1rem innen in den Feldern. Die Wurzelschrift ist 16.5px, darum sind alle rem-Werte einen Tick luftiger als im Browser-Standard; Schriftgrössen sind in px festgelegt und davon unberührt.
+
+**Tastatur:** „/“ fokussiert die Suche. Die Tabelle ist ein Roving-Tabindex: nur eine Zelle ist tabbar, Pfeiltasten wandern, Enter öffnet (Projektname: Detail; leere Zelle dieses Rechners: Abonnieren).
+
+## Elevation & Depth
+
+Völlig flach, keine Schatten. Tiefe entsteht durch drei Mittel: das Schwarz von Kopfzeile und Leiste gegen die helle Fläche, Graphit-Linien zwischen Bereichen, und Tönung (`flaeche` für Hover, `blau-flaeche` für Auswahl, `ich` für die eigene Spalte). Das eingeklappte Feld rechts liegt neben, nicht über der Tabelle; getrennt durch eine Linie.
+
+### Named Rules
+**The Linie-statt-Schatten Rule.** Grenzen sind Linien oder Schwarz, nie ein Schatten.
+
+## Shapes
+
+Kleine, leise Rundungen nur an Bedienelementen: Knöpfe, Suchfeld, Filter-Segment und Hinweisboxen 0.375rem, kleine Textknöpfe 0.25rem, Zahl-Marken voll rund. Tabelle, Kopfzeilen, Leiste und Felder sind rechtwinklig.
+
+**Zustandsformen der Abos (rund, 14px, in syncomat gebaut):**
+- aktuell: gefüllter Punkt in Textfarbe
+- lädt: Ring in Linienfarbe, Anteil live in Blau gefüllt, Prozent in Mono daneben
+- nur Unterordner: Kreis mit halber Füllung
+- angehalten: waagrechter Ocker-Strich (4px hoch)
+- nicht abonniert: leer (beim eigenen Rechner bei Hover „+ Abonnieren“ in Blau)
+- unbekannt: gestrichelter Kreis in Zweittext, 0.55 Deckkraft
+- offline: dieselbe Form mit 0.62 Deckkraft, Wort „(offline, letzter Stand)“
+
+**Zustandsformen der Ordner (eckig, Konvention der Seite des Speicher-Wächters, nicht in syncomat gebaut):** offen □, zugeordnet ■ in Projektfarbe, wird verschoben eckiger Ring mit Anteil, im Projekt ✓, gesperrt ⊘. Rund heisst Abo auf einem Rechner, eckig heisst Ordner auf dem NAS; die beiden Apps tauschen die Formen nie.
+
+**Rechner-Punkt:** online gefüllter Punkt in Textfarbe, offline leerer Ring.
+
+### Named Rules
+**The Form-trägt-Zustand Rule.** Jeder Zustand ist ohne Farbe an der Form lesbar, und das Wort steht daneben oder im Tooltip.
 
 ## Components
 
-### Sidebar
-- Width 224 px fixed
-- Vertikales Scroll wenn Inhalt überläuft
-- Border-Right gegen Main
-- Sektionen durch `border-t` getrennt:
-  1. Brand + Sync-Button (top)
-  2. Folder-Tag-Gruppen (eine Sektion pro Tag, Heading mit Disclosure-Chevron + Count)
-  3. "Ohne Tag"-Sektion (am Ende der Folder-Liste)
-  4. "+ Ordner" Button
-  5. Geräte-Sektion
-  6. "+ Gerät / Code"-Button
+### Kopfzeile
+Schwarz (`kopf`), 3rem hoch, in jedem Bereich und in jedem Feld. Titel (Title-Stufe) links, rechts genau zwei Zahlen in Kopfschrift fett mit Kopf-Zweitschrift dazwischen („412 GB frei auf D: · 12 Abos hier“); eine Störung kommt als Ocker-Zusatz dazu. Im Detail und im Abonnieren-Feld beginnt die Kopfzeile mit der 3-px-Projektkante, Symbolknöpfe (2rem) rechts in Kopf-Zweitschrift, beim Hover weiss.
 
-### FolderInspector
-- Header: Folder-Icon (40 px) · Name (18 px) · Tag-Chips · Status-Pille + Meta
-- Aktionen rechts: Pausieren · Einstellungen (Icon-Buttons)
-- Body-Sektionen (gap 20 px):
-  1. Konflikt-Banner (wenn count > 0) — amber rounded-lg, "Auflösen"-Button rechts
-  2. Activity-Feed — rounded-lg border mit divide-y rows
-  3. Konflikt-Sammelbox (wenn relevant — gleich wie 1, sekundär gerendert)
-  4. Footer-Meta: Pfad mono · Finder + Web-UI Links
+### Buttons
+- **Shape:** 0.375rem.
+- **Handlung:** Blau, weisse Schrift 13px 600, 2rem hoch. Nur für die eine Handlung eines Feldes (Abonnieren, Akzeptieren). Gesperrt 0.4 Deckkraft.
+- **Neben:** Linienrahmen, Grund, 12–13px, Hover `flaeche` (Neu prüfen, Abbrechen, Abo beenden).
+- **Angehalten-Handlung:** Ocker-Fläche mit schwarzer Schrift, nur in Ocker-Hinweisboxen.
+- **Textknopf:** Blau 11px 600 ohne Rahmen (Rechner koppeln), Hover `flaeche`.
+- **Fokus:** überall 2px Ring in Blau (innen bei Zellen und Leiste).
 
-### ActivityRow
-- Höhe ~32 px (compact)
-- Hover-Background
-- Konflikt-Zeile hat amber-50/15-Background für Tonsignal
-- Spalten: `time (w-12 mono) · direction (w-3.5) · peer (w-14 mono) · path (mono truncate flex-1) · size/action (right-aligned tabular)`
+### Chips
+- **Filter-Segment:** ein Rahmen, Segmente durch Linien getrennt, 12px; gewähltes Segment invertiert (Textfarbe als Fläche, Grund als Schrift, 600). Als Radiogruppe ausgezeichnet.
 
-### Statusbar
-- Höhe 28 px, fixed bottom
-- Links: Aktuell-Status-Text
-- Rechts: RAM · Version · "vor X s"
+### Inputs / Fields
+- **Suche:** `flaeche`, Linienrahmen, 0.375rem, 14rem breit, Lupe links, Platzhalter „Projekt suchen /“. Fokus: Rahmen Blau plus 2px Ring Blau 25 %.
+- **Radio und Checkbox:** native Elemente mit Akzent Blau, Zeilen 2.25rem bzw. 2rem, Grösse in Mono rechts.
 
-## Empty / Loading States
+### Navigation
+- **Leiste:** 80px, schwarz, Symbol (18px, Strich 1.75) über dem Wort. Aktiv: Kopfschrift fett auf 15 % Weiss; sonst Kopf-Zweitschrift. Zahl-Marke oben rechts als Ocker-Kreis mit schwarzer Ziffer (Störungen, Update).
 
-- **Empty (no folders, no peers)**: Sidebar zeigt nur Brand + drei Action-Buttons (`+ Ordner`, `Code anzeigen`, `Code einlösen`). Main zeigt 3-Step-Onboarding-Karte mit Verb-Labels.
-- **Loading (Syncthing-Boot)**: Sidebar-Skeleton (drei graue Placeholder-Bars), Main-Spinner mit Text `Sync-Dienst startet …`.
-- **No selection**: Wenn 1+ Folder existiert aber keiner selektiert, Default = ersten Folder selektieren.
-- **Selected folder ohne Peers**: Activity-Feed-Sektion ersetzt durch CTA-Karte: `Nur lokal. Lade ein zweites Gerät ein damit dieser Ordner synct.` mit `Code anzeigen`-Button.
-- **Activity-Feed leer (frischer Folder)**: Karte: `Noch keine Aktivität. Sync läuft im Hintergrund.`
+### Übersichtstabelle (Signature)
+Zeile: Projektkante 3px, Name Body-strong, optional „angehalten“ in Ocker-Schrift, Grösse Mono rechts. Zelle: Zustandsform zentriert, ganze Zelle ist ein Knopf. Hover der Zeile `flaeche`, gewählte Zeile `blau-flaeche`. Legende der Formen immer in der Fusszeile.
 
-## Motion
+**Zellwechsel-Signal:** Ändert sich der Zustand einer Zelle, startet sie in `blau-flaeche` und blendet in 200ms (cubic-bezier(0.16, 1, 0.3, 1)) auf transparent. Nicht beim ersten Laden, aus bei `prefers-reduced-motion`.
 
-- Hover/Selection-Transitions: `transition-colors duration-100 ease-out`
-- Sidebar-Tag-Group-Toggle: keine Höhen-Animation (Layout-Property), nur instant-collapse via `hidden`. Disclosure-Chevron dreht via `transition-transform`.
-- Activity-Feed: neue Zeile wird oben eingefügt mit `transition: opacity 200ms ease-out` von 0→1, nicht slide-down. Bei reduced-motion: instant.
-- Status-Dots `animate-pulse` → bei reduced-motion via Tailwind base auf `opacity-100` static.
-- Modal-Open / Close: bleibt aktuelles Backdrop-Fade.
+### Abonnieren-Feld
+360px rechts, schwarze Kopfzeile mit Projektkante. Ein Satz, wohin die Arbeitskopie kommt (Pfad in Mono). Fieldset „Was abonnieren“: Ganzes Projekt oder Nur diese Ordner (Unterordner eingerückt an einer Linie, Pfade und Grössen in Mono). Fuss: Platzbedarf („braucht … · Laufwerk D: …“) mit Tabellenziffern, Handlung „Abonnieren“ plus Neben-Knopf.
 
-## Accessibility
+### Projekt-Detail
+Schwarze Kopfzeile mit Projektkante und Symbolknöpfen. Darunter Metazeile (12px, Tabellenziffern). Hinweisboxen für angehalten in Ocker (Rahmen `ocker`, Fläche `ocker-flaeche`, Symbol `ocker-text`), neutrale Box „Abonniert vom NAS“ mit „Abo beenden“. Fuss mit Pfad in Mono.
 
-- Focus-Ring: `focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2` auf alle Buttons und Klick-fähigen Items.
-- Sidebar-Folder-Liste: `role="list"` + `role="listitem"`, Aria-Selected auf selected.
-- Activity-Feed: `role="log" aria-live="polite"` damit Screenreader neue Events ankündigen (gedrosselt durch aria-live).
-- Status-Pillen: Text-Label IMMER sichtbar, nicht nur Farbe (für Farbenblinde + Reduced-Motion).
-- Folder-Name + Pfad mit `dir="auto"` für Filename-RTL-Support (Unreal-Asset-Namen sind manchmal mixed).
+## Do's and Don'ts
+
+### Do:
+- **Do** jedem Bereich und jedem Feld eine schwarze Kopfzeile geben: Titel links, zwei Zahlen rechts.
+- **Do** Zustände über die runden Formen zeigen und das Wort daneben oder im Tooltip mitgeben.
+- **Do** Ocker als Schrift auf heller Fläche immer als `ocker-text` setzen; `ocker` nur als Fläche, Form oder auf Schwarz.
+- **Do** die Projektfarbe aus `projektFarbe(projekt.id)` nehmen und nur als 3-px-Kante direkt am Namen zeigen.
+- **Do** Grössen, Pfade und laufende Zahlen in Mono oder mit Tabellenziffern setzen.
+- **Do** die festen Wörter verwenden: Projekte auf dem NAS, Abonnieren, Abo beenden, Arbeitskopie, Rechner, NAS.
+- **Do** die Tastatur tragen lassen: „/“ Suche, Pfeile in der Tabelle, Enter öffnet.
+
+### Don't:
+- **Don't** Rot für etwas anderes als Datenverlust verwenden.
+- **Don't** den Normalfall „aktuell“ einfärben, auch nicht grün.
+- **Don't** Blau für Schmuck oder Status nehmen; Blau ist Handlung und ihr laufender Fortschritt.
+- **Don't** Plugins, eigenen Ordnern oder offenen Ordnern eine Projektfarbe geben.
+- **Don't** die runden Abo-Formen und die eckigen Ordner-Formen der Seite des Speicher-Wächters vermischen.
+- **Don't** Schatten oder Karten-Raster einführen; Grenzen sind Linien.
+- **Don't** Bilder oder Analogien in Texte schreiben.
+- **Don't** Schrift über 15 px setzen.

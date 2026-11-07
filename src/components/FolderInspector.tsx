@@ -6,6 +6,7 @@ import {
   Pause,
   Play,
   Settings,
+  X,
 } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
@@ -47,6 +48,8 @@ export function FolderInspector({
   onShowConflicts,
   onShowErrors,
   onAboBeenden,
+  farbe,
+  onSchliessen,
 }: {
   folder: Folder;
   endpoint: Endpoint | null;
@@ -62,6 +65,9 @@ export function FolderInspector({
   /** Nur bei Abo-Ordnern (dz-…): Abo auf diesem Rechner beenden. Gibt die
    * Meldung zurück oder wirft mit dem Grund. */
   onAboBeenden?: (f: Folder) => Promise<string>;
+  /** Projektkante (nur Projekte). */
+  farbe?: string | null;
+  onSchliessen?: () => void;
 }) {
   const { data: status } = useFolderStatus(endpoint, ready, folder.id);
   const { count: conflictCount } = useFolderConflicts(folder.path);
@@ -93,78 +99,69 @@ export function FolderInspector({
   });
 
   return (
-    <section className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-neutral-900">
-      {/* Header — luftiger (Native-Redesign Welle 1) */}
-      <header className="px-7 py-5 border-b border-neutral-200/70 dark:border-neutral-800/70 flex items-start gap-4">
-        <div className="size-11 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 dark:text-neutral-400 shrink-0">
-          <FolderOpen className="size-[22px]" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <h1
-              className="text-[21px] font-bold tracking-tight text-neutral-900 dark:text-neutral-100 truncate"
-              style={{ textWrap: "balance" } as React.CSSProperties}
-            >
-              {folder.label || folder.id}
-            </h1>
-            {tags.map((t) => (
-              <TagChip key={t} tag={t} size="sm" />
-            ))}
-          </div>
-          <div className="flex items-center gap-2.5 mt-2 flex-wrap">
-            <SyncStatusBadge state={state} label={statusLabel} variant="pill" size="sm" />
-            <span className="text-[13px] text-neutral-500 dark:text-neutral-400">
-              {fmtMeta(folder, status, others.length, peerOnline)}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
+    <section className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[var(--sm-grund)] text-[var(--sm-text)]">
+      {/* Kopfzeile wie AboFeld: schwarz, Projektkante, Name, Aktionen */}
+      <header className="h-12 shrink-0 pl-0 pr-1.5 flex items-center gap-2.5 bg-[var(--sm-kopf)] text-[var(--sm-kopf-text)]">
+        <span aria-hidden className="self-stretch w-[3px] shrink-0" style={{ background: farbe ?? "transparent" }} />
+        <h2 className="flex-1 min-w-0 truncate text-[15px] font-bold" dir="auto">
+          {folder.label || folder.id}
+        </h2>
+        {[
+          {
+            t: `Im ${FILE_MANAGER} öffnen`,
+            on: () => invoke("reveal_in_file_manager", { path: folder.path }).catch((e) => console.warn("reveal failed", e)),
+            i: <FolderOpen className="size-4" />,
+          },
+          { t: folder.paused ? "Fortsetzen" : "Pausieren", on: () => onPauseToggle(folder), i: folder.paused ? <Play className="size-4" /> : <Pause className="size-4" /> },
+          { t: "Ordner-Einstellungen", on: () => onShowSettings(folder), i: <Settings className="size-4" /> },
+        ].map((b) => (
           <button
-            onClick={() =>
-              invoke("reveal_in_file_manager", { path: folder.path }).catch(
-                (e) => console.warn("reveal failed", e),
-              )
-            }
-            title={`Im ${FILE_MANAGER} öffnen`}
-            className="p-1.5 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            key={b.t}
+            onClick={b.on}
+            title={b.t}
+            aria-label={b.t}
+            className="size-8 rounded flex items-center justify-center text-[var(--sm-kopf-text2)] hover:text-[var(--sm-kopf-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
           >
-            <FolderOpen className="size-4" />
+            {b.i}
           </button>
+        ))}
+        {onSchliessen && (
           <button
-            onClick={() => onPauseToggle(folder)}
-            title={folder.paused ? "Fortsetzen" : "Pausieren"}
-            className="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            onClick={onSchliessen}
+            title="Schliessen"
+            aria-label="Schliessen"
+            className="size-8 rounded flex items-center justify-center text-[var(--sm-kopf-text2)] hover:text-[var(--sm-kopf-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
           >
-            {folder.paused ? <Play className="size-4" /> : <Pause className="size-4" />}
+            <X className="size-4" />
           </button>
-          <button
-            onClick={() => onShowSettings(folder)}
-            title="Einstellungen"
-            className="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
-          >
-            <Settings className="size-4" />
-          </button>
-        </div>
+        )}
       </header>
+      <div className="shrink-0 px-4 py-2.5 border-b border-[var(--sm-linie)] flex items-center gap-2.5 flex-wrap">
+        <SyncStatusBadge state={state} label={statusLabel} variant="pill" size="sm" />
+        <span className="sm-zahl text-[12px] text-[var(--sm-text2)]">{fmtMeta(folder, status, others.length, peerOnline)}</span>
+        {tags.map((t) => (
+          <TagChip key={t} tag={t} size="sm" />
+        ))}
+      </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto px-7 py-6 space-y-7">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
         {/* Konflikt-Banner (priority) */}
         {conflictCount > 0 && (
           <button
             onClick={() => onShowConflicts(folder)}
-            className="w-full text-left rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 flex items-center gap-3 hover:bg-amber-100/60 dark:hover:bg-amber-950/40 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
+            className="w-full text-left rounded-md border border-[var(--sm-ocker)] bg-[var(--sm-ocker-flaeche)] px-3 py-2.5 flex items-center gap-3 hover:brightness-95 focus-visible:ring-2 focus-visible:ring-[var(--sm-ocker)] focus-visible:outline-none"
           >
-            <AlertOctagon className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <AlertOctagon className="size-4 text-[var(--sm-ocker-text)] shrink-0" />
             <div className="flex-1 text-xs">
-              <div className="font-semibold text-amber-900 dark:text-amber-200">
+              <div className="font-semibold text-[var(--sm-text)]">
                 {conflictCount} Sync-Konflikt{conflictCount === 1 ? "" : "e"}
               </div>
-              <div className="text-amber-700/80 dark:text-amber-300/80 mt-0.5">
+              <div className="text-[var(--sm-text2)] mt-0.5">
                 Auflösen →
               </div>
             </div>
-            <span className="text-xs font-medium px-3 py-1.5 rounded-md bg-amber-600 text-white">
+            <span className="text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--sm-ocker)] text-black">
               Auflösen
             </span>
           </button>
@@ -174,17 +171,17 @@ export function FolderInspector({
         {folderErrInfo && (
           <div
             role="alert"
-            className="rounded-lg border border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-950/30 px-3 py-2.5 flex items-start gap-3"
+            className="rounded-md border border-[var(--sm-ocker)] bg-[var(--sm-ocker-flaeche)] px-3 py-2.5 flex items-start gap-3"
           >
-            <AlertOctagon className="size-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <AlertOctagon className="size-4 text-[var(--sm-ocker-text)] shrink-0 mt-0.5" />
             <div className="flex-1 text-xs min-w-0">
-              <div className="font-semibold text-rose-900 dark:text-rose-200">
+              <div className="font-semibold text-[var(--sm-text)]">
                 {folderErrInfo.title}
               </div>
-              <div className="text-rose-700/80 dark:text-rose-300/80 mt-0.5">
+              <div className="text-[var(--sm-text2)] mt-0.5">
                 {folderErrInfo.action}
               </div>
-              <div className="font-mono text-[10px] text-rose-600/70 dark:text-rose-400/70 mt-1 break-words">
+              <div className="font-mono text-[10px] text-[var(--sm-text2)] mt-1 break-words">
                 {folderErr}
               </div>
             </div>
@@ -195,18 +192,18 @@ export function FolderInspector({
         {errorCount > 0 && (
           <button
             onClick={() => onShowErrors(folder)}
-            className="w-full text-left rounded-lg border border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-950/30 px-3 py-2.5 flex items-center gap-3 hover:bg-rose-100/60 dark:hover:bg-rose-950/40 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
+            className="w-full text-left rounded-md border border-[var(--sm-ocker)] bg-[var(--sm-ocker-flaeche)] px-3 py-2.5 flex items-center gap-3 hover:brightness-95 focus-visible:ring-2 focus-visible:ring-[var(--sm-ocker)] focus-visible:outline-none"
           >
-            <AlertOctagon className="size-4 text-rose-600 dark:text-rose-400 shrink-0" />
+            <AlertOctagon className="size-4 text-[var(--sm-ocker-text)] shrink-0" />
             <div className="flex-1 text-xs">
-              <div className="font-semibold text-rose-900 dark:text-rose-200">
+              <div className="font-semibold text-[var(--sm-text)]">
                 {errorCount} Datei-Fehler
               </div>
-              <div className="text-rose-700/80 dark:text-rose-300/80 mt-0.5">
+              <div className="text-[var(--sm-text2)] mt-0.5">
                 Details ansehen
               </div>
             </div>
-            <span className="text-xs font-medium px-3 py-1.5 rounded-md bg-rose-600 text-white">
+            <span className="text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--sm-ocker)] text-black">
               Ansehen
             </span>
           </button>
@@ -214,15 +211,15 @@ export function FolderInspector({
 
         {/* Abo vom NAS: hier beenden */}
         {istAbo && onAboBeenden && (
-          <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-2.5 flex items-start gap-3">
+          <div className="rounded-lg border border-[var(--sm-linie)] px-3 py-2.5 flex items-start gap-3">
             <div className="flex-1 text-xs">
-              <div className="font-semibold text-neutral-900 dark:text-neutral-100">Abonniert vom NAS</div>
-              <div className="text-neutral-500 dark:text-neutral-400 mt-0.5">
+              <div className="font-semibold text-[var(--sm-text)]">Abonniert vom NAS</div>
+              <div className="text-[var(--sm-text2)] mt-0.5">
                 Arbeitskopie auf diesem Rechner, abgeglichen mit dem Projekt auf dem NAS.
               </div>
               {aboMeldung && (
                 <div
-                  className={`mt-1 ${aboMeldung.ok ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
+                  className={`mt-1 ${aboMeldung.ok ? "text-[var(--sm-text)]" : "text-[var(--sm-ocker-text)]"}`}
                 >
                   {aboMeldung.text}
                 </div>
@@ -241,7 +238,7 @@ export function FolderInspector({
                   setAboBusy(false);
                 }
               }}
-              className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
+              className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-md border border-[var(--sm-linie)] hover:bg-[var(--sm-flaeche)] disabled:opacity-50"
             >
               Abo beenden
             </button>
@@ -250,19 +247,19 @@ export function FolderInspector({
 
         {/* Plugin-Ordner mit Projekt-Preset: DLLs fehlen auf den anderen Geräten */}
         {pluginHint.show && (
-          <div className="rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 flex items-center gap-3">
-            <AlertOctagon className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <div className="rounded-md border border-[var(--sm-ocker)] bg-[var(--sm-ocker-flaeche)] px-3 py-2.5 flex items-center gap-3">
+            <AlertOctagon className="size-4 text-[var(--sm-ocker-text)] shrink-0" />
             <div className="flex-1 text-xs">
-              <div className="font-semibold text-amber-900 dark:text-amber-200">
+              <div className="font-semibold text-[var(--sm-text)]">
                 {pluginHint.pluginCount} Unreal-Plugins — ihre DLLs werden nicht synct
               </div>
-              <div className="text-amber-700/80 dark:text-amber-300/80 mt-0.5">
+              <div className="text-[var(--sm-text2)] mt-0.5">
                 Der Ordner nutzt das Projekt-Preset, das Binaries ausschliesst.
                 Das Plugin-Preset synct die fertigen Plugins komplett, auf allen
                 Geräten.
               </div>
               {pluginHint.error && (
-                <div className="text-rose-600 dark:text-rose-400 mt-1 break-words">
+                <div className="text-[var(--sm-ocker-text)] mt-1 break-words">
                   {pluginHint.error}
                 </div>
               )}
@@ -270,7 +267,7 @@ export function FolderInspector({
             <button
               onClick={() => void pluginHint.apply()}
               disabled={pluginHint.busy}
-              className="text-xs font-medium px-3 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 shrink-0"
+              className="text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--sm-ocker)] text-black hover:brightness-95 disabled:opacity-50 shrink-0"
             >
               {pluginHint.busy ? "Stelle um…" : "Plugin-Preset"}
             </button>
@@ -280,10 +277,10 @@ export function FolderInspector({
         {/* Activity-Feed */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <div className="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold">
+            <div className="text-[10px] uppercase tracking-wider text-[var(--sm-text2)] font-semibold">
               Aktivität
             </div>
-            <div className="text-[10px] text-neutral-400 dark:text-neutral-500">
+            <div className="text-[10px] text-[var(--sm-text2)]">
               letzte 200 Events
             </div>
           </div>
@@ -294,7 +291,7 @@ export function FolderInspector({
         </div>
 
         {/* Footer Meta */}
-        <div className="flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-500 pt-2 border-t border-neutral-200 dark:border-neutral-800 gap-3">
+        <div className="flex items-center justify-between text-[11px] text-[var(--sm-text2)] pt-2 border-t border-[var(--sm-linie)] gap-3">
           <button
             onClick={async () => {
               try {
@@ -305,7 +302,7 @@ export function FolderInspector({
                 console.warn("clipboard write failed", e);
               }
             }}
-            className="font-mono truncate hover:text-neutral-900 dark:hover:text-neutral-100 text-left"
+            className="font-mono truncate hover:text-[var(--sm-text)] text-left"
             title="Pfad kopieren"
           >
             {copied ? "Pfad kopiert ✓" : folder.path}
@@ -315,7 +312,7 @@ export function FolderInspector({
               onClick={() => {
                 if (endpoint) openUrl(endpoint.url).catch(() => {});
               }}
-              className="inline-flex items-center gap-1 hover:text-neutral-900 dark:hover:text-neutral-100"
+              className="inline-flex items-center gap-1 hover:text-[var(--sm-text)]"
               title="Syncthing Web-UI"
             >
               Syncthing

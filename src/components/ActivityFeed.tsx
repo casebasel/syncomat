@@ -17,8 +17,8 @@ export function ActivityFeed({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-4 text-center">
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+      <div className="rounded-lg border border-[var(--sm-linie)] px-3 py-4 text-center">
+        <p className="text-xs text-[var(--sm-text2)]">
           Noch keine Aktivität in dieser Session. Sync läuft im Hintergrund.
         </p>
       </div>
@@ -30,7 +30,7 @@ export function ActivityFeed({
       role="log"
       aria-live="polite"
       aria-label="Sync-Aktivität"
-      className="rounded-lg border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-800 text-xs"
+      className="rounded-lg border border-[var(--sm-linie)] divide-y divide-[var(--sm-linie)] text-xs"
     >
       {items.map((e) => (
         <ActivityRow key={e.id} event={e} onResolveConflict={onResolveConflict} />
@@ -58,17 +58,17 @@ function ActivityRow({
     <div
       className={`px-3 py-2 flex items-center gap-3 ${isConflict ? "bg-amber-50/50 dark:bg-amber-950/15" : "hover:bg-neutral-50 dark:hover:bg-neutral-800/40"}`}
     >
-      <span className="text-[10px] text-neutral-400 dark:text-neutral-500 w-12 font-mono shrink-0">
+      <span className="text-[10px] text-[var(--sm-text2)] w-12 font-mono shrink-0">
         {fmtActivityTime(event.ts)}
       </span>
       <span className={`shrink-0 ${iconColor}`} title={directionLabel(event)}>
         <Icon className="size-3.5" />
       </span>
-      <span className="text-[10px] text-neutral-500 dark:text-neutral-500 font-mono w-16 truncate shrink-0">
+      <span className="text-[10px] text-[var(--sm-text2)] font-mono w-16 truncate shrink-0">
         {peerLabel}
       </span>
       <span
-        className="font-mono text-[11px] truncate flex-1 text-neutral-700 dark:text-neutral-200"
+        className="font-mono text-[11px] truncate flex-1 text-[var(--sm-text)]"
         dir="auto"
         title={event.path}
       >
@@ -82,7 +82,7 @@ function ActivityRow({
           Auflösen →
         </button>
       ) : (
-        <span className="text-[10px] text-neutral-400 dark:text-neutral-500 tabular-nums shrink-0">
+        <span className="text-[10px] text-[var(--sm-text2)] tabular-nums shrink-0">
           {fmtActivityBytes(event.size)}
         </span>
       )}
@@ -103,7 +103,7 @@ function directionColor(e: ActivityEvent): string {
   if (e.direction === "conflict" || e.action === "conflict")
     return "text-amber-600 dark:text-amber-400";
   if (e.direction === "up") return "text-blue-500 dark:text-blue-400";
-  if (e.direction === "local") return "text-neutral-500 dark:text-neutral-400";
+  if (e.direction === "local") return "text-[var(--sm-text2)]";
   return "text-emerald-500 dark:text-emerald-400";
 }
 

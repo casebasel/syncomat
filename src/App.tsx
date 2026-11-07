@@ -62,18 +62,20 @@ import { useInternFolder } from "./lib/internChannel";
 import { isAboFolderId, useDatenzentrale } from "./lib/datenzentrale";
 import { useAboAusfuehrung, useGeraeteRolle } from "./lib/abo";
 import { useStatusDatei } from "./lib/statusDatei";
-import { aboBeenden, abonnieren, nasProjekte as nasProjekteAus, type NasProjekt } from "./lib/nasProjekte";
+import { aboBeenden } from "./lib/nasProjekte";
 import {
   setFolderIgnores,
   tuneFolderForSize,
 } from "./lib/syncthing";
 import { LinkFolderModal, type LinkConfirmOptions } from "./components/LinkFolderModal";
 import { pickStignoreForWorkload } from "./lib/unreal";
-import { Sidebar, GLOBAL_ACTIVITY_KEY } from "./components/Sidebar";
+import { Leiste, type Ansicht } from "./components/uebersicht/Leiste";
+import { Uebersicht } from "./components/uebersicht/Uebersicht";
+import { AboFeld } from "./components/uebersicht/AboFeld";
+import { useUebersicht } from "./lib/uebersicht";
 import { FolderInspector } from "./components/FolderInspector";
 import { GlobalActivityView } from "./components/GlobalActivityView";
 import { Statusbar } from "./components/Statusbar";
-import { Settings as SettingsIcon } from "lucide-react";
 
 // Inline-Panels die den Hauptbereich (Inspector/Activity) überlagern statt als
 // Modal aufzupoppen — Native-Redesign. Ab Welle 3 gibt es KEINE Overlay-Modals
@@ -288,31 +290,6 @@ function App() {
   );
   // Pinnt die schnellen Adressen aus der gemergten Karte (wenn aktiv); Fallback bleibt.
   usePrefer10GbE_apply(endpoint, ready, devices, prefer10.enabled, netHints);
-  // Projekte, die der NAS anbietet — ein Klick in der Seitenleiste abonniert.
-  const nasProjekte = useMemo(
-    () => nasProjekteAus(pendingFolders.data ?? [], config.data?.folders ?? []),
-    [pendingFolders.data, config.data?.folders],
-  );
-  const [aboLauf, setAboLauf] = useState<Record<string, { schritt?: string; fehler?: string }>>({});
-  const onAbonnieren = async (p: NasProjekt) => {
-    if (!endpoint || !myID) return;
-    const set = (v: { schritt?: string; fehler?: string } | null) =>
-      setAboLauf((prev) => {
-        const next = { ...prev };
-        if (v) next[p.folderId] = v;
-        else delete next[p.folderId];
-        return next;
-      });
-    set({ schritt: "Prüfe Laufwerk D: …" });
-    try {
-      await abonnieren(endpoint, p, myID, geraeteRolle.rolle, (schritt) => set({ schritt }));
-      set(null);
-      setSelectedFolderId(p.folderId);
-    } catch (e) {
-      set({ fehler: e instanceof Error ? e.message : String(e) });
-    }
-  };
-
   const datenzentrale = useDatenzentrale();
   const geraeteRolle = useGeraeteRolle();
   const dzGueltig =
@@ -344,6 +321,19 @@ function App() {
     updateState: updater.state,
     recheck: updater.recheck,
     installAndRestart: updater.installAndRestart,
+  });
+  const myName = devices.find((d) => d.deviceID === myID)?.name?.trim() ?? "";
+  const uebersicht = useUebersicht({
+    ep: endpoint,
+    ready,
+    config: config.data ?? null,
+    pending: pendingFolders.data ?? [],
+    myID,
+    myName,
+    connections: connectionsByID,
+    intern: internFolder,
+    ohneSyncomat: updateAll.noChannel,
+    rolle: geraeteRolle.rolle,
   });
   useNotificationTriggers({
     enabled: notifications.enabled,
@@ -386,14 +376,16 @@ function App() {
   // EXPLIZITE Wahl (oder null/GLOBAL); der effektive Inspector-Folder fällt auf
   // den ersten Ordner zurück, wenn nichts Gültiges gewählt ist. effectiveSelectedId
   // geht an die Sidebar fürs Highlight, damit der Default-Ordner markiert bleibt.
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const showGlobalActivity = selectedFolderId === GLOBAL_ACTIVITY_KEY;
-  const selectedFolder = showGlobalActivity
-    ? null
-    : (folders.find((f) => f.id === selectedFolderId) ?? folders[0] ?? null);
-  const effectiveSelectedId = showGlobalActivity
-    ? GLOBAL_ACTIVITY_KEY
-    : (selectedFolder?.id ?? null);
+  // Hauptbereiche (Leiste links) und die gewählte Zeile der Übersicht.
+  const [ansicht, setAnsicht] = useState<Ansicht>("uebersicht");
+  const [gewaehlt, setGewaehlt] = useState<string | null>(null);
+  const setSelectedFolderId = (id: string | null) => {
+    setGewaehlt(id);
+    setAnsicht("uebersicht");
+  };
+  const gewaehlteZeile = gewaehlt
+    ? ([...uebersicht.projekte, ...uebersicht.plugins].find((z) => z.folderId === gewaehlt) ?? null)
+    : null;
   // Native-Redesign: Inline-Panel das die Inspector/Activity-Ansicht überlagert
   // (Settings, Ordner anlegen, Code anzeigen/einlösen, Folder-Settings).
   const [panel, setPanel] = useState<Panel>(null);
@@ -486,7 +478,7 @@ function App() {
   };
 
   return (
-    <main className="h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased flex flex-col overflow-hidden">
+    <main className="h-screen bg-[var(--sm-grund)] text-[var(--sm-text)] antialiased flex flex-col overflow-hidden">
       {!updateDismissed && (
         <UpdateBanner
           state={updater.state}
@@ -499,24 +491,24 @@ function App() {
       {(pendingDevices.data?.length ?? 0) > 0 &&
         panel?.kind !== "code-show" &&
         !autoAcceptActive() && (
-        <div className="border-b border-blue-300 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-950/30 shrink-0">
+        <div className="border-b border-[var(--sm-linie)] bg-[var(--sm-blau-flaeche)] shrink-0">
           {pendingDevices.data!.map((pd) => (
             <div key={pd.deviceID} className="flex items-center gap-2 px-4 py-2.5">
               <div className="min-w-0 flex-1 text-xs">
-                <div className="font-medium text-blue-900 dark:text-blue-200 truncate">
+                <div className="font-semibold text-[var(--sm-text)] truncate">
                   {pd.name || pd.deviceID.slice(0, 7)} möchte sich verbinden
                 </div>
-                <p className="text-blue-700/80 dark:text-blue-300/80 truncate">{pd.address}</p>
+                <p className="font-mono text-[var(--sm-text2)] truncate">{pd.address}</p>
               </div>
               <button
                 onClick={() => onIgnoreDevice(pd)}
-                className="text-xs px-2.5 py-1 rounded-md text-blue-900 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                className="text-xs px-2.5 py-1 rounded-md border border-[var(--sm-linie)] hover:bg-[var(--sm-flaeche)]"
               >
                 Ablehnen
               </button>
               <button
                 onClick={() => onAcceptDevice(pd)}
-                className="text-xs font-medium px-2.5 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[var(--sm-blau)] text-white hover:brightness-110"
               >
                 Akzeptieren
               </button>
@@ -531,7 +523,7 @@ function App() {
             onCreateFolder={() => setPanel({ kind: "create-folder" })}
             onShowCode={() => setPanel({ kind: "code-show" })}
             onRedeemCode={() => setPanel({ kind: "code-redeem" })}
-            onOpenSettings={() => setPanel({ kind: "settings" })}
+            onOpenSettings={() => setAnsicht("einstellungen")}
           />
         ) : isConfigLost && !panel ? (
           <RecoveryScreen
@@ -541,35 +533,17 @@ function App() {
           />
         ) : (
           <>
-            <Sidebar
-              folders={folders}
-              pending={visiblePending}
-              nasProjekte={nasProjekte}
-              aboLauf={aboLauf}
-              onAbonnieren={onAbonnieren}
-              tagsByFolderID={tagsByFolderID}
-              devices={devices}
-              connections={connectionsByID}
-              myID={myID}
-              endpoint={endpoint}
-              ready={ready}
-              selectedFolderId={effectiveSelectedId}
-              onSelectFolder={(f) => {
-                setSelectedFolderId(f.id);
+            <Leiste
+              ansicht={ansicht}
+              onAnsicht={(a) => {
                 setPanel(null);
+                setAnsicht(a);
               }}
-              onSelectPending={onLink}
-              onScan={onScan}
-              scanning={scanning}
-              onAddFolder={() => setPanel({ kind: "create-folder" })}
-              onShowCode={() => setPanel({ kind: "code-show" })}
-              onRedeemCode={() => setPanel({ kind: "code-redeem" })}
-              onSelectDevice={(d) =>
-                setPanel({ kind: "device-detail", deviceID: d.deviceID })
-              }
+              stoerungen={uebersicht.lage.stoerungen}
+              update={updater.state.kind === "available"}
             />
 
-            {panel?.kind === "settings" ? (
+            {ansicht === "einstellungen" && !(panel && panel.kind !== "settings") ? (
               <SettingsPanel
                 endpoint={endpoint}
                 status={status.data}
@@ -598,7 +572,7 @@ function App() {
                 hints={netHints}
                 manual={netManual.manual}
                 onSetManual={netManual.setManual}
-                onBack={() => setPanel(null)}
+                onBack={() => setAnsicht("uebersicht")}
               />
             ) : panel?.kind === "create-folder" ? (
               <CreateFolderModal
@@ -691,7 +665,7 @@ function App() {
                   />
                 );
               })()
-            ) : showGlobalActivity ? (
+            ) : ansicht === "aktivitaet" && !panel ? (
               <GlobalActivityView
                 folders={folders}
                 tagsByFolderID={tagsByFolderID}
@@ -699,34 +673,72 @@ function App() {
                 ready={ready}
                 onSelectFolder={(f) => setSelectedFolderId(f.id)}
               />
-            ) : selectedFolder ? (
-              <FolderInspector
-                folder={selectedFolder}
-                endpoint={endpoint}
-                ready={ready}
-                devices={devices}
-                connections={connectionsByID}
-                myID={myID}
-                tags={tagsByFolderID[selectedFolder.id] ?? []}
-                onPauseToggle={onPauseToggle}
-                onShowSettings={(f) => setPanel({ kind: "folder-settings", folder: f })}
-                onShowConflicts={(f) => setPanel({ kind: "folder-conflicts", folder: f })}
-                onShowErrors={(f) => setPanel({ kind: "folder-errors", folder: f })}
-                onAboBeenden={
-                  endpoint && myID ? (f) => aboBeenden(endpoint, f, myID) : undefined
-                }
-              />
             ) : (
-              <NoSelectionView
-                onCreateFolder={() => setPanel({ kind: "create-folder" })}
-                onShowCode={() => setPanel({ kind: "code-show" })}
-              />
+              <>
+                <Uebersicht
+                  spalten={uebersicht.spalten}
+                  projekte={uebersicht.projekte}
+                  plugins={uebersicht.plugins}
+                  lage={uebersicht.lage}
+                  gewaehlt={gewaehlt}
+                  onZeile={(z) => setGewaehlt((g) => (g === z.folderId ? null : z.folderId))}
+                  onAbonnieren={(z) => setGewaehlt(z.folderId)}
+                  onRechner={(id) => (id === myID ? setAnsicht("einstellungen") : setPanel({ kind: "device-detail", deviceID: id }))}
+                  onRechnerKoppeln={() => setPanel({ kind: "code-show" })}
+                  onCodeEinloesen={() => setPanel({ kind: "code-redeem" })}
+                  onNeuPruefen={() => void onScan()}
+                  pruefe={scanning}
+                  angeboteneOrdner={visiblePending.map((pf) => ({
+                    id: pf.folderID,
+                    name: Object.values(pf.offeredBy)[0]?.label || pf.folderID,
+                    onVerknuepfen: () => onLink(pf),
+                  }))}
+                />
+                {gewaehlteZeile?.hier ? (
+                  <aside className="w-[380px] shrink-0 border-l border-[var(--sm-linie)] flex overflow-hidden">
+                    <FolderInspector
+                      folder={gewaehlteZeile.hier}
+                      farbe={gewaehlteZeile.farbe}
+                      onSchliessen={() => setGewaehlt(null)}
+                      endpoint={endpoint}
+                      ready={ready}
+                      devices={devices}
+                      connections={connectionsByID}
+                      myID={myID}
+                      tags={tagsByFolderID[gewaehlteZeile.hier.id] ?? []}
+                      onPauseToggle={onPauseToggle}
+                      onShowSettings={(f) => setPanel({ kind: "folder-settings", folder: f })}
+                      onShowConflicts={(f) => setPanel({ kind: "folder-conflicts", folder: f })}
+                      onShowErrors={(f) => setPanel({ kind: "folder-errors", folder: f })}
+                      onAboBeenden={
+                        endpoint && myID
+                          ? async (f) => {
+                              const m = await aboBeenden(endpoint, f, myID);
+                              setGewaehlt(null);
+                              return m;
+                            }
+                          : undefined
+                      }
+                    />
+                  </aside>
+                ) : gewaehlteZeile?.angebot && endpoint && myID ? (
+                  <AboFeld
+                    key={gewaehlteZeile.folderId}
+                    ep={endpoint}
+                    myID={myID}
+                    rolle={geraeteRolle.rolle}
+                    zeile={gewaehlteZeile}
+                    onFertig={() => undefined}
+                    onSchliessen={() => setGewaehlt(null)}
+                  />
+                ) : null}
+              </>
             )}
           </>
         )}
       </div>
 
-      <div className="border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-950/40 shrink-0 flex items-stretch">
+      <div className="border-t border-[var(--sm-linie)] bg-[var(--sm-flaeche)] shrink-0 flex items-stretch">
         <div className="flex-1 px-4">
           <Statusbar
             ready={ready}
@@ -742,20 +754,6 @@ function App() {
             outBps={rate.outBps}
           />
         </div>
-        <button
-          onClick={() =>
-            setPanel((p) => (p?.kind === "settings" ? null : { kind: "settings" }))
-          }
-          title="Einstellungen"
-          aria-pressed={panel?.kind === "settings"}
-          className={`px-3 flex items-center border-l border-neutral-200 dark:border-neutral-800 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
-            panel?.kind === "settings"
-              ? "text-blue-600 dark:text-blue-400 bg-blue-500/10"
-              : "text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
-          }`}
-        >
-          <SettingsIcon className="size-3.5" />
-        </button>
       </div>
 
     </main>

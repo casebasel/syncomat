@@ -46,3 +46,7 @@ src-tauri/icons/ios/
 
 # Lokale Claude-Code-Rechte (pro Rechner) — nicht ins Repo
 .claude/settings.local.json
+
+# impeccable: Arbeits-Screenshots nicht versionieren
+.impeccable/review/
+.impeccable/mocks/

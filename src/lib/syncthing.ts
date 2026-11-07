@@ -270,6 +270,46 @@ export const getRemoteCompletion = (ep: Endpoint, id: FolderID, device: DeviceID
     `/rest/db/completion?folder=${encodeURIComponent(id)}&device=${encodeURIComponent(device)}`,
   );
 
+/** Inhaltsverzeichnis eines Ordners laut globalem Index (auch für Dateien,
+ * die lokal ignoriert sind). Syncthing 1.x liefert ein verschachteltes Objekt,
+ * 2.x eine Liste von Einträgen mit children — siehe sumBrowseTopLevel. */
+export const getBrowse = (ep: Endpoint, id: FolderID, levels = -1) =>
+  api<unknown>(ep, `/rest/db/browse?folder=${encodeURIComponent(id)}&levels=${levels}`);
+
+/** Grösse je Eintrag der obersten Ebene (Ordner und Dateien) aus getBrowse. */
+export function sumBrowseTopLevel(tree: unknown): { name: string; bytes: number; ordner: boolean }[] {
+  const sum = (node: unknown): number => {
+    if (Array.isArray(node)) {
+      // 2.x-Liste von Einträgen, oder 1.x-Datei [modTime, size]
+      if (node.length === 2 && typeof node[1] === "number" && typeof node[0] === "string") return node[1];
+      return node.reduce((a: number, e) => a + sum(e), 0);
+    }
+    if (node && typeof node === "object") {
+      const o = node as Record<string, unknown>;
+      if ("type" in o && "name" in o) {
+        const self = typeof o.size === "number" && !String(o.type).includes("DIRECTORY") ? o.size : 0;
+        return self + (o.children ? sum(o.children) : 0);
+      }
+      return Object.values(o).reduce((a: number, v) => a + sum(v), 0);
+    }
+    return 0;
+  };
+  if (Array.isArray(tree)) {
+    return tree.map((e) => {
+      const o = e as Record<string, unknown>;
+      return { name: String(o.name), bytes: sum(e), ordner: String(o.type).includes("DIRECTORY") };
+    });
+  }
+  if (tree && typeof tree === "object") {
+    return Object.entries(tree as Record<string, unknown>).map(([name, v]) => ({
+      name,
+      bytes: sum(v),
+      ordner: !Array.isArray(v),
+    }));
+  }
+  return [];
+}
+
 export const scanFolder = (ep: Endpoint, id: FolderID) =>
   api<void>(ep, `/rest/db/scan?folder=${encodeURIComponent(id)}`, {
     method: "POST",

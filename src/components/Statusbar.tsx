@@ -86,30 +86,29 @@ export function Statusbar({
 
   const leftCls =
     aggregateState === "error"
-      ? "text-rose-500 dark:text-rose-400"
-      : "text-neutral-500 dark:text-neutral-400";
+      ? "text-[var(--sm-ocker-text)] font-semibold"
+      : "text-[var(--sm-text2)]";
 
   // Index-RAM-Forecast: zeigt User die echten Kosten seiner Folder.
   // Ab 500 MB: gelb. Ab 1.5 GB: rot (Syncthing wird träge / OOM-Risiko).
   const ramMB =
     localFiles && localBytes ? estimateIndexRamMB(localFiles, localBytes) : 0;
-  let ramTone = "text-neutral-400 dark:text-neutral-500";
-  if (ramMB >= 1500) ramTone = "text-rose-500 dark:text-rose-400";
-  else if (ramMB >= 500) ramTone = "text-amber-500 dark:text-amber-400";
+  let ramTone = "text-[var(--sm-text2)]";
+  if (ramMB >= 500) ramTone = "text-[var(--sm-ocker-text)]";
 
   return (
-    <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[11px]">
+    <div className="h-7 flex items-center justify-between text-[11px] text-[var(--sm-text2)]">
       <span className={leftCls}>{left}</span>
-      <span className="text-neutral-400 dark:text-neutral-500 flex items-center gap-1.5">
+      <span className="text-[var(--sm-text2)] flex items-center gap-1.5">
         {transferActive && (
           <>
             <span
-              className="text-blue-500 dark:text-blue-400 tabular-nums font-medium"
+              className="text-[var(--sm-blau)] tabular-nums font-medium"
               title="Live-Übertragungsrate (gesamt über alle Geräte)"
             >
               ↓ {fmtSpeed(dn)} ↑ {fmtSpeed(up)}
             </span>
-            <span className="text-neutral-300 dark:text-neutral-700">·</span>
+            <span className="text-[var(--sm-linie)]">·</span>
           </>
         )}
         {ramMB > 0 && (
@@ -117,13 +116,13 @@ export function Statusbar({
             <span className={ramTone} title="Geschätzter Sync-Engine RAM-Verbrauch für den Index">
               Index ~{ramMB} MB
             </span>
-            <span className="text-neutral-300 dark:text-neutral-700">·</span>
+            <span className="text-[var(--sm-linie)]">·</span>
           </>
         )}
         {version && (
           <>
             <span className="font-mono">v{version}</span>
-            <span className="text-neutral-300 dark:text-neutral-700">·</span>
+            <span className="text-[var(--sm-linie)]">·</span>
           </>
         )}
         zuletzt: {fmtRelativeTime(lastSyncAt)}
