@@ -26,8 +26,10 @@ import {
   NAME_RE,
   RESERVE_ANTEIL,
   RESERVE_MIN,
+  aboDateisystemErlaubt,
   auswahlAusIgnores,
   composeAboIgnores,
+  zeitToleranzMs,
   schutzRegeln,
   normalisiereAuswahl,
   pruefeAuswahl,
@@ -133,7 +135,7 @@ async function aboVorbereitenEinmal(
   } catch {
     throw new Error("Laufwerk D: nicht gefunden.");
   }
-  if (!/^ntfs$/i.test(disk.file_system)) throw new Error(`D: ist ${disk.file_system || "unbekannt"} — nötig ist NTFS.`);
+  if (!aboDateisystemErlaubt(disk.file_system)) throw new Error(`D: ist ${disk.file_system || "unbekannt"} — nötig ist NTFS oder exFAT.`);
   const st = await invoke<string>("path_state", { path: ziel });
   if (st !== "fehlt" && st !== "leer") throw new Error(`${ziel} gibt es schon und ist nicht leer. Bitte umbenennen oder löschen.`);
 
@@ -377,8 +379,10 @@ async function auswahlAendernEinmal(
   const neuLines = composeAboIgnores(neu, rolle);
   if (gleich(altLines, neuLines)) return "Keine Änderung.";
   const regeln = schutzRegeln(altLines, neuLines);
+  const fs = ((await invoke("disk_info", { path: f.path }).catch(() => null)) as { file_system?: string } | null)?.file_system ?? "";
+  const toleranzMs = zeitToleranzMs(fs);
   const pruefe = (index: Record<string, [number, number]> | null) =>
-    invoke<AuswahlPruefung>("auswahl_pruefen", { root: f.path, alt, neu, ...regeln, index });
+    invoke<AuswahlPruefung>("auswahl_pruefen", { root: f.path, alt, neu, ...regeln, index, toleranzMs });
 
   onSchritt("Ordner prüfen …");
   const p0 = await pruefe(null);
@@ -488,7 +492,7 @@ async function auswahlAendernEinmal(
           throw new Error(`${rel} ist auf keinem anderen Gerät im selben Stand — nichts gelöscht.`);
         }
       }
-      const r = await invoke<AuswahlEntfernt>("auswahl_entfernen", { root: f.path, alt, neu, ...regeln, index });
+      const r = await invoke<AuswahlEntfernt>("auswahl_entfernen", { root: f.path, alt, neu, ...regeln, index, toleranzMs });
       text += ` Hier entfernt: ${r.geloescht} Datei(en), ${gb(r.bytes)} — auf dem NAS bleibt alles.`;
       if (r.fehler.length > 0) {
         text += ` ${r.fehler.length} Datei(en) liessen sich nicht löschen (geöffnet?), z. B. ${r.fehler[0]}. Bitte von Hand löschen, bevor dieser Bereich wieder gewählt wird.`;

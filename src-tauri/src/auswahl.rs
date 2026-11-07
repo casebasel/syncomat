@@ -267,12 +267,18 @@ impl Regeln {
     }
 }
 
-/// Entspricht die Datei dem Index? Gleiche Grösse, Zeit auf 1 ms gleich.
-fn wie_im_index(d: &Datei, index: &Index) -> bool {
+/// Entspricht die Datei dem Index? Gleiche Grösse, Zeit innerhalb der
+/// Toleranz des Dateisystems (NTFS 1 ms, exFAT 20 ms — speichert nur 10 ms genau).
+fn wie_im_index(d: &Datei, index: &Index, toleranz_ms: i64) -> bool {
     match index.get(&d.rel) {
-        Some(&(gr, zeit)) => gr == d.bytes && d.zeit >= 0 && (zeit - d.zeit).abs() <= 1,
+        Some(&(gr, zeit)) => gr == d.bytes && d.zeit >= 0 && (zeit - d.zeit).abs() <= toleranz_ms,
         None => false,
     }
+}
+
+/// Toleranz begrenzen: nie unter 1 ms, nie über 2 s.
+fn toleranz(t: Option<i64>) -> i64 {
+    t.unwrap_or(1).clamp(1, 2000)
 }
 
 fn pruefen_intern(
@@ -281,6 +287,7 @@ fn pruefen_intern(
     neu: &[String],
     r: &Regeln,
     index: Option<&Index>,
+    toleranz_ms: i64,
 ) -> (AuswahlPruefung, Vec<usize>) {
     let mut p = AuswahlPruefung::default();
     let mut weg = Vec::new();
@@ -298,7 +305,7 @@ fn pruefen_intern(
             if !wegwerf {
                 p.entfernen_pfade.push(d.rel.clone());
                 if let Some(ix) = index {
-                    if !wie_im_index(d, ix) {
+                    if !wie_im_index(d, ix, toleranz_ms) {
                         p.abweichend_anzahl += 1;
                         if p.abweichend.len() < BEISPIELE {
                             p.abweichend.push(d.rel.clone());
@@ -329,12 +336,13 @@ pub fn auswahl_pruefen(
     schutz: Vec<String>,
     wegwerf: Vec<String>,
     index: Option<Index>,
+    toleranz_ms: Option<i64>,
 ) -> Result<AuswahlPruefung, String> {
     auswahl_gueltig(&alt)?;
     auswahl_gueltig(&neu)?;
     let w = wurzel(&root)?;
     let d = dateien(&w)?;
-    Ok(pruefen_intern(&d, &alt, &neu, &Regeln::neu(&schutz, &wegwerf)?, index.as_ref()).0)
+    Ok(pruefen_intern(&d, &alt, &neu, &Regeln::neu(&schutz, &wegwerf)?, index.as_ref(), toleranz(toleranz_ms)).0)
 }
 
 #[derive(Serialize, Debug, Default)]
@@ -365,6 +373,7 @@ pub fn auswahl_entfernen(
     schutz: Vec<String>,
     wegwerf: Vec<String>,
     index: Index,
+    toleranz_ms: Option<i64>,
 ) -> Result<AuswahlEntfernt, String> {
     auswahl_gueltig(&alt)?;
     auswahl_gueltig(&neu)?;
@@ -379,7 +388,7 @@ pub fn auswahl_entfernen(
     }
     let w = wurzel(&root)?;
     let d = dateien(&w)?;
-    let (p, weg) = pruefen_intern(&d, &alt, &neu, &Regeln::neu(&schutz, &wegwerf)?, Some(&index));
+    let (p, weg) = pruefen_intern(&d, &alt, &neu, &Regeln::neu(&schutz, &wegwerf)?, Some(&index), toleranz(toleranz_ms));
     if p.abweichend_anzahl > 0 {
         return Err(format!(
             "Nichts gelöscht: {} Datei(en) in den abgewählten Ordnern sind nicht im Stand, den das NAS hat (neu, verschoben, geändert oder gesperrt), z. B. {}.",
@@ -421,6 +430,32 @@ pub fn auswahl_entfernen(
             continue;
         }
         let _ = fs::remove_dir(&dir);
+    }
+    Ok(out)
+}
+
+#[derive(Serialize, Debug, Default)]
+pub struct MusterTreffer {
+    pub anzahl: u64,
+    pub beispiele: Vec<String>,
+}
+
+/// Dateien, die eines der `muster` treffen, aber keines der `ausser` — z. B.
+/// beim Rollenwechsel: was die alte Rolle schützte (nur lokal) und die neue
+/// abgleichen würde. Ändert nichts.
+#[tauri::command]
+pub fn muster_treffer(root: String, muster: Vec<String>, ausser: Vec<String>) -> Result<MusterTreffer, String> {
+    let w = wurzel(&root)?;
+    let r = Regeln::neu(&muster, &ausser)?; // schutz = muster, wegwerf-Feld = ausser
+    let ausser: Vec<Muster> = ausser.iter().filter_map(|m| Muster::neu(m)).collect();
+    let mut out = MusterTreffer::default();
+    for d in dateien(&w)? {
+        if Regeln::trifft(&r.schutz, &d.rel) && !Regeln::trifft(&ausser, &d.rel) {
+            out.anzahl += 1;
+            if out.beispiele.len() < BEISPIELE {
+                out.beispiele.push(d.rel);
+            }
+        }
     }
     Ok(out)
 }
@@ -543,11 +578,11 @@ mod tests {
         let t = projekt();
         let root = t.path().to_string_lossy().into_owned();
         let neu = s(&["03_UNREAL", "04_SHOTS/SQ010/SH0010"]);
-        let p = auswahl_pruefen(root.clone(), vec![], neu.clone(), schutz(), wegwerf(), Some(index_von(&t))).unwrap();
+        let p = auswahl_pruefen(root.clone(), vec![], neu.clone(), schutz(), wegwerf(), Some(index_von(&t)), None).unwrap();
         assert_eq!(p.entfernen_anzahl, 4, "{p:?}"); // briefing, SQ020-plate, notiz, wurzel
         assert_eq!(p.abweichend_anzahl, 0);
         assert!(p.streuner.is_empty());
-        let r = auswahl_entfernen(root, vec![], neu, schutz(), wegwerf(), index_von(&t)).unwrap();
+        let r = auswahl_entfernen(root, vec![], neu, schutz(), wegwerf(), index_von(&t), None).unwrap();
         assert_eq!(r.geloescht, 4);
         let w = t.path();
         assert!(!w.join("00_PRODUKTION").exists());
@@ -565,7 +600,7 @@ mod tests {
         let t = projekt();
         let root = t.path().to_string_lossy().into_owned();
         // alt: 03_UNREAL + 00_PRODUKTION — 04_SHOTS und wurzel.txt liegen lokal, waren aber ignoriert
-        let r = auswahl_entfernen(root, s(&["03_UNREAL", "00_PRODUKTION"]), s(&["03_UNREAL"]), schutz(), wegwerf(), index_von(&t))
+        let r = auswahl_entfernen(root, s(&["03_UNREAL", "00_PRODUKTION"]), s(&["03_UNREAL"]), schutz(), wegwerf(), index_von(&t), None)
             .unwrap();
         assert_eq!(r.geloescht, 1); // nur briefing.txt
         assert!(t.path().join("04_SHOTS/notiz.txt").exists());
@@ -578,7 +613,7 @@ mod tests {
         let root = t.path().to_string_lossy().into_owned();
         let mut ix = index_von(&t);
         ix.remove("00_PRODUKTION/briefing.txt"); // z. B. hineinverschoben, nie gescannt
-        let e = auswahl_entfernen(root.clone(), vec![], s(&["03_UNREAL"]), schutz(), wegwerf(), ix).unwrap_err();
+        let e = auswahl_entfernen(root.clone(), vec![], s(&["03_UNREAL"]), schutz(), wegwerf(), ix, None).unwrap_err();
         assert!(e.contains("Nichts gelöscht"), "{e}");
         assert!(t.path().join("00_PRODUKTION/briefing.txt").exists());
         assert!(t.path().join("04_SHOTS/notiz.txt").exists(), "auch keine andere Datei gelöscht");
@@ -590,13 +625,27 @@ mod tests {
         let root = t.path().to_string_lossy().into_owned();
         let ix = index_von(&t);
         fs::write(t.path().join("04_SHOTS/notiz.txt"), b"lokal geaendert, laenger").unwrap();
-        let e = auswahl_entfernen(root.clone(), vec![], s(&["03_UNREAL"]), schutz(), wegwerf(), ix.clone()).unwrap_err();
+        let e = auswahl_entfernen(root.clone(), vec![], s(&["03_UNREAL"]), schutz(), wegwerf(), ix.clone(), None).unwrap_err();
         assert!(e.contains("Nichts gelöscht"), "{e}");
         // nur die Zeit anders (gleiche Grösse)
         let mut ix2 = index_von(&t);
         ix2.get_mut("04_SHOTS/notiz.txt").unwrap().1 -= 5_000;
-        assert!(auswahl_entfernen(root, vec![], s(&["03_UNREAL"]), schutz(), wegwerf(), ix2).is_err());
+        assert!(auswahl_entfernen(root, vec![], s(&["03_UNREAL"]), schutz(), wegwerf(), ix2, None).is_err());
         assert!(t.path().join("00_PRODUKTION/briefing.txt").exists());
+    }
+
+    #[test]
+    fn exfat_toleranz() {
+        let t = projekt();
+        let root = t.path().to_string_lossy().into_owned();
+        let mut ix = index_von(&t);
+        for v in ix.values_mut() {
+            v.1 += 8; // exFAT speichert nur 10 ms genau
+        }
+        assert!(auswahl_entfernen(root.clone(), vec![], s(&["03_UNREAL"]), schutz(), wegwerf(), ix.clone(), None).is_err());
+        assert!(auswahl_entfernen(root, vec![], s(&["03_UNREAL"]), schutz(), wegwerf(), ix, Some(20)).is_ok());
+        assert_eq!(toleranz(Some(99_999)), 2000);
+        assert_eq!(toleranz(Some(0)), 1);
     }
 
     #[test]
@@ -605,7 +654,7 @@ mod tests {
         let root = t.path().to_string_lossy().into_owned();
         let mut ix = index_von(&t);
         ix.remove("03_UNREAL/P/Intermediate/x.bin");
-        let r = auswahl_entfernen(root, vec![], s(&["04_SHOTS"]), schutz(), wegwerf(), ix).unwrap();
+        let r = auswahl_entfernen(root, vec![], s(&["04_SHOTS"]), schutz(), wegwerf(), ix, None).unwrap();
         assert!(!t.path().join("03_UNREAL/P/Intermediate/x.bin").exists());
         assert!(t.path().join("03_UNREAL/P/Saved/Autosaves/auto.bin").exists());
         assert!(r.geloescht >= 4);
@@ -623,9 +672,9 @@ mod tests {
         let root = r.to_string_lossy().into_owned();
         let neu = s(&["05_ÜBERGABE/Kunde (final)", "09_Café/Straße"]);
         let ix = index_von(&t);
-        let p = auswahl_pruefen(root.clone(), vec![], neu.clone(), schutz(), wegwerf(), Some(ix.clone())).unwrap();
+        let p = auswahl_pruefen(root.clone(), vec![], neu.clone(), schutz(), wegwerf(), Some(ix.clone()), None).unwrap();
         assert_eq!(p.entfernen_anzahl, 2, "{p:?}"); // lose.txt + d.txt
-        auswahl_entfernen(root, vec![], neu, schutz(), wegwerf(), ix).unwrap();
+        auswahl_entfernen(root, vec![], neu, schutz(), wegwerf(), ix, None).unwrap();
         assert!(r.join("05_ÜBERGABE/Kunde (final)/a.txt").exists());
         assert!(r.join("09_Café/Straße/f.txt").exists());
         assert!(!r.join("05_ÜBERGABE/lose.txt").exists());
@@ -636,27 +685,40 @@ mod tests {
     fn unverstandenes_schutzmuster_ist_fehler() {
         let t = projekt();
         let root = t.path().to_string_lossy().into_owned();
-        let e = auswahl_pruefen(root, vec![], s(&["03_UNREAL"]), s(&["Saved/Auto?saves"]), wegwerf(), None).unwrap_err();
+        let e = auswahl_pruefen(root, vec![], s(&["03_UNREAL"]), s(&["Saved/Auto?saves"]), wegwerf(), None, None).unwrap_err();
         assert!(e.contains("nicht verstanden"), "{e}");
+    }
+
+    #[test]
+    fn rollenwechsel_findet_freigelegtes() {
+        let t = projekt();
+        let p = t.path().join("03_UNREAL/P/Saved/MovieRenders/r.exr");
+        fs::create_dir_all(p.parent().unwrap()).unwrap();
+        fs::write(&p, b"x").unwrap();
+        let root = t.path().to_string_lossy().into_owned();
+        // render → arbeitsplatz: „Saved“ fällt weg, Autosaves bleibt geschützt
+        let m = muster_treffer(root, s(&["Saved"]), s(&["**/Saved/Autosaves", "**/Saved/Config"])).unwrap();
+        assert_eq!(m.anzahl, 1, "{m:?}");
+        assert_eq!(m.beispiele[0], "03_UNREAL/P/Saved/MovieRenders/r.exr");
     }
 
     #[test]
     fn vergroessern_findet_streuner() {
         let t = projekt();
         let root = t.path().to_string_lossy().into_owned();
-        let p = auswahl_pruefen(root.clone(), s(&["03_UNREAL"]), s(&["03_UNREAL", "04_SHOTS"]), schutz(), wegwerf(), None)
+        let p = auswahl_pruefen(root.clone(), s(&["03_UNREAL"]), s(&["03_UNREAL", "04_SHOTS"]), schutz(), wegwerf(), None, None)
             .unwrap();
         assert_eq!(p.streuner_anzahl, 3);
         assert_eq!(p.entfernen_anzahl, 0);
         fs::remove_dir_all(t.path().join("04_SHOTS")).unwrap();
-        let p = auswahl_pruefen(root, s(&["03_UNREAL"]), s(&["03_UNREAL", "04_SHOTS"]), schutz(), wegwerf(), None).unwrap();
+        let p = auswahl_pruefen(root, s(&["03_UNREAL"]), s(&["03_UNREAL", "04_SHOTS"]), schutz(), wegwerf(), None, None).unwrap();
         assert_eq!(p.streuner_anzahl, 0);
     }
 
     #[test]
     fn wurzel_ohne_stfolder_abgelehnt() {
         let t = Tmp::neu();
-        let e = auswahl_pruefen(t.path().to_string_lossy().into_owned(), vec![], s(&["a"]), vec![], vec![], None).unwrap_err();
+        let e = auswahl_pruefen(t.path().to_string_lossy().into_owned(), vec![], s(&["a"]), vec![], vec![], None, None).unwrap_err();
         assert!(e.contains(".stfolder"));
         assert!(auswahl_gueltig(&s(&["../x"])).is_err());
         assert!(auswahl_gueltig(&s(&["a/.git"])).is_err());

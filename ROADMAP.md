@@ -43,7 +43,8 @@
 >   zusätzlich als **`N:`**, **nur lesend** (E41: ein Löschen über `N:` würde sich sofort auf alle
 >   Abos verteilen; ins NAS schreiben nur syncomat-Abos und Aufträge der Datenzentrale). Rolle beim
 >   Start über die Volume-ID prüfen. Vorarbeiten: Ada `D:`
->   freiräumen, x3950 `D:` exFAT → Daten nach `H:`, dann NTFS.
+>   freiräumen. x3950 `D:` bleibt exFAT: Marlon 07.11.2026 — exFAT ist für Abos erlaubt (mit
+>   einmaligem Hinweis „ohne Journal“), FAT32 nie; Zeitvergleich beim Verkleinern dort ±20 ms.
 > - **NAS sendet (E2):** nur die Projekt-Ordner „senden und empfangen" (Snapshots,
 >   Syncthing-Papierkorb, Prüfung beim Anlegen: Mount über mountinfo/Geräte-ID, nicht `.stfolder`).
 >   Marketplace bleibt auf dem NAS „nur empfangen".

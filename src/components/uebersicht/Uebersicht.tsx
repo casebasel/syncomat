@@ -357,8 +357,11 @@ export function Uebersicht({
                     </span>
                     <span className="sm-zahl font-mono text-[11px] text-[var(--sm-text2)] truncate max-w-full">
                       {s.dFs && !/^ntfs$/i.test(s.dFs) ? (
-                        <span className="font-semibold text-[var(--sm-ocker-text)]" title={`D: ist ${s.dFs} — Abos brauchen NTFS`}>
-                          D: {s.dFs}
+                        <span
+                          className={/^exfat$/i.test(s.dFs) ? "" : "font-semibold text-[var(--sm-ocker-text)]"}
+                          title={/^exfat$/i.test(s.dFs) ? `D: ist exFAT (ohne Journal)${s.freiD != null ? ` · ${gb(s.freiD)} frei` : ""}` : `D: ist ${s.dFs} — Abos brauchen NTFS oder exFAT`}
+                        >
+                          {/^exfat$/i.test(s.dFs) && s.freiD != null ? `${gb(s.freiD)} · exFAT` : `D: ${s.dFs}`}
                         </span>
                       ) : s.freiD != null ? (
                         `${gb(s.freiD)} frei`

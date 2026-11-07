@@ -28,7 +28,8 @@ import {
 //
 // Sicherheitsregeln (Kapitel 11):
 // - nur in ein leeres oder fehlendes Ziel
-// - nur auf dem Laufwerk der Rolle „projekte“ (Windows D:), NTFS, genug Platz
+// - nur auf dem Laufwerk der Rolle „projekte“ (Windows D:), NTFS (exFAT mit
+//   Hinweis, Marlon 07.11.2026; FAT32 nie), genug Platz
 // - die Auswahl der Unterordner ist eine LOKALE Ignore-Schicht, nie mit (?d)
 // - jede Ablehnung mit Grund, nichts still
 
@@ -100,6 +101,19 @@ export const ROLLEN_SCHICHT: Record<GeraeteRolle, string[]> = {
   // Render-Rechner: ganz Saved/ (MovieRenders entstehen am Arbeitsplatz)
   render: ["Saved"],
 };
+
+/** Dateisysteme für Abos: NTFS/APFS; exFAT erlaubt (Marlon 07.11.2026, mit
+ * einmaligem Hinweis — kein Journal). FAT32 nie (4-GB-Grenze, 2-s-Zeiten). */
+export function aboDateisystemErlaubt(fs: string | null | undefined): boolean {
+  return /^(ntfs|apfs|exfat)$/i.test(fs ?? "");
+}
+export const istExfat = (fs: string | null | undefined) => /^exfat$/i.test(fs ?? "");
+/** Hinweis für exFAT (einmal zeigen, nie sperren). */
+export const EXFAT_HINWEIS =
+  "D: ist exFAT, ohne Journal — bei Stromausfall oder Absturz während des Schreibens können Dateien beschädigt werden. Das NAS behält Snapshots.";
+/** Toleranz beim Vergleich der Änderungszeit mit dem Index (ms): NTFS speichert
+ * 100 ns genau, exFAT nur 10 ms. */
+export const zeitToleranzMs = (fs: string | null | undefined) => (istExfat(fs) ? 20 : 1);
 
 export const NAME_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -370,8 +384,8 @@ export function useAboAusfuehrung({
     } catch (e) {
       return ablehnen(a, `Laufwerk D: nicht gefunden (${String(e)}).`);
     }
-    if (!/^(ntfs|apfs)$/i.test(disk.file_system)) {
-      return ablehnen(a, `D: ist ${disk.file_system || "unbekannt"}, erwartet NTFS.`);
+    if (!aboDateisystemErlaubt(disk.file_system)) {
+      return ablehnen(a, `D: ist ${disk.file_system || "unbekannt"}, erwartet NTFS oder exFAT.`);
     }
     const reserve = Math.max(RESERVE_MIN, disk.total_bytes * RESERVE_ANTEIL);
     if (disk.available_bytes < g.bytes_erwartet + reserve) {

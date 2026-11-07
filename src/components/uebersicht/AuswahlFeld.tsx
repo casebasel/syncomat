@@ -2,7 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Loader2, X } from "lucide-react";
 import { bytesDerAuswahl, type BaumKnoten, type DeviceID, type Endpoint } from "../../lib/syncthing";
 import type { Spalte, Zeile } from "../../lib/uebersicht";
-import { istAuswahlPfad, normalisiereAuswahl, projekteWurzel, type GeraeteRolle } from "../../lib/abo";
+import {
+  EXFAT_HINWEIS,
+  aboDateisystemErlaubt,
+  istAuswahlPfad,
+  istExfat,
+  normalisiereAuswahl,
+  projekteWurzel,
+  type GeraeteRolle,
+} from "../../lib/abo";
 import {
   aboAbbrechen,
   aboAuswahlAendern,
@@ -262,8 +270,17 @@ export function AuswahlFeld({
     });
 
   const name = spalte.ich ? "diesem Rechner" : spalte.name;
-  // Abos nur auf NTFS (Konzept E3). Bekannt aus disk_info (hier) bzw. der Notiz (andere).
-  const fsFalsch = !!spalte.dFs && !/^ntfs$/i.test(spalte.dFs);
+  // Abos auf NTFS; exFAT erlaubt mit einmaligem Hinweis (Marlon 07.11.2026);
+  // alles andere (FAT32 …) gesperrt. Bekannt aus disk_info (hier) bzw. der Notiz.
+  const fsFalsch = !!spalte.dFs && !aboDateisystemErlaubt(spalte.dFs);
+  const exfat = istExfat(spalte.dFs);
+  const [exfatGesehen, setExfatGesehen] = useState(() => {
+    try {
+      return localStorage.getItem("syncomat.hinweis.exfat") === "1";
+    } catch {
+      return false;
+    }
+  });
   const kannHier = spalte.ich && windows && !(fsFalsch && !zeile.hier);
   // Was der Sender beim Ziel sieht — reist mit dem Wunsch (Gegenprobe am Ziel).
   const vorherFern: string[] | null | undefined = abonniert ? zelle.auswahl : null;
@@ -317,8 +334,28 @@ export function AuswahlFeld({
         )}
         {fsFalsch && !abonniert && (
           <p className="text-[13px] font-semibold text-[var(--sm-ocker-text)]">
-            D: {spalte.ich ? "dieses Rechners" : `von ${spalte.name}`} ist {spalte.dFs} — Abos brauchen NTFS. Erst D: als NTFS formatieren (vorher alles davon sichern).
+            D: {spalte.ich ? "dieses Rechners" : `von ${spalte.name}`} ist {spalte.dFs} — Abos brauchen NTFS oder exFAT.
           </p>
+        )}
+        {exfat && !abonniert && !exfatGesehen && (
+          <div className="rounded-md border border-[var(--sm-linie)] px-3 py-2 text-[12px] space-y-1.5">
+            <p>
+              {spalte.ich ? EXFAT_HINWEIS : EXFAT_HINWEIS.replace("D: ist", `D: von ${spalte.name} ist`)}
+            </p>
+            <button
+              onClick={() => {
+                setExfatGesehen(true);
+                try {
+                  localStorage.setItem("syncomat.hinweis.exfat", "1");
+                } catch {
+                  /* dann erscheint der Hinweis wieder — schadet nicht */
+                }
+              }}
+              className="text-[var(--sm-blau)] font-semibold hover:underline"
+            >
+              Verstanden
+            </button>
+          </div>
         )}
         {spalte.ich && !windows && (
           <p className="text-[14px] font-semibold text-[var(--sm-ocker-text)]">
