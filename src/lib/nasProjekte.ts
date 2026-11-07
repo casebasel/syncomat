@@ -6,6 +6,7 @@ import {
   bytesDerAuswahl,
   getBrowse,
   getConfig,
+  neuVerbinden,
   getDbFile,
   getFolderErrors,
   getFolderIgnores,
@@ -181,7 +182,7 @@ async function aboVorbereitenEinmal(
     const dateienOben = oben.filter((e) => !e.ordner).reduce((a, e) => a + e.bytes, 0);
     return { ziel, totalBytes: disk.total_bytes, globalBytes, ordner, dateienOben, baum };
   } catch (e) {
-    await aboAbbrechen(ep, p.folderId, ziel);
+    await aboAbbrechen(ep, p.folderId, ziel, p.anbieter);
     throw e instanceof Error ? e : new Error(String(e));
   }
 }
@@ -263,7 +264,11 @@ async function inhaltHolenEinmal(
   } finally {
     // Nur den eigenen kurzlebigen Ordner entfernen — nie ein echtes Abo.
     const jetzt = (await getConfig(ep).catch(() => null))?.folders.find((f) => f.id === p.folderId);
-    if (jetzt && jetzt.label === INHALT_LABEL && jetzt.path === ziel) await deleteFolder(ep, p.folderId).catch(() => {});
+    if (jetzt && jetzt.label === INHALT_LABEL && jetzt.path === ziel) {
+      await deleteFolder(ep, p.folderId).catch(() => {});
+      // Sonst bliebe das Angebot verschwunden, bis die Verbindung neu aufgebaut wird.
+      await neuVerbinden(ep, p.anbieter);
+    }
     await invoke("remove_unused_abo_dir", { path: ziel }).catch(() => {});
   }
 }
@@ -506,9 +511,11 @@ async function auswahlAendernEinmal(
 }
 
 /** Vorbereitung verwerfen: Ordner aus dem Abgleich, leeres Ziel wieder weg. */
-export async function aboAbbrechen(ep: Endpoint, folderId: string, ziel: string): Promise<void> {
+export async function aboAbbrechen(ep: Endpoint, folderId: string, ziel: string, anbieter: DeviceID[] = []): Promise<void> {
   await deleteFolder(ep, folderId).catch(() => {});
   await invoke("remove_unused_abo_dir", { path: ziel }).catch(() => {});
+  // Angebot wieder sichtbar machen (siehe neuVerbinden).
+  if (anbieter.length > 0) await neuVerbinden(ep, anbieter);
 }
 
 /** Ein Projekt ganz abonnieren (beide Schritte ohne Auswahl). */
@@ -523,7 +530,7 @@ export async function abonnieren(
   try {
     await aboStarten(ep, p, v, [], rolle);
   } catch (e) {
-    await aboAbbrechen(ep, p.folderId, v.ziel);
+    await aboAbbrechen(ep, p.folderId, v.ziel, p.anbieter);
     throw e;
   }
 }
@@ -557,6 +564,8 @@ async function aboBeendenEinmal(ep: Endpoint, f: Folder, myID: DeviceID): Promis
     throw new Error("Noch nicht alles von hier ist auf dem NAS. Abo bleibt, bis der Abgleich fertig ist.");
   }
   await deleteFolder(ep, f.id);
+  // Das Angebot des NAS erscheint sonst erst nach dem nächsten Verbindungsaufbau wieder.
+  await neuVerbinden(ep, andere);
   return `Abo beendet. Die Dateien liegen weiter in ${f.path} — du kannst den Ordner löschen.`;
 }
 

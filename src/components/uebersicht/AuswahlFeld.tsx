@@ -258,7 +258,7 @@ export function AuswahlFeld({
       try {
         await aboStarten(ep, zeile.angebot, v, neu, rolle);
       } catch (e) {
-        await aboAbbrechen(ep, zeile.angebot.folderId, v.ziel);
+        await aboAbbrechen(ep, zeile.angebot.folderId, v.ziel, zeile.angebot.anbieter);
         throw e;
       }
       return "Abonniert. Die Daten kommen jetzt vom NAS.";

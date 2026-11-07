@@ -312,7 +312,7 @@ async function ausfuehren(
   try {
     await aboStarten(ep, p, v, w.auswahl, rolle);
   } catch (e) {
-    await aboAbbrechen(ep, p.folderId, v.ziel);
+    await aboAbbrechen(ep, p.folderId, v.ziel, p.anbieter);
     throw e;
   }
   return w.auswahl.length === 0 ? "Abonniert (ganzes Projekt)." : `Abonniert (${w.auswahl.length} Ordner).`;

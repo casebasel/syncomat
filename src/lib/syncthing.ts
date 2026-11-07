@@ -459,6 +459,20 @@ export type DbDatei = {
 export const getDbFile = (ep: Endpoint, folderID: FolderID, file: string) =>
   api<DbDatei>(ep, `/rest/db/file?folder=${encodeURIComponent(folderID)}&file=${encodeURIComponent(file)}`);
 
+/** Verbindung zu einem Gerät kurz trennen und wieder aufnehmen. Danach
+ * schickt es seine Ordnerliste neu — nötig, damit ein Angebot wieder als
+ * „ausstehend“ erscheint, nachdem hier ein Ordner derselben ID entfernt wurde
+ * (Syncthing merkt sich Angebote nur beim Verbindungsaufbau; live auf render). */
+export async function neuVerbinden(ep: Endpoint, deviceIDs: DeviceID[]): Promise<void> {
+  for (const d of deviceIDs) {
+    await api<void>(ep, `/rest/system/pause?device=${encodeURIComponent(d)}`, { method: "POST" }).catch(() => {});
+  }
+  await new Promise((r) => setTimeout(r, 1500));
+  for (const d of deviceIDs) {
+    await api<void>(ep, `/rest/system/resume?device=${encodeURIComponent(d)}`, { method: "POST" }).catch(() => {});
+  }
+}
+
 /** Statistik je Gerät — u. a. wann es zuletzt verbunden war. */
 export const getDeviceStats = (ep: Endpoint) =>
   api<Record<DeviceID, { lastSeen?: string; lastConnectionDurationS?: number }>>(ep, "/rest/stats/device");
