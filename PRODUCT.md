@@ -6,15 +6,17 @@ product
 
 ## Users
 
-Filmstudio-Crew (Marlon + Kollegen) auf macOS und Windows. Technisch versiert (arbeiten mit Unreal Engine, Footage, grossen Asset-Folders), kennen Sync-Tools, wollen kein Hand-Holding. Nutzungs-Kontext: zwischen Studio-Workstations und mobilen Macs unterwegs; Sync läuft permanent im Hintergrund, App wird nur angeschaut wenn etwas zu prüfen oder einzurichten ist.
+Filmstudio-Crew (Marlon + Kollegen) auf macOS und Windows. Technisch versiert (Unreal Engine, nDisplay, Footage, grosse Asset-Ordner), kennen Sync-Tools, wollen kein Hand-Holding. Nutzungs-Kontext: Studio mit ~10 Rechnern (Arbeitsplätze, Render-Rechner für nDisplay, ein MacBook unterwegs) und einem NAS als Original. Sync läuft permanent im Hintergrund; die App wird geöffnet, um ein Projekt auf einen Rechner zu holen, um zu sehen, wo welches Projekt liegt und ob alles aktuell ist, oder weil sie eine Störung meldet.
 
-Job-to-be-done: Folder zwischen den eigenen Rechnern teilen ohne Cloud-Account, ohne Sync-Limits, ohne dass Engine-Caches oder Build-Output mitfliegen. Auf einen Blick sehen ob alles läuft. Wenn nicht: was und warum, in 2 Klicks zur Lösung.
+Job-to-be-done: Ein Projekt vom NAS mit einem Klick auf diesen Rechner holen („Abonnieren“) und es wieder loswerden („Abo beenden“), ohne Dateien zu verlieren. Auf einen Blick sehen, welches Projekt auf welchem Rechner liegt und ob es überall aktuell ist — auch bei ~30 Projekten und ~10 Rechnern. Wenn etwas nicht stimmt: was, wo und warum, in zwei Klicks zur Lösung.
 
 ## Product Purpose
 
-Resilio-Style P2P-Sync, gebaut auf Syncthing als bewährter Engine, aber mit einem UI das für **Creative-Workloads** (Unreal-Projekte, RAW-Footage, Asset-Bibliotheken) optimiert ist statt für generische Dokument-Sync. Erfolg = der User vergisst dass die App läuft, ausser wenn sie ihn aktiv informieren MUSS (Konflikt, Peer offline beim Cooking, Disk voll).
+syncomat ist der Datenagent des Studios auf jedem Arbeitsrechner (Konzept casebasel/datenzentrale, Kapitel 9). Das Original jedes laufenden Projekts liegt auf dem NAS (`tank/Projekte/<NAME>`); syncomat legt auf Abruf eine **Arbeitskopie** nach `D:\<NAME>` und gleicht sie in Echtzeit ab — ohne Ein- und Auschecken, Sicherheitsnetz sind Konfliktkopien und stündliche Snapshots. Unreal-Plugins (Marketplace-Ordner) gehen weiterhin „an alle“. Darunter läuft Syncthing als bewährte Engine; syncomat ist die kuratierte Oberfläche, die die Entscheidungen trifft (Prüfung von Laufwerk und Platz, Ignore-Schichten je Rolle, nie „an alle“ für Projekte) und nur die Knöpfe zeigt, die ein Studio-Mensch braucht. Erfolg = man vergisst, dass die App läuft, ausser sie muss informieren (Projekt angehalten, Platz knapp, Rechner hängt hinterher).
 
-Konkret abgegrenzt zu Syncthing-Web-UI: Syncomat ist die *kuratierte Surface* die Default-Entscheidungen trifft (Unreal-Preset, Auto-Share, Tags), und nur die paar Knöpfe zeigt die ein Studio-Mensch tatsächlich braucht. Wer in die Tiefe will, bekommt einen direkten Sprung in die Web-UI.
+Begriffe (gleich wie in der Datenzentrale): **Projekte auf dem NAS** · **Abonnieren** · **Abo beenden** · **Arbeitskopie** · **Rechner**. Übersicht, Archiv und alles, was löscht, liegen in der Datenzentrale (Seite des Speicher-Wächters); syncomat zeigt und führt aus.
+
+Konkret abgegrenzt zu Syncthing-Web-UI: keine Ordner-Konfiguration als Hauptsache. Wer in die Tiefe will, bekommt einen direkten Sprung in die Web-UI.
 
 ## Brand Personality
 
@@ -29,11 +31,11 @@ Verlässlich, präzise, sachlich. Werkzeug-Tone statt Service-Tone. Drei Worte: 
 
 ## Design Principles
 
-1. **Status auf einen Blick, Details auf einen Klick.** Der Hauptscreen muss in unter 2 Sekunden beantworten: läuft alles? Welcher Folder hat ein Problem? Wer ist online? Erst der Klick öffnet die ausführliche Sicht.
+1. **Status auf einen Blick, Details auf einen Klick.** Der Hauptscreen ist die Übersicht **Projekte × Rechner** und beantwortet in unter 2 Sekunden: Läuft alles? Welches Projekt liegt wo, und wo hängt etwas? Wer ist online? Erst der Klick öffnet die ausführliche Sicht. Muss bei ~30 Projekten und ~10 Rechnern ohne Scrollen-Suchen funktionieren.
 
 2. **Werkzeug-Vokabular.** Keine "Magie", keine "Cloud", keine "Sync-Wunder". Sätze beginnen mit Verben ("Verknüpfen", "Tag hinzufügen", "Konflikt auflösen"). Status sind Zustandsbeschreibungen ("Synchron", "Wartet auf Mac-Studio"), nicht Bewertungen ("Alles bestens!").
 
-3. **Default-Entscheidungen, nicht Default-Fragen.** Wenn 99 % der Studio-User dieselbe Antwort wählen würden (Auto-Share an alle Geräte, Unreal-Preset für ein UE-Projekt, Tags syncen), trifft die App die Entscheidung still. Das User-Override ist immer da, aber nicht im Weg.
+3. **Default-Entscheidungen, nicht Default-Fragen.** Wenn 99 % der Studio-User dieselbe Antwort wählen würden (Ziel `D:\<NAME>`, Ignore-Schicht nach Rolle, Plugins an alle, Projekte nur auf Abruf), trifft die App die Entscheidung still. Abonnieren ist ein Klick ohne Dialog; geprüft wird im Hintergrund, abgelehnt mit einem Satz. Das User-Override ist da, aber nicht im Weg.
 
 4. **Dichte mit Hierarchie.** Resilio-Stil viele Information pro Card, aber durch Typographie und Farbe gegliedert (primärer Status gross, Details kleiner-grauer). Nicht jede Zahl in derselben Grösse — sonst wird's zur Datenwand wie Syncthing-Web-UI.
 
