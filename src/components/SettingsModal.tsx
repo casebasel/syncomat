@@ -24,7 +24,7 @@ import type {
 import type { UpdateState } from "../lib/updater";
 import { compareVersions, type UpdateNote } from "../lib/updateAll";
 import type { DzAuftrag, useDatenzentrale } from "../lib/datenzentrale";
-import type { AboEintrag, useAboAusfuehrung, useGeraeteRolle } from "../lib/abo";
+import type { AboEintrag, Bericht, useAboAusfuehrung, useGeraeteRolle } from "../lib/abo";
 import { classifyPath, type NetPath } from "../lib/network";
 
 type Tab = "general" | "network" | "updates" | "datenzentrale" | "notifications" | "power-user";
@@ -1023,7 +1023,12 @@ function DatenzentraleTab({
         ) : (
           <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-800">
             {state.auftraege.map((a) => (
-              <AuftragRow key={a.id} a={a} lokal={abo.zustand[a.id]} />
+              <AuftragRow
+                key={a.id}
+                a={a}
+                lokal={abo.zustand[a.id]}
+                berichte={abo.berichte.filter((b) => b.auftrag_id === a.id)}
+              />
             ))}
           </div>
         )}
@@ -1037,7 +1042,17 @@ function DatenzentraleTab({
   );
 }
 
-function AuftragRow({ a, lokal }: { a: DzAuftrag; lokal?: AboEintrag }) {
+function AuftragRow({ a, lokal, berichte }: { a: DzAuftrag; lokal?: AboEintrag; berichte: Bericht[] }) {
+  const offen = berichte.filter((b) => !b.gesendet);
+  const abgelehnt = berichte.filter((b) => b.abgelehnt);
+  const berichtText =
+    abgelehnt.length > 0
+      ? `Bericht abgelehnt: ${abgelehnt[abgelehnt.length - 1]!.abgelehnt}`
+      : offen.length > 0
+        ? `${offen.length} Bericht${offen.length === 1 ? "" : "e"} wartet${offen[offen.length - 1]!.letzterFehler ? ` (${offen[offen.length - 1]!.letzterFehler})` : ""}`
+        : berichte.length > 0
+          ? "an die Datenzentrale gemeldet"
+          : "";
   const g = (a.angaben ?? {}) as Record<string, unknown>;
   const name = typeof g.name === "string" ? g.name : typeof g.projekt_id === "string" ? g.projekt_id : "";
   const auswahl = Array.isArray(g.auswahl) && g.auswahl.length > 0 ? (g.auswahl as string[]).join(", ") : "ganz";
@@ -1060,6 +1075,13 @@ function AuftragRow({ a, lokal }: { a: DzAuftrag; lokal?: AboEintrag }) {
             }`}
           >
             {lokal.grund}
+          </div>
+        )}
+        {berichtText && (
+          <div
+            className={`text-[10px] mt-0.5 ${abgelehnt.length > 0 ? "text-rose-600 dark:text-rose-400" : "text-neutral-400 dark:text-neutral-500"}`}
+          >
+            {berichtText}
           </div>
         )}
       </div>

@@ -11,7 +11,12 @@ import {
   type Endpoint,
   type Folder,
 } from "./syncthing";
-import { isAboFolderId, type DzAuftrag } from "./datenzentrale";
+import {
+  isAboFolderId,
+  type DzAuftrag,
+  type DzBerichtWert,
+  type DzSendeErgebnis,
+} from "./datenzentrale";
 
 // ── Abonnieren (Datenzentrale, Schritt 3, Release 2) ─────────────
 //
@@ -56,7 +61,12 @@ export type Bericht = {
   grund: string;
   stand: Record<string, unknown>;
   zeit: string;
+  /** true = gespeichert (uebernommen/wiederholt) oder endgültig abgelehnt. */
   gesendet: boolean;
+  /** Grund, wenn der Server den Bericht endgültig abgelehnt hat. */
+  abgelehnt?: string;
+  /** Grund des letzten Fehlversuchs (Netz, 401 …) — wird später erneut gesendet. */
+  letzterFehler?: string;
 };
 
 // ── Ignore-Schichten ─────────────────────────────────────────────
@@ -197,6 +207,7 @@ export function useAboAusfuehrung({
   rechner,
   auftraege,
   rolle,
+  sendBerichte,
 }: {
   ep: Endpoint | null;
   ready: boolean;
@@ -205,6 +216,7 @@ export function useAboAusfuehrung({
   rechner: string | null;
   auftraege: DzAuftrag[];
   rolle: GeraeteRolle;
+  sendBerichte: (b: DzBerichtWert[]) => Promise<DzSendeErgebnis[] | null>;
 }) {
   const [zustand, setZustand] = useState<Record<string, AboEintrag>>(() => lsRead(ZUSTAND_LS, {}));
   const [berichte, setBerichte] = useState<Bericht[]>(() => lsRead(BERICHTE_LS, []));
@@ -231,7 +243,11 @@ export function useAboAusfuehrung({
       gesendet: false,
     };
     setBerichte((prev) => {
-      const all = [...prev, b].slice(-200);
+      // Ungesendete nie wegwerfen; von den gesendeten nur die letzten behalten.
+      const merged = [...prev, b];
+      const gesendet = merged.filter((x) => x.gesendet);
+      const drop = new Set(gesendet.slice(0, Math.max(0, gesendet.length - 100)).map((x) => x.id));
+      const all = merged.filter((x) => !drop.has(x.id));
       lsWrite(BERICHTE_LS, all);
       return all;
     });
@@ -370,6 +386,55 @@ export function useAboAusfuehrung({
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ep?.url, ep?.api_key, ready, myID, rechner, key, rolle]);
+
+  // ── Berichte an dz_bericht senden (Vertrag: plate-assistant ABGLEICH.md) ──
+  // Gespeichert → nie wieder; abgelehnt → endgültig, sichtbar; keine Antwort,
+  // 5xx, 401/403 → später dieselbe Änderung erneut (gleiche id = „wiederholt“).
+  const sendBusyRef = useRef(false);
+  const berichteRef = useRef(berichte);
+  berichteRef.current = berichte;
+  const offenKey = berichte.filter((b) => !b.gesendet).map((b) => b.id).join(",");
+  useEffect(() => {
+    if (!rechner) return;
+    const send = async () => {
+      if (sendBusyRef.current) return;
+      const offen = berichteRef.current.filter((b) => !b.gesendet).slice(0, 50);
+      if (offen.length === 0) return;
+      sendBusyRef.current = true;
+      try {
+        const res = await sendBerichte(
+          offen.map(({ id, auftrag_id, rechner: r, zustand: z, grund, stand, zeit }) => ({
+            id,
+            auftrag_id,
+            rechner: r,
+            zustand: z,
+            grund,
+            stand,
+            zeit,
+          })),
+        );
+        if (!res) return;
+        const byId = new Map(res.map((r) => [r.id, r]));
+        setBerichte((prev) => {
+          const all = prev.map((b) => {
+            const r = byId.get(b.id);
+            if (!r) return b;
+            if (r.kind === "gespeichert") return { ...b, gesendet: true, letzterFehler: undefined };
+            if (r.kind === "abgelehnt") return { ...b, gesendet: true, abgelehnt: r.grund };
+            return { ...b, letzterFehler: r.grund };
+          });
+          lsWrite(BERICHTE_LS, all);
+          return all;
+        });
+      } finally {
+        sendBusyRef.current = false;
+      }
+    };
+    void send();
+    const id = setInterval(() => void send(), POLL_MS);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rechner, offenKey, sendBerichte]);
 
   return { zustand, berichte };
 }

@@ -298,6 +298,7 @@ function App() {
     rechner: dzGueltig ? datenzentrale.state.connection!.rechner : null,
     auftraege: datenzentrale.state.auftraege,
     rolle: geraeteRolle.rolle,
+    sendBerichte: datenzentrale.sendBerichte,
   });
   const updateAll = useUpdateAll({
     endpoint,

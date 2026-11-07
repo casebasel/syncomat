@@ -19,9 +19,8 @@ export const isAboFolderId = (id: string) => id.startsWith(ABO_FOLDER_PREFIX);
 
 const POLL_MS = 30_000;
 const WARN_DAYS = 30;
-/** Rollen, die als Datenagent gelten. `datenagent_reader` = Stand 0036,
- * `datenagent` ab 0037 (liest + legt eigene Berichte an). */
-const ROLES = new Set(["datenagent", "datenagent_reader"]);
+/** Rolle des Datenagenten (ab Migration 0037: liest + legt eigene Berichte an). */
+const ROLES = new Set(["datenagent"]);
 
 export type DzCredentials = { url: string; anon_key: string; token: string; rechner: string };
 export type TokenInfo = { role?: string; rechner?: string; exp?: number; iat?: number };
@@ -70,9 +69,11 @@ export function checkCredentials(c: DzCredentials, computerName: string): Creden
     return { problems, warnings, exp: null };
   }
   if (!info.role || !ROLES.has(info.role)) {
-    problems.push(`Token hat die falsche Rolle („${info.role ?? "keine"}“), erwartet „datenagent“.`);
-  } else if (info.role === "datenagent_reader") {
-    warnings.push("Token im alten Format (nur lesen). Nach Migration 0037 neu erzeugen.");
+    problems.push(
+      info.role === "datenagent_reader"
+        ? "Token im alten Format (vor Migration 0037) — neu erzeugen."
+        : `Token hat die falsche Rolle („${info.role ?? "keine"}“), erwartet „datenagent“.`,
+    );
   }
   if (info.rechner && info.rechner !== c.rechner) {
     problems.push(`Token gehört zu „${info.rechner}“, die Zeilen nennen „${c.rechner}“.`);
@@ -106,6 +107,85 @@ async function fetchAuftraege(c: DzCredentials): Promise<DzAuftrag[]> {
   const rows = (await res.json()) as DzAuftrag[];
   // Nur die eigenen (der Server filtert schon; doppelt hält besser).
   return rows.filter((r) => r.rechner === c.rechner).sort((a, b) => (a.id < b.id ? 1 : -1));
+}
+
+/** Ein Bericht für dz_bericht (Vertrag: plate-assistant docs/ABGLEICH.md,
+ * „Datenagenten und Berichte (Migration 0037)“). */
+export type DzBerichtWert = {
+  id: string; // be- + 32 Hex
+  auftrag_id: string;
+  rechner: string;
+  zustand: string;
+  grund: string;
+  stand: Record<string, unknown>;
+  zeit: string; // ISO 8601 mit Zone
+};
+
+/** Ergebnis je Bericht: gespeichert (uebernommen/wiederholt), endgültig
+ * abgelehnt (mit Grund) oder später erneut versuchen. */
+export type DzSendeErgebnis =
+  | { id: string; kind: "gespeichert" }
+  | { id: string; kind: "abgelehnt"; grund: string }
+  | { id: string; kind: "spaeter"; grund: string };
+
+/** Berichte über aenderungen_anwenden als `_anlegen` in dz_bericht senden.
+ * Änderungs-id = Bericht-id → erneutes Senden ist automatisch „wiederholt“. */
+export async function sendBerichteRpc(c: DzCredentials, berichte: DzBerichtWert[]): Promise<DzSendeErgebnis[]> {
+  const body = {
+    p_geraet: "syncomat",
+    p_aenderungen: berichte.map((b) => ({
+      id: b.id,
+      tabelle: "dz_bericht",
+      datensatz: b.id,
+      feld: "_anlegen",
+      zeit: Date.now() * 1000, // Mikrosekunden seit 1970
+      wert: {
+        auftrag_id: b.auftrag_id,
+        rechner: b.rechner,
+        zustand: b.zustand,
+        grund: b.grund.slice(0, 500),
+        stand: b.stand,
+        zeit: b.zeit,
+      },
+    })),
+  };
+  let res: Response;
+  try {
+    res = await fetch(`${c.url}/rest/v1/rpc/aenderungen_anwenden`, {
+      method: "POST",
+      headers: {
+        apikey: c.anon_key,
+        Authorization: `Bearer ${c.token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    return berichte.map((b) => ({ id: b.id, kind: "spaeter", grund: `Netz: ${String(e)}` }));
+  }
+  if (res.status === 401 || res.status === 403) {
+    // Token abgelaufen/ungültig (401) oder ohne gültigen Rechner (403/28000):
+    // später erneut, sobald ein neues Token eingefügt ist — nie verwerfen.
+    const why = res.status === 401 ? "Token ungültig oder abgelaufen (401)" : "Token ohne gültigen Rechner (403)";
+    return berichte.map((b) => ({ id: b.id, kind: "spaeter", grund: why }));
+  }
+  if (!res.ok) {
+    return berichte.map((b) => ({ id: b.id, kind: "spaeter", grund: `Datenzentrale ${res.status}` }));
+  }
+  const rows = (await res.json().catch(() => null)) as
+    | { id?: string; ergebnis?: string; grund?: string; wiederholt?: boolean }[]
+    | null;
+  if (!Array.isArray(rows) || rows.length !== berichte.length) {
+    return berichte.map((b) => ({ id: b.id, kind: "spaeter", grund: "Antwort unvollständig" }));
+  }
+  // Eine Antwort je Änderung, in derselben Reihenfolge.
+  return berichte.map((b, i) => {
+    const r = rows[i] ?? {};
+    if (r.ergebnis === "uebernommen") return { id: b.id, kind: "gespeichert" };
+    if (r.ergebnis === "abgelehnt") return { id: b.id, kind: "abgelehnt", grund: r.grund || "abgelehnt" };
+    return { id: b.id, kind: "spaeter", grund: `unbekanntes Ergebnis „${r.ergebnis ?? ""}“` };
+  });
 }
 
 export type DzState = {
@@ -195,5 +275,15 @@ export function useDatenzentrale() {
     lastFetch,
     error,
   };
-  return { state, preview, connect, disconnect, refresh };
+  /** Berichte senden (nur mit gültigen Zugangsdaten). */
+  const sendBerichte = useCallback(
+    async (b: DzBerichtWert[]): Promise<DzSendeErgebnis[] | null> => {
+      if (!creds || b.length === 0) return null;
+      if (checkCredentials(creds, computerName).problems.length > 0) return null;
+      return sendBerichteRpc(creds, b);
+    },
+    [creds, computerName],
+  );
+
+  return { state, preview, connect, disconnect, refresh, sendBerichte };
 }
