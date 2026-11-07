@@ -5,6 +5,8 @@ import {
   type Endpoint,
   type Folder,
 } from "./syncthing";
+import { INTERN_FOLDER_ID } from "./syncthing";
+import { isAboFolderId } from "./datenzentrale";
 
 /**
  * Ein Gerät annehmen — die EINE atomare Accept-Funktion (Sprint #6). Genutzt vom
@@ -33,8 +35,12 @@ export async function acceptDevice(
   });
 
   // Promise.allSettled: ein einzelner Folder-PUT-Fehler bricht die anderen nicht ab.
+  // Abo-Ordner (dz-…) gehören nur den abonnierten Rechnern, der interne Kanal
+  // pflegt seine Geräte selbst — beide nie hier an ein neues Gerät teilen.
   await Promise.allSettled(
-    folders.map((f) => {
+    folders
+      .filter((f) => !isAboFolderId(f.id) && f.id !== INTERN_FOLDER_ID)
+      .map((f) => {
       if (f.devices.some((d) => d.deviceID === pd.deviceID)) {
         return Promise.resolve();
       }

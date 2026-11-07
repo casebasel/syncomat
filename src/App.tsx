@@ -59,6 +59,7 @@ import {
 import { useUpdater } from "./lib/updater";
 import { useUpdateAll } from "./lib/updateAll";
 import { useInternFolder } from "./lib/internChannel";
+import { isAboFolderId, useDatenzentrale } from "./lib/datenzentrale";
 import {
   setFolderIgnores,
   tuneFolderForSize,
@@ -112,7 +113,12 @@ function App() {
   // Angebote des internen Kanals (von Geräten, die ihn schon haben) nie als
   // „Verfügbar" zeigen — dieses Gerät legt ihn selbst an.
   const userPendingFolders = useMemo(
-    () => (pendingFolders.data ?? []).filter((p) => p.folderID !== INTERN_FOLDER_ID),
+    // Abo-Ordner (dz-…) nie von Hand annehmen: sie entstehen nur über einen
+    // Auftrag der Datenzentrale, mit Platz- und Laufwerksprüfung.
+    () =>
+      (pendingFolders.data ?? []).filter(
+        (p) => p.folderID !== INTERN_FOLDER_ID && !isAboFolderId(p.folderID),
+      ),
     [pendingFolders.data],
   );
 
@@ -152,7 +158,11 @@ function App() {
   // Umlauf angeboten. putFolder ist idempotent, Syncthing dedupliziert devices[].
   useEffect(() => {
     if (!endpoint || !ready || !config.data || !myID) return;
-    const allFolders = config.data.folders.filter((f) => f.id !== INTERN_FOLDER_ID);
+    // Nur Ordner „an alle“: nicht der interne Kanal, nie Abo-Ordner (dz-…) —
+    // ein abonniertes Projekt gehört nur den abonnierten Rechnern (E6, E28).
+    const allFolders = config.data.folders.filter(
+      (f) => f.id !== INTERN_FOLDER_ID && !isAboFolderId(f.id),
+    );
     const peerIDs = config.data.devices
       .filter((d) => d.deviceID !== myID)
       .map((d) => d.deviceID);
@@ -271,6 +281,7 @@ function App() {
   );
   // Pinnt die schnellen Adressen aus der gemergten Karte (wenn aktiv); Fallback bleibt.
   usePrefer10GbE_apply(endpoint, ready, devices, prefer10.enabled, netHints);
+  const datenzentrale = useDatenzentrale();
   const updateAll = useUpdateAll({
     endpoint,
     ready,
@@ -510,6 +521,7 @@ function App() {
                 updateState={updater.state}
                 onRecheckUpdates={updater.recheck}
                 onInstallUpdate={updater.installAndRestart}
+                datenzentrale={datenzentrale}
                 updateNotes={updateAll.notes}
                 updateNoChannel={updateAll.noChannel}
                 updateRequest={updateAll.request}

@@ -4,6 +4,7 @@ mod firstrun;
 mod folder_settings;
 mod folder_stats;
 mod invites;
+mod datenzentrale;
 mod network_hints;
 mod reveal;
 mod sidecar;
@@ -137,6 +138,11 @@ pub fn run() {
             network_hints::device_note_write,
             network_hints::device_notes_read_all,
             network_hints::intern_folder_path,
+            datenzentrale::dz_credentials_parse,
+            datenzentrale::dz_credentials_save,
+            datenzentrale::dz_credentials_load,
+            datenzentrale::dz_credentials_clear,
+            datenzentrale::computer_name,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

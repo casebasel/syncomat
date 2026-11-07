@@ -5,6 +5,7 @@ import {
   Bell,
   CheckCircle2,
   Copy,
+  Database,
   Download,
   ExternalLink,
   Info,
@@ -22,9 +23,10 @@ import type {
 } from "../lib/syncthing";
 import type { UpdateState } from "../lib/updater";
 import { compareVersions, type UpdateNote } from "../lib/updateAll";
+import type { DzAuftrag, useDatenzentrale } from "../lib/datenzentrale";
 import { classifyPath, type NetPath } from "../lib/network";
 
-type Tab = "general" | "network" | "updates" | "notifications" | "power-user";
+type Tab = "general" | "network" | "updates" | "datenzentrale" | "notifications" | "power-user";
 
 /**
  * Einstellungen als INLINE-Ansicht im Hauptbereich (kein Overlay-Modal mehr).
@@ -38,6 +40,7 @@ export function SettingsPanel({
   updateState,
   onRecheckUpdates,
   onInstallUpdate,
+  datenzentrale,
   updateNotes,
   updateNoChannel,
   updateRequest,
@@ -64,6 +67,7 @@ export function SettingsPanel({
   updateState: UpdateState;
   onRecheckUpdates: () => void;
   onInstallUpdate: () => void;
+  datenzentrale: ReturnType<typeof useDatenzentrale>;
   updateNotes: Record<DeviceID, UpdateNote>;
   updateNoChannel: Set<DeviceID>;
   updateRequest: { version: string; by: DeviceID } | null;
@@ -126,6 +130,19 @@ export function SettingsPanel({
             badge={updateState.kind === "available" ? "neu" : undefined}
           />
           <TabButton
+            label="Datenzentrale"
+            icon={<Database className="size-[15px]" />}
+            active={tab === "datenzentrale"}
+            onClick={() => setTab("datenzentrale")}
+            badge={
+              datenzentrale.state.check &&
+              (datenzentrale.state.check.problems.length > 0 ||
+                datenzentrale.state.check.warnings.length > 0)
+                ? "!"
+                : undefined
+            }
+          />
+          <TabButton
             label="Benachrichtigungen"
             icon={<Bell className="size-[15px]" />}
             active={tab === "notifications"}
@@ -177,6 +194,7 @@ export function SettingsPanel({
                 myID={myID}
               />
             )}
+            {tab === "datenzentrale" && <DatenzentraleTab dz={datenzentrale} />}
             {tab === "notifications" && (
               <NotificationsTab
                 enabled={notificationsEnabled}
@@ -831,5 +849,171 @@ function AllDevicesUpdate({
             : "Geräte mit älterer Version laden das signierte Release, installieren es und starten neu. „unbekannt“ = Gerät läuft noch eine Version ohne diese Funktion (einmal von Hand aktualisieren). „kein syncomat oder alt“ = reines Syncthing (z. B. der NAS-Hub) oder syncomat älter als v0.9.17."}
       </p>
     </section>
+  );
+}
+
+/** Verbindung zur Datenzentrale + Aufträge dieses Rechners (Release 1: nur lesen). */
+function DatenzentraleTab({ dz }: { dz: ReturnType<typeof useDatenzentrale> }) {
+  const { state } = dz;
+  const [text, setText] = useState("");
+  const [preview, setPreview] = useState<
+    | { kind: "ok"; rechner: string; exp: Date | null; problems: string[]; warnings: string[] }
+    | { kind: "error"; message: string }
+    | null
+  >(null);
+  const [busy, setBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const onText = async (t: string) => {
+    setText(t);
+    setSaveError(null);
+    if (!t.trim()) return setPreview(null);
+    const p = await dz.preview(t);
+    setPreview(
+      "error" in p
+        ? { kind: "error", message: p.error }
+        : { kind: "ok", rechner: p.creds.rechner, ...p.check },
+    );
+  };
+
+  const fmtDate = (d: Date | null) => (d ? d.toLocaleDateString("de-CH") : "—");
+
+  if (!state.connection) {
+    const blocked = !preview || preview.kind === "error" || preview.problems.length > 0;
+    return (
+      <div className="space-y-4">
+        <section>
+          <SectionHeading>Datenzentrale verbinden</SectionHeading>
+          <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-2.5">
+            Die vier Zeilen aus <span className="font-mono">datenagent-token-erzeugen.sh</span>{" "}
+            einfügen. Das Token gilt nur für diesen Rechner
+            {state.computerName ? ` (${state.computerName})` : ""} und wird im Schlüsselbund des
+            Systems abgelegt.
+          </p>
+          <textarea
+            value={text}
+            onChange={(e) => void onText(e.target.value)}
+            rows={5}
+            spellCheck={false}
+            placeholder={"STUDIO_DB_URL=…\nSTUDIO_DB_ANON_KEY=…\nSTUDIO_DB_TOKEN=…\nSTUDIO_DB_RECHNER=…"}
+            className="w-full font-mono text-[11px] px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          />
+          {preview?.kind === "error" && (
+            <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1.5">{preview.message}</p>
+          )}
+          {preview?.kind === "ok" && (
+            <div className="text-[11px] mt-1.5 space-y-0.5">
+              <div className="text-neutral-600 dark:text-neutral-400">
+                Rechner <span className="font-mono">{preview.rechner}</span> · gültig bis{" "}
+                {fmtDate(preview.exp)}
+              </div>
+              {preview.problems.map((p) => (
+                <div key={p} className="text-rose-600 dark:text-rose-400">{p}</div>
+              ))}
+              {preview.warnings.map((w) => (
+                <div key={w} className="text-amber-600 dark:text-amber-400">{w}</div>
+              ))}
+            </div>
+          )}
+          {saveError && (
+            <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1.5">{saveError}</p>
+          )}
+          <button
+            disabled={blocked || busy}
+            onClick={async () => {
+              setBusy(true);
+              const err = await dz.connect(text);
+              setBusy(false);
+              if (err) setSaveError(err);
+              else {
+                setText("");
+                setPreview(null);
+              }
+            }}
+            className="mt-2.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          >
+            {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Database className="size-3.5" />}
+            Verbinden
+          </button>
+        </section>
+      </div>
+    );
+  }
+
+  const host = (() => {
+    try {
+      return new URL(state.connection.url).host;
+    } catch {
+      return state.connection.url;
+    }
+  })();
+
+  return (
+    <div className="space-y-4">
+      <section>
+        <SectionHeading>Datenzentrale</SectionHeading>
+        <div className="px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 text-xs space-y-1">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-neutral-900 dark:text-neutral-100">
+              Verbunden als <span className="font-mono">{state.connection.rechner}</span>
+            </span>
+            <button
+              onClick={() => void dz.disconnect()}
+              className="text-[11px] px-2.5 py-1 rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            >
+              Trennen
+            </button>
+          </div>
+          <div className="text-neutral-500 dark:text-neutral-400">
+            {host} · Token gültig bis {fmtDate(state.check?.exp ?? null)}
+            {state.lastFetch ? ` · zuletzt gelesen ${state.lastFetch.toLocaleTimeString("de-CH")}` : ""}
+          </div>
+          {state.check?.problems.map((p) => (
+            <div key={p} className="text-rose-600 dark:text-rose-400">{p}</div>
+          ))}
+          {state.check?.warnings.map((w) => (
+            <div key={w} className="text-amber-600 dark:text-amber-400">{w}</div>
+          ))}
+          {state.error && <div className="text-rose-600 dark:text-rose-400">{state.error}</div>}
+        </div>
+      </section>
+
+      <section>
+        <SectionHeading>Aufträge für diesen Rechner</SectionHeading>
+        {state.auftraege.length === 0 ? (
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">Keine Aufträge.</p>
+        ) : (
+          <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-800">
+            {state.auftraege.map((a) => (
+              <AuftragRow key={a.id} a={a} />
+            ))}
+          </div>
+        )}
+        <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+          Aufträge legt die Datenzentrale an (Seite des Speicher-Wächters). Syncomat zeigt sie
+          hier an; ausgeführt werden sie ab der nächsten Ausbaustufe.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function AuftragRow({ a }: { a: DzAuftrag }) {
+  const g = (a.angaben ?? {}) as Record<string, unknown>;
+  const name = typeof g.name === "string" ? g.name : typeof g.projekt_id === "string" ? g.projekt_id : "";
+  const auswahl = Array.isArray(g.auswahl) && g.auswahl.length > 0 ? (g.auswahl as string[]).join(", ") : "ganz";
+  const label = a.art === "abonnieren" ? "Abonnieren" : a.art === "abo_beenden" ? "Abo beenden" : a.art === "pausieren" ? "Pausieren" : a.art;
+  return (
+    <div className="px-3 py-2 text-xs flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <div className="text-neutral-900 dark:text-neutral-100 truncate">
+          {label}
+          {name ? ` · ${name}` : ""}
+          {a.art === "abonnieren" ? ` · ${auswahl}` : ""}
+        </div>
+        <div className="font-mono text-[10px] text-neutral-500 dark:text-neutral-500 truncate">{a.id}</div>
+      </div>
+      <span className="shrink-0 text-neutral-500 dark:text-neutral-400">{a.zustand}</span>
+    </div>
   );
 }

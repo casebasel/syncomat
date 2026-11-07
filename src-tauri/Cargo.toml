@@ -35,3 +35,14 @@ tauri-plugin-autostart = "2.5.1"
 walkdir = "2.5.0"
 tauri-plugin-notification = "2.3.3"
 
+
+# Zugangsdaten der Datenzentrale im Schlüsselbund des Systems (nie in einer
+# Datei, nie in einem gesyncten Ordner).
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["linux-native"] }
