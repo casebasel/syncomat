@@ -6,6 +6,7 @@ import "./App.css";
 import { Leiste } from "./components/uebersicht/Leiste";
 import { Uebersicht } from "./components/uebersicht/Uebersicht";
 import { AuswahlFeld } from "./components/uebersicht/AuswahlFeld";
+import { OrdnerAnAlle } from "./components/uebersicht/OrdnerAnAlle";
 import { FolderInspector } from "./components/FolderInspector";
 import { Statusbar } from "./components/Statusbar";
 import type { Spalte, Zeile, Zelle } from "./lib/uebersicht";
@@ -122,7 +123,17 @@ function Vorschau() {
         <button className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[var(--sm-blau)] text-white">Akzeptieren</button>
       </div>
       <div className="flex-1 flex overflow-hidden">
-      <Leiste ansicht="uebersicht" onAnsicht={() => {}} stoerungen={1} update={false} />
+      <Leiste ansicht={q.has("ordner") ? "ordner" : "uebersicht"} onAnsicht={() => {}} stoerungen={1} update={false} angebote={2} />
+      {q.has("ordner") ? (
+        <OrdnerAnAlle
+          onAnlegen={() => {}}
+          ordner={plugins.map((p) => ({ id: p.folderId, name: p.name, bytes: p.bytes, stoerung: false, onOeffnen: () => {} }))}
+          angebote={[
+            { id: "a", name: "Marketplace 5.9", von: ["truenas-hub"], onAnnehmen: () => {}, onAblehnen: async () => {} },
+            { id: "b", name: "Megascans", von: ["x5950", "truenas-hub"], onAnnehmen: () => {}, onAblehnen: async () => {} },
+          ]}
+        />
+      ) : (
       <Uebersicht
         spalten={spalten}
         projekte={projekte}
@@ -137,11 +148,10 @@ function Vorschau() {
         onRechner={() => {}}
         onRechnerKoppeln={() => {}}
         onCodeEinloesen={() => {}}
-        onOrdnerAnlegen={() => {}}
         onNeuPruefen={() => {}}
         pruefe={false}
-        angeboteneOrdner={[]}
       />
+      )}
       {(abo || zelle) && (
         <AuswahlFeld
           ep={null}

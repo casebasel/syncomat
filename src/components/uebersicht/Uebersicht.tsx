@@ -25,10 +25,8 @@ export function Uebersicht({
   onRechner,
   onRechnerKoppeln,
   onCodeEinloesen,
-  onOrdnerAnlegen,
   onNeuPruefen,
   pruefe,
-  angeboteneOrdner,
 }: {
   spalten: Spalte[];
   projekte: Zeile[];
@@ -46,12 +44,8 @@ export function Uebersicht({
   onRechner: (id: string) => void;
   onRechnerKoppeln: () => void;
   onCodeEinloesen: () => void;
-  /** Neuen Ordner „an alle“ anlegen (Plugins u. ä.) */
-  onOrdnerAnlegen: () => void;
   onNeuPruefen: () => void;
   pruefe: boolean;
-  /** Ordner, die ein anderer Rechner anbietet (keine Projekte) — von Hand verknüpfen. */
-  angeboteneOrdner: { id: string; name: string; onVerknuepfen: () => void }[];
 }) {
   const [filter, setFilter] = useState<Filter>("alle");
   const [suche, setSuche] = useState("");
@@ -277,14 +271,6 @@ export function Uebersicht({
             Rechnern lagen die Knöpfe rechts ausserhalb, Marlon 07.11.2026). */}
         <span className="ml-auto inline-flex items-center gap-1">
           <button
-            onClick={onOrdnerAnlegen}
-            title="Einen Ordner (z. B. Plugins) mit allen Rechnern abgleichen"
-            className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold inline-flex items-center gap-1 hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
-          >
-            <Plus className="size-3.5" strokeWidth={2.25} />
-            Ordner an alle
-          </button>
-          <button
             onClick={onRechnerKoppeln}
             title="Einen neuen Rechner ins Netz holen: Code anzeigen"
             className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold text-[var(--sm-blau)] inline-flex items-center gap-1 hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
@@ -303,22 +289,6 @@ export function Uebersicht({
         </span>
       </div>
 
-      {angeboteneOrdner.length > 0 && (
-        <div className="shrink-0 px-5 py-2 border-b border-[var(--sm-linie)] bg-[var(--sm-flaeche)] flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px]">
-          <span className="font-semibold">Angeboten von einem anderen Rechner:</span>
-          {angeboteneOrdner.map((o) => (
-            <span key={o.id} className="inline-flex items-center gap-2">
-              <span className="font-mono" dir="auto">{o.name}</span>
-              <button
-                onClick={o.onVerknuepfen}
-                className="text-[var(--sm-blau)] font-semibold hover:underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] rounded"
-              >
-                Verknüpfen
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
 
       {/* Tafel */}
       <div className="flex-1 overflow-auto">
@@ -366,7 +336,7 @@ export function Uebersicht({
             {filter === "plugins" && pluginsSichtbar.length === 0 && (
               <tr>
                 <td colSpan={spalten.length + 2} className="px-3 py-6 text-[13px] text-[var(--sm-text2)]">
-                  Noch kein Ordner, der mit allen Rechnern abgeglichen wird. Oben „Ordner an alle“ wählt einen aus.
+                  Noch kein Ordner, der mit allen Rechnern abgeglichen wird. Links unter „Ordner“ lässt sich einer anlegen.
                 </td>
               </tr>
             )}

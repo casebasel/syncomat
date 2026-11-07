@@ -1,6 +1,6 @@
-import { Activity, LayoutGrid, Settings } from "lucide-react";
+import { Activity, FolderSync, LayoutGrid, Settings } from "lucide-react";
 
-export type Ansicht = "uebersicht" | "aktivitaet" | "einstellungen";
+export type Ansicht = "uebersicht" | "ordner" | "aktivitaet" | "einstellungen";
 
 /** Schmale Leiste links: drei Bereiche, mehr nicht. 80 px statt 56 px: das
  * längste Wort („Einstellungen“) muss unter dem Symbol ganz lesbar sein. */
@@ -9,13 +9,16 @@ export function Leiste({
   onAnsicht,
   stoerungen,
   update,
+  angebote = 0,
 }: {
   ansicht: Ansicht;
   onAnsicht: (a: Ansicht) => void;
   stoerungen: number;
   update: boolean;
+  /** offene Angebote anderer Rechner */
+  angebote?: number;
 }) {
-  const eintrag = (a: Ansicht, label: string, Icon: typeof LayoutGrid, marke?: string | null) => (
+  const eintrag = (a: Ansicht, label: string, Icon: typeof LayoutGrid, marke?: string | null, info = false) => (
     <button
       onClick={() => onAnsicht(a)}
       aria-current={ansicht === a ? "page" : undefined}
@@ -29,7 +32,7 @@ export function Leiste({
       <Icon className="size-[18px]" strokeWidth={1.75} />
       {label}
       {marke && (
-        <span className="sm-zahl absolute top-1.5 right-2.5 min-w-4 h-4 px-1 rounded-full bg-[var(--sm-ocker)] text-[9px] leading-4 text-black font-bold">
+        <span className={`sm-zahl absolute top-1.5 right-2.5 min-w-4 h-4 px-1 rounded-full text-[9px] leading-4 font-bold ${info ? "bg-[var(--sm-blau)] text-white" : "bg-[var(--sm-ocker)] text-black"}`}>
           {marke}
         </span>
       )}
@@ -48,6 +51,7 @@ export function Leiste({
         </div>
       </div>
       {eintrag("uebersicht", "Übersicht", LayoutGrid, stoerungen > 0 ? String(stoerungen) : null)}
+      {eintrag("ordner", "Ordner", FolderSync, angebote > 0 ? String(angebote) : null, true)}
       {eintrag("aktivitaet", "Aktivität", Activity)}
       <div className="mt-auto" />
       {eintrag("einstellungen", "Einstellungen", Settings, update ? "1" : null)}

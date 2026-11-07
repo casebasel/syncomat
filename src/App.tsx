@@ -73,6 +73,7 @@ import { pickStignoreForWorkload } from "./lib/unreal";
 import { Leiste, type Ansicht } from "./components/uebersicht/Leiste";
 import { Uebersicht } from "./components/uebersicht/Uebersicht";
 import { AuswahlFeld } from "./components/uebersicht/AuswahlFeld";
+import { OrdnerAnAlle } from "./components/uebersicht/OrdnerAnAlle";
 import { useUebersicht } from "./lib/uebersicht";
 import { FolderInspector } from "./components/FolderInspector";
 import { GlobalActivityView } from "./components/GlobalActivityView";
@@ -559,6 +560,7 @@ function App() {
                 setAnsicht(a);
               }}
               stoerungen={uebersicht.lage.stoerungen}
+              angebote={visiblePending.length}
               update={updater.state.kind === "available"}
             />
 
@@ -684,6 +686,32 @@ function App() {
                   />
                 );
               })()
+            ) : ansicht === "ordner" && !panel ? (
+              <OrdnerAnAlle
+                onAnlegen={() => setPanel({ kind: "create-folder" })}
+                ordner={uebersicht.plugins.map((z) => ({
+                  id: z.folderId,
+                  name: z.name,
+                  bytes: z.bytes,
+                  stoerung: z.stoerung,
+                  onOeffnen: () => setSelectedFolderId(z.folderId),
+                }))}
+                angebote={visiblePending.map((pf) => ({
+                  id: pf.folderID,
+                  name: Object.values(pf.offeredBy)[0]?.label || pf.folderID,
+                  von: Object.keys(pf.offeredBy).map((id) => devices.find((d) => d.deviceID === id)?.name?.trim() || id.slice(0, 7)),
+                  onAnnehmen: () => onLink(pf),
+                  onAblehnen: async () => {
+                    if (!endpoint) return;
+                    await ignorePendingFolder(
+                      endpoint,
+                      pf.folderID,
+                      Object.values(pf.offeredBy)[0]?.label || pf.folderID,
+                      Object.keys(pf.offeredBy),
+                    );
+                  },
+                }))}
+              />
             ) : ansicht === "aktivitaet" && !panel ? (
               <GlobalActivityView
                 folders={folders}
@@ -715,14 +743,8 @@ function App() {
                   onRechner={(id) => (id === myID ? setAnsicht("einstellungen") : setPanel({ kind: "device-detail", deviceID: id }))}
                   onRechnerKoppeln={() => setPanel({ kind: "code-show" })}
                   onCodeEinloesen={() => setPanel({ kind: "code-redeem" })}
-                  onOrdnerAnlegen={() => setPanel({ kind: "create-folder" })}
                   onNeuPruefen={() => void onScan()}
                   pruefe={scanning}
-                  angeboteneOrdner={visiblePending.map((pf) => ({
-                    id: pf.folderID,
-                    name: Object.values(pf.offeredBy)[0]?.label || pf.folderID,
-                    onVerknuepfen: () => onLink(pf),
-                  }))}
                 />
                 {gewaehlteZeile && gewaehltSpalte && gewaehlteZeile.art === "projekt" ? (
                   <AuswahlFeld
