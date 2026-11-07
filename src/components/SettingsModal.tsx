@@ -774,7 +774,8 @@ function AllDevicesUpdate({
     ...(myID ? [{ id: myID, name: "Dieses Gerät", online: true }] : []),
     ...peers.map((p) => ({
       id: p.deviceID,
-      name: p.name?.trim() || p.deviceID.slice(0, 7),
+      // Eigener Name des Geräts aus seiner Notiz, wenn es hier ohne Namen eingetragen ist.
+      name: p.name?.trim() || notes[p.deviceID]?.name?.trim() || p.deviceID.slice(0, 7),
       online: !!connections[p.deviceID]?.connected,
     })),
   ];

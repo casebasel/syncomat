@@ -37,6 +37,9 @@ export type UpdateNote = {
   by: DeviceID;
   at: number;
   version: string;
+  /** Eigener Name (Computername) — damit die anderen ihn zeigen können,
+   * auch wenn sie das Gerät ohne Namen kennen (sonst nur „H6V6IPX“). */
+  name?: string;
   request?: { version: string; at: number };
 };
 
@@ -69,6 +72,7 @@ export function useUpdateAll({
   ready,
   folders,
   myID,
+  myName,
   version,
   updateState,
   recheck,
@@ -78,6 +82,7 @@ export function useUpdateAll({
   ready: boolean;
   folders: Folder[];
   myID: DeviceID | null;
+  myName?: string;
   version: string | null;
   updateState: UpdateState;
   recheck: () => void;
@@ -106,6 +111,7 @@ export function useUpdateAll({
         by: myID,
         at: Date.now(),
         version,
+        ...(myName ? { name: myName } : {}),
         ...(ownRequest ? { request: ownRequest } : {}),
       };
       // Nur bei Änderung schreiben (`at` zählt nicht) — sonst synct jede Minute
@@ -180,7 +186,7 @@ export function useUpdateAll({
       clearInterval(id);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint?.url, ready, myID, version, folderKey, ownRequest?.version, ownRequest?.at]);
+  }, [endpoint?.url, ready, myID, myName, version, folderKey, ownRequest?.version, ownRequest?.at]);
 
   // Höchste verlangte Version (von irgendeinem Gerät).
   let request: { version: string; by: DeviceID } | null = null;

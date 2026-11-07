@@ -88,6 +88,8 @@ type AboNotiz = {
   abos: AboNotizEintrag[];
   /** Protokoll der Wünsche (fehlt = ältere Version, nimmt keine an) */
   kann_wuensche?: number;
+  /** eigener Computername (für Geräte, die anderswo ohne Namen eingetragen sind) */
+  name?: string;
   wuensche_erledigt?: WunschErgebnis[];
 };
 
@@ -276,7 +278,7 @@ export function useUebersicht({
       ...(auswahlHier[f.id] ? { auswahl: auswahlHier[f.id]! } : {}),
     }));
   const erledigt = erledigtHier ?? ladeErledigt();
-  const eigeneKey = JSON.stringify({ rolle, frei: frei ? Math.round(frei.frei / 1e9) : null, eigeneAbos, erledigt });
+  const eigeneKey = JSON.stringify({ rolle, frei: frei ? Math.round(frei.frei / 1e9) : null, eigeneAbos, erledigt, myName });
   useEffect(() => {
     if (!ready || !myID || !intern) return;
     let cancelled = false;
@@ -289,6 +291,7 @@ export function useUebersicht({
           frei_d: frei?.frei ?? null,
           abos: eigeneAbos,
           kann_wuensche: WUNSCH_PROTOKOLL,
+          ...(myName ? { name: myName } : {}),
           wuensche_erledigt: erledigt,
         };
         await invoke("device_note_write", {
@@ -333,7 +336,7 @@ export function useUebersicht({
     const n = notizen[d.deviceID];
     spalten.push({
       id: d.deviceID,
-      name: d.name?.trim() || d.deviceID.slice(0, 7),
+      name: d.name?.trim() || n?.name?.trim() || d.deviceID.slice(0, 7),
       ich: false,
       online: !!connections[d.deviceID]?.connected,
       rolle: n?.rolle ?? null,

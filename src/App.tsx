@@ -319,12 +319,13 @@ function App() {
     ready,
     folders: internFolder ? [internFolder, ...userFolders] : userFolders,
     myID,
+    myName: datenzentrale.state.computerName || undefined,
     version,
     updateState: updater.state,
     recheck: updater.recheck,
     installAndRestart: updater.installAndRestart,
   });
-  const myName = devices.find((d) => d.deviceID === myID)?.name?.trim() ?? "";
+  const myName = devices.find((d) => d.deviceID === myID)?.name?.trim() || datenzentrale.state.computerName || "";
   const uebersicht = useUebersicht({
     ep: endpoint,
     ready,
