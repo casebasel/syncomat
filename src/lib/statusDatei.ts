@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { getFolderStatus, folderError, type DeviceID, type Endpoint, type Folder } from "./syncthing";
 import { isAboFolderId } from "./datenzentrale";
 import { aboAuswahl } from "./nasProjekte";
+import { projekteWurzel } from "./abo";
 
 // ── Lokale Statusdatei ───────────────────────────────────────────
 //
@@ -40,6 +41,10 @@ export type StatusDatei = {
   rechner: string | null;
   /** true, solange irgendein Abo gerade Dateien schreibt (lädt). */
   schreibt_gerade: boolean;
+  /** Überordner der Arbeitskopien: Windows „D:\\Projekte\\“, Mac der gewählte
+   * Ordner; null = keiner. Ab v0.9.34. Ältere Abos können ausserhalb liegen —
+   * massgebend je Abo ist abos[].path. */
+  projekte_ordner: string | null;
   abos: StatusAbo[];
 };
 
@@ -91,6 +96,7 @@ export function useStatusDatei({
         geschrieben: new Date(now).toISOString(),
         ...inhalt,
         schreibt_gerade: liste.some((a) => a.zustand === "syncing"),
+        projekte_ordner: projekteWurzel(),
       };
       try {
         await invoke("status_datei_write", { content: JSON.stringify(datei, null, 2) });

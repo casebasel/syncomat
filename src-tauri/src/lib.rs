@@ -153,6 +153,7 @@ pub fn run() {
             auswahl::auswahl_pruefen,
             auswahl::auswahl_entfernen,
             auswahl::inhalt_ordner_pfad,
+            auswahl::abo_ordner_leeren,
             auswahl::muster_treffer,
         ])
         .build(tauri::generate_context!())

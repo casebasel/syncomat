@@ -177,7 +177,7 @@ export function AuswahlFeld({
   ergebnisVomZiel: WunschErgebnis | null;
   /** Dieser Rechner führt gerade einen Wunsch für dieses Projekt aus. */
   laeuftHier: boolean;
-  onSenden: (art: WunschArt, auswahl: string[], vorher: string[] | null) => void;
+  onSenden: (art: WunschArt, auswahl: string[], vorher: string[] | null, loeschen?: boolean) => void;
   onZuruecknehmen: (id: string) => void;
   onSchliessen: () => void;
   /** Ordner-Aktionen für das eigene Abo (Explorer, Details, Fortsetzen …). */
@@ -191,7 +191,7 @@ export function AuswahlFeld({
   /** In der Übersicht ausblenden (fertiges Projekt) — nur Ansicht dieses Rechners. */
   ausblenden?: { aus: boolean; setzen: (aus: boolean) => void };
   /** Abo auf ALLEN Rechnern beenden (hier direkt, sonst als Wunsch). */
-  onUeberallBeenden?: () => Promise<string>;
+  onUeberallBeenden?: (loeschen: boolean) => Promise<string>;
   /** Nur für die Vorschau-Seite. */
   vorschauBaum?: Baum;
 }) {
@@ -206,6 +206,9 @@ export function AuswahlFeld({
   const [busy, setBusy] = useState<string | null>(null);
   const [meldung, setMeldung] = useState<{ ok: boolean; text: string } | null>(null);
   const [ueberallFragen, setUeberallFragen] = useState(false);
+  const [beendenFragen, setBeendenFragen] = useState(false);
+  /** Beim Beenden den Ordner löschen (nur, was sicher auf dem NAS ist). */
+  const [ordnerLoeschen, setOrdnerLoeschen] = useState(true);
 
   // Ordnerbaum holen: aus dem eigenen Abo, sonst nur das Inhaltsverzeichnis vom NAS.
   useEffect(() => {
@@ -288,7 +291,7 @@ export function AuswahlFeld({
   const hierBeenden = () =>
     ausfuehren("Abo beenden …", async () => {
       if (!ep || !myID || !zeile.hier) throw new Error("Nicht abonniert.");
-      return aboBeenden(ep, zeile.hier, myID);
+      return aboBeenden(ep, zeile.hier, myID, ordnerLoeschen);
     });
 
   const name = spalte.ich ? "diesem Rechner" : spalte.name;
@@ -598,7 +601,7 @@ export function AuswahlFeld({
           )}
           {abonniert && (
             <button
-              onClick={() => (spalte.ich ? void hierBeenden() : onSenden("beenden", [], vorherFern ?? null))}
+              onClick={() => setBeendenFragen(true)}
               disabled={spalte.ich ? !zeile.hier || !!busy || laeuftHier : !kannFern}
               className="h-8 px-3 rounded-md border border-[var(--sm-linie)] text-[14px] hover:bg-[var(--sm-flaeche)] disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
             >
@@ -606,6 +609,35 @@ export function AuswahlFeld({
             </button>
           )}
         </div>
+        {beendenFragen && (
+          <div className="rounded-md border border-[var(--sm-linie)] px-3 py-2 text-[13px] space-y-2">
+            <p className="font-semibold">Abo {spalte.ich ? "auf diesem Rechner" : `auf ${spalte.name}`} beenden?</p>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" checked={ordnerLoeschen} onChange={(e) => setOrdnerLoeschen(e.target.checked)} className="mt-0.5 accent-[var(--sm-blau)]" />
+              <span>
+                Ordner {spalte.ich ? "hier" : `auf ${spalte.name}`} löschen
+                <span className="block text-[12px] text-[var(--sm-text2)]">
+                  Nur, was sicher auf dem NAS liegt. Was nie dort war (z. B. Autosaves), bleibt liegen und wird gemeldet.
+                </span>
+              </span>
+            </label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setBeendenFragen(false);
+                  if (spalte.ich) void hierBeenden();
+                  else onSenden("beenden", [], vorherFern ?? null, ordnerLoeschen);
+                }}
+                className="h-7 px-2.5 rounded-md bg-[var(--sm-text)] text-[var(--sm-grund)] text-[13px] font-semibold"
+              >
+                Abo beenden
+              </button>
+              <button onClick={() => setBeendenFragen(false)} className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[13px]">
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        )}
         {leer && <p className="text-[12px] text-[var(--sm-ocker-text)]">Mindestens einen Ordner wählen — oder „Alles“.</p>}
         {ausblenden && (
           <button
@@ -628,13 +660,17 @@ export function AuswahlFeld({
             ) : (
               <div className="space-y-1.5">
                 <p>
-                  {zeile.name} auf allen Rechnern beenden? Jeder Rechner prüft vorher, dass das NAS alles von ihm hat. Die Dateien bleiben auf den Rechnern liegen und lassen sich dann löschen.
+                  {zeile.name} auf allen Rechnern beenden? Jeder Rechner prüft vorher, dass das NAS alles von ihm hat.
                 </p>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input type="checkbox" checked={ordnerLoeschen} onChange={(e) => setOrdnerLoeschen(e.target.checked)} className="mt-0.5 accent-[var(--sm-blau)]" />
+                  <span>Ordner auf den Rechnern löschen (nur, was sicher auf dem NAS liegt)</span>
+                </label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
                       setUeberallFragen(false);
-                      void ausfuehren("Abos beenden …", onUeberallBeenden);
+                      void ausfuehren("Abos beenden …", () => onUeberallBeenden(ordnerLoeschen));
                     }}
                     className="h-7 px-2.5 rounded-md bg-[var(--sm-text)] text-[var(--sm-grund)] font-semibold"
                   >

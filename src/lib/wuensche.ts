@@ -54,6 +54,8 @@ export type Wunsch = {
    * Ziel inzwischen eine andere, wird der Wunsch nicht ausgeführt — so läuft
    * auch nie ein alter Wunsch ein zweites Mal. */
   vorher: string[] | null;
+  /** nur bei „beenden“: den Ordner am Ziel danach leeren (nur Gesichertes). */
+  loeschen?: boolean;
   at: number;
 };
 
@@ -108,6 +110,7 @@ function gueltig(w: unknown): w is Wunsch {
     Array.isArray(x.auswahl) &&
     x.auswahl.every((p) => typeof p === "string") &&
     (x.vorher === null || (Array.isArray(x.vorher) && x.vorher.every((p) => typeof p === "string"))) &&
+    (x.loeschen === undefined || typeof x.loeschen === "boolean") &&
     typeof x.at === "number"
   );
 }
@@ -303,7 +306,7 @@ async function ausfuehren(
   }
   if (w.art === "beenden") {
     if (!hier) return "War hier nicht abonniert.";
-    return aboBeenden(ep, hier, myID);
+    return aboBeenden(ep, hier, myID, w.loeschen === true);
   }
   if (hier) return aboAuswahlAendern(ep, hier, w.auswahl, rolle, myID);
   const p = nasProjekte(pending, folders).find((x) => x.folderId === w.folder_id);

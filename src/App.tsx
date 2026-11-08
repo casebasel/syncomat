@@ -778,8 +778,8 @@ function App() {
                       !!wuensche.laeuft &&
                       [...wuensche.neueste.values()].some((w) => w.id === wuensche.laeuft && w.folder_id === gewaehlteZeile.folderId)
                     }
-                    onSenden={(art, auswahl, vorher) =>
-                      wuensche.senden({ ziel: gewaehltSpalte.id, folder_id: gewaehlteZeile.folderId, name: gewaehlteZeile.name, art, auswahl, vorher })
+                    onSenden={(art, auswahl, vorher, loeschen) =>
+                      wuensche.senden({ ziel: gewaehltSpalte.id, folder_id: gewaehlteZeile.folderId, name: gewaehlteZeile.name, art, auswahl, vorher, ...(art === "beenden" ? { loeschen: !!loeschen } : {}) })
                     }
                     onZuruecknehmen={wuensche.zuruecknehmen}
                     onSchliessen={() => setGewaehlt(null)}
@@ -802,7 +802,7 @@ function App() {
                       aus: ausgeblendet.ids.has(gewaehlteZeile.folderId),
                       setzen: (aus) => ausgeblendet.setzen(gewaehlteZeile.folderId, aus),
                     }}
-                    onUeberallBeenden={async () => {
+                    onUeberallBeenden={async (loeschen) => {
                       const z = gewaehlteZeile;
                       const teile: string[] = [];
                       for (const sp of uebersicht.spalten) {
@@ -813,13 +813,12 @@ function App() {
                           teile.push(`${sp.name}: ältere Version — dort selbst beenden`);
                           continue;
                         }
-                        wuensche.senden({ ziel: sp.id, folder_id: z.folderId, name: z.name, art: "beenden", auswahl: [], vorher: c.auswahl });
+                        wuensche.senden({ ziel: sp.id, folder_id: z.folderId, name: z.name, art: "beenden", auswahl: [], vorher: c.auswahl, loeschen });
                         teile.push(`${sp.name}: gesendet`);
                       }
                       if (z.hier && endpoint && myID) {
                         try {
-                          await aboBeenden(endpoint, z.hier, myID);
-                          teile.unshift("Hier: beendet");
+                          teile.unshift(`Hier: ${await aboBeenden(endpoint, z.hier, myID, loeschen)}`);
                         } catch (e) {
                           teile.unshift(`Hier: ${e instanceof Error ? e.message : String(e)}`);
                         }
@@ -845,8 +844,8 @@ function App() {
                       onShowErrors={(f) => setPanel({ kind: "folder-errors", folder: f })}
                       onAboBeenden={
                         endpoint && myID
-                          ? async (f) => {
-                              const m = await aboBeenden(endpoint, f, myID);
+                          ? async (f, loeschen) => {
+                              const m = await aboBeenden(endpoint, f, myID, loeschen);
                               setGewaehlt(null);
                               return m;
                             }

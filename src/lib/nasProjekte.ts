@@ -573,25 +573,76 @@ export async function freiAufD(): Promise<{ frei: number; total: number; fs: str
 /** Abo auf diesem Rechner beenden: nur, wenn alles von hier auf dem NAS ist.
  * Nimmt den Ordner aus dem Abgleich — die Dateien bleiben auf D: liegen
  * (Löschen wirkt danach nirgends mehr, auch nicht auf dem NAS). */
-async function aboBeendenEinmal(ep: Endpoint, f: Folder, myID: DeviceID): Promise<string> {
+type OrdnerGeleert = { geloescht: number; bytes: number; behalten: string[]; behalten_anzahl: number; ordner_weg: boolean; fehler: string[] };
+
+/**
+ * Abo auf diesem Rechner beenden. Nur, wenn alle Gegenstellen den Stand von
+ * hier vollständig haben. Mit `loeschen` (Marlon 08.11.2026): danach den
+ * Ordner hier leeren — aber erst NACH dem Herausnehmen aus Syncthing (das
+ * Löschen reist nirgends hin) und nur, was Datei für Datei dem Stand auf dem
+ * NAS entspricht. Nie Abgeglichenes (Autosaves, hier Neues …) bleibt liegen
+ * und wird gemeldet.
+ */
+async function aboBeendenEinmal(ep: Endpoint, f: Folder, myID: DeviceID, loeschen: boolean): Promise<string> {
   const s = await getFolderStatus(ep, f.id);
   if (s.state !== "idle") throw new Error("Der Ordner arbeitet gerade. Bitte warten, bis er fertig ist.");
   const andere = f.devices.map((d) => d.deviceID).filter((d) => d !== myID);
-  const stand = await Promise.all(andere.map((d) => getRemoteCompletion(ep, f.id, d).catch(() => null)));
-  // Alle verbundenen Gegenstellen (NAS, ggf. weitere Abo-Rechner) müssen den
-  // Stand von hier vollständig haben — und mindestens eine muss verbunden sein.
-  const verbunden = stand.filter((c) => c?.remoteState === "valid");
-  const vollstaendig = (c: (typeof stand)[number]) =>
-    !!c && c.completion >= 100 && c.needItems === 0 && c.needDeletes === 0;
-  if (verbunden.length === 0 || !verbunden.every(vollstaendig)) {
-    throw new Error("Noch nicht alles von hier ist auf dem NAS. Abo bleibt, bis der Abgleich fertig ist.");
+  if (loeschen) {
+    // Strenger als ohne Löschen: ALLE Gegenstellen verbunden und vollständig.
+    const grund = await alleHabenAlles(ep, f, myID);
+    if (grund) throw new Error(`${grund} Abo bleibt, bis der Abgleich fertig ist.`);
+  } else {
+    const stand = await Promise.all(andere.map((d) => getRemoteCompletion(ep, f.id, d).catch(() => null)));
+    // Alle verbundenen Gegenstellen müssen den Stand von hier vollständig
+    // haben — und mindestens eine muss verbunden sein.
+    const verbunden = stand.filter((c) => c?.remoteState === "valid");
+    const vollstaendig = (c: (typeof stand)[number]) =>
+      !!c && c.completion >= 100 && c.needItems === 0 && c.needDeletes === 0;
+    if (verbunden.length === 0 || !verbunden.every(vollstaendig)) {
+      throw new Error("Noch nicht alles von hier ist auf dem NAS. Abo bleibt, bis der Abgleich fertig ist.");
+    }
   }
+
+  let index: Record<string, [number, number]> = {};
+  let wegwerf: string[] = [];
+  let toleranzMs = 1;
+  if (loeschen) {
+    index = indexAusBrowse(await getBrowse(ep, f.id, -1));
+    wegwerf = schutzRegeln((await getFolderIgnores(ep, f.id)).ignore ?? []).wegwerf;
+    const fs = ((await invoke("disk_info", { path: f.path }).catch(() => null)) as { file_system?: string } | null)?.file_system ?? "";
+    toleranzMs = zeitToleranzMs(fs);
+    // Gegenprobe je Datei (bis GEGENPROBE_MAX, gleichmässig verteilt): hier
+    // gleiche Version wie global und auf einem anderen Gerät vorhanden.
+    const pfade = Object.keys(index).sort();
+    const schritt = Math.max(1, Math.ceil(pfade.length / GEGENPROBE_MAX));
+    for (let i = 0; i < pfade.length; i += schritt) {
+      const fi = await getDbFile(ep, f.id, pfade[i]).catch(() => null);
+      const l = fi?.local;
+      if (!fi || !l || l.ignored || ((l.localFlags ?? 0) & 2) !== 0) continue; // hier nicht abgeglichen → wird ohnehin nicht gelöscht
+      const v = (x: { version?: string[] } | null | undefined) => JSON.stringify(x?.version ?? null);
+      if (!fi.global || v(l) !== v(fi.global) || !(fi.availability ?? []).some((a) => a.id !== myID)) {
+        throw new Error(`${pfade[i]} ist auf dem NAS nicht im selben Stand — Abo bleibt, nichts gelöscht.`);
+      }
+    }
+  }
+
   await deleteFolder(ep, f.id);
   // Das Angebot des NAS erscheint sonst erst nach dem nächsten Verbindungsaufbau
   // wieder — bis dahin gemerkt, damit das Projekt gleich wieder abonnierbar ist.
   gemerkteAngebote.set(f.id, { p: { folderId: f.id, name: f.label || f.id, anbieter: andere }, bis: Date.now() + MERKEN_MS });
   await neuVerbinden(ep, andere);
-  return `Abo beendet. Die Dateien liegen weiter in ${f.path} — du kannst den Ordner löschen.`;
+  if (!loeschen) return `Abo beendet. Die Dateien liegen weiter in ${f.path}.`;
+
+  const r = await invoke<OrdnerGeleert>("abo_ordner_leeren", { root: f.path, wegwerf, index, toleranzMs }).catch(
+    (e: unknown) => {
+      throw new Error(`Abo beendet, aber der Ordner liess sich nicht leeren: ${e instanceof Error ? e.message : String(e)}`);
+    },
+  );
+  if (r.ordner_weg) return `Abo beendet und ${f.path} gelöscht (${gb(r.bytes)}) — alles liegt auf dem NAS.`;
+  return (
+    `Abo beendet. Gelöscht: ${r.geloescht} Datei(en), ${gb(r.bytes)}. ` +
+    `${r.behalten_anzahl} Datei(en) waren nie auf dem NAS und liegen weiter in ${f.path}, z. B. ${r.behalten[0] ?? r.fehler[0] ?? "?"}.`
+  );
 }
 
 export function aboVorbereiten(ep: Endpoint, p: NasProjekt, myID: DeviceID, rolle: GeraeteRolle, onSchritt: (text: string) => void): Promise<AboVorbereitung> {
@@ -602,6 +653,6 @@ export function aboStarten(ep: Endpoint, p: NasProjekt, v: AboVorbereitung, ausw
   return mitSperre(p.folderId, () => aboStartenEinmal(ep, p, v, auswahl, rolle));
 }
 
-export function aboBeenden(ep: Endpoint, f: Folder, myID: DeviceID): Promise<string> {
-  return mitSperre(f.id, () => aboBeendenEinmal(ep, f, myID));
+export function aboBeenden(ep: Endpoint, f: Folder, myID: DeviceID, loeschen = false): Promise<string> {
+  return mitSperre(f.id, () => aboBeendenEinmal(ep, f, myID, loeschen));
 }

@@ -64,7 +64,7 @@ export function FolderInspector({
   onShowErrors: (f: Folder) => void;
   /** Nur bei Abo-Ordnern (dz-…): Abo auf diesem Rechner beenden. Gibt die
    * Meldung zurück oder wirft mit dem Grund. */
-  onAboBeenden?: (f: Folder) => Promise<string>;
+  onAboBeenden?: (f: Folder, loeschen: boolean) => Promise<string>;
   /** Projektkante (nur Projekte). */
   farbe?: string | null;
   onSchliessen?: () => void;
@@ -82,6 +82,8 @@ export function FolderInspector({
   const istAbo = isAboFolderId(folder.id);
   const [aboMeldung, setAboMeldung] = useState<{ ok: boolean; text: string } | null>(null);
   const [aboBusy, setAboBusy] = useState(false);
+  const [aboFragen, setAboFragen] = useState(false);
+  const [aboLoeschen, setAboLoeschen] = useState(true);
   const folderErrInfo = folderErr ? describeFolderError(folderErr) : null;
   // Erstes offline-peer für "Wartet auf X" Label
   const offlinePeerName = (() => {
@@ -225,23 +227,45 @@ export function FolderInspector({
                 </div>
               )}
             </div>
-            <button
-              disabled={aboBusy}
-              onClick={async () => {
-                setAboBusy(true);
-                setAboMeldung(null);
-                try {
-                  setAboMeldung({ ok: true, text: await onAboBeenden(folder) });
-                } catch (e) {
-                  setAboMeldung({ ok: false, text: e instanceof Error ? e.message : String(e) });
-                } finally {
-                  setAboBusy(false);
-                }
-              }}
-              className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-md border border-[var(--sm-linie)] hover:bg-[var(--sm-flaeche)] disabled:opacity-50"
-            >
-              Abo beenden
-            </button>
+            {!aboFragen ? (
+              <button
+                disabled={aboBusy}
+                onClick={() => setAboFragen(true)}
+                className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-md border border-[var(--sm-linie)] hover:bg-[var(--sm-flaeche)] disabled:opacity-50"
+              >
+                Abo beenden
+              </button>
+            ) : (
+              <div className="shrink-0 w-48 space-y-1.5 text-xs">
+                <label className="flex items-start gap-1.5 cursor-pointer">
+                  <input type="checkbox" checked={aboLoeschen} onChange={(e) => setAboLoeschen(e.target.checked)} className="mt-0.5" />
+                  <span>Ordner hier löschen (nur, was sicher auf dem NAS liegt)</span>
+                </label>
+                <div className="flex gap-1.5">
+                  <button
+                    disabled={aboBusy}
+                    onClick={async () => {
+                      setAboBusy(true);
+                      setAboMeldung(null);
+                      try {
+                        setAboMeldung({ ok: true, text: await onAboBeenden(folder, aboLoeschen) });
+                      } catch (e) {
+                        setAboMeldung({ ok: false, text: e instanceof Error ? e.message : String(e) });
+                      } finally {
+                        setAboBusy(false);
+                        setAboFragen(false);
+                      }
+                    }}
+                    className="font-semibold px-2.5 py-1 rounded-md bg-[var(--sm-text)] text-[var(--sm-grund)] disabled:opacity-50"
+                  >
+                    Beenden
+                  </button>
+                  <button onClick={() => setAboFragen(false)} className="px-2.5 py-1 rounded-md border border-[var(--sm-linie)]">
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -462,6 +462,107 @@ pub fn muster_treffer(root: String, muster: Vec<String>, ausser: Vec<String>) ->
     Ok(out)
 }
 
+#[derive(Serialize, Debug, Default)]
+pub struct OrdnerGeleert {
+    pub geloescht: u64,
+    pub bytes: u64,
+    /// Lokale Dateien, die NICHT dem Stand auf dem NAS entsprechen (nie
+    /// abgeglichen, geschützt, geändert) — bleiben liegen.
+    pub behalten: Vec<String>,
+    pub behalten_anzahl: u64,
+    /// Ordner ganz weg (nichts mehr übrig).
+    pub ordner_weg: bool,
+    pub fehler: Vec<String>,
+}
+
+/// Nach „Abo beenden“ (Ordner ist schon aus Syncthing genommen — Löschen
+/// reist nirgends hin): löscht im Abo-Ordner nur, was nachweislich auf dem
+/// NAS ist (Grösse und Zeit wie im Index) und Wegwerf (Caches, OS-Reste).
+/// Alles andere bleibt und wird gemeldet. Leere Ordner und am Ende der
+/// Ordner selbst (samt .stfolder/.stignore) werden entfernt, wenn nichts
+/// übrig ist.
+#[tauri::command]
+pub fn abo_ordner_leeren(
+    root: String,
+    wegwerf: Vec<String>,
+    index: Index,
+    toleranz_ms: Option<i64>,
+) -> Result<OrdnerGeleert, String> {
+    let w = wurzel(&root)?;
+    let tol = toleranz(toleranz_ms);
+    let regeln = Regeln::neu(&[], &wegwerf)?;
+    let d = dateien(&w)?;
+    let mut out = OrdnerGeleert::default();
+    let mut ordner = std::collections::BTreeSet::new();
+    for f in &d {
+        let weg = Regeln::trifft(&regeln.wegwerf, &f.rel) || wie_im_index(f, &index, tol);
+        if !weg || !f.pfad.starts_with(&w) {
+            out.behalten_anzahl += 1;
+            if out.behalten.len() < BEISPIELE {
+                out.behalten.push(f.rel.clone());
+            }
+            continue;
+        }
+        match fs::remove_file(&f.pfad) {
+            Ok(()) => {
+                out.geloescht += 1;
+                out.bytes += f.bytes;
+                let mut p = f.pfad.parent();
+                while let Some(dir) = p {
+                    if dir == w || !dir.starts_with(&w) {
+                        break;
+                    }
+                    ordner.insert(dir.to_path_buf());
+                    p = dir.parent();
+                }
+            }
+            Err(e) => {
+                out.behalten_anzahl += 1;
+                out.fehler.push(format!("{}: {e}", f.rel));
+            }
+        }
+    }
+    let mut ordner: Vec<PathBuf> = ordner.into_iter().collect();
+    ordner.sort_by_key(|p| std::cmp::Reverse(p.components().count()));
+    for dir in ordner {
+        let _ = fs::remove_dir(&dir);
+    }
+    // Auch schon vorher leere Unterordner (ausser Syncthing-Eigenem) weg.
+    fn leere_weg(dir: &Path, stamm: bool) {
+        if let Ok(it) = fs::read_dir(dir) {
+            for e in it.flatten() {
+                let n = e.file_name().to_string_lossy().into_owned();
+                if stamm && matches!(n.as_str(), ".stfolder" | ".stversions") {
+                    continue;
+                }
+                if let Ok(m) = fs::symlink_metadata(e.path()) {
+                    if m.is_dir() && !ist_verknuepfung(&m) {
+                        leere_weg(&e.path(), false);
+                        let _ = fs::remove_dir(e.path());
+                    }
+                }
+            }
+        }
+    }
+    leere_weg(&w, true);
+    if out.behalten_anzahl == 0 {
+        // Nur noch Syncthing-Eigenes übrig → ganz weg.
+        let rest: Vec<String> = fs::read_dir(&w)
+            .map_err(|e| format!("{}: {e}", w.display()))?
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        if rest.iter().all(|n| matches!(n.as_str(), ".stfolder" | ".stignore" | ".stversions" | ".syncomat")) {
+            for n in &rest {
+                let q = w.join(n);
+                let _ = if q.is_dir() { fs::remove_dir_all(&q) } else { fs::remove_file(&q) };
+            }
+            out.ordner_weg = fs::remove_dir(&w).is_ok();
+        }
+    }
+    Ok(out)
+}
+
 /// Leerer Arbeitsordner, um nur das Inhaltsverzeichnis eines Projekts zu
 /// holen (für den Ordnerbaum, wenn dieser Rechner das Projekt nicht führt):
 /// `<app_local_data>/inhalt/<folder_id>`. Nie auf D:, nie in einem Projekt.
@@ -648,6 +749,29 @@ mod tests {
         assert!(auswahl_entfernen(root, vec![], s(&["03_UNREAL"]), schutz(), wegwerf(), ix, Some(20)).is_ok());
         assert_eq!(toleranz(Some(99_999)), 2000);
         assert_eq!(toleranz(Some(0)), 1);
+    }
+
+    #[test]
+    fn ordner_leeren_nur_gesichertes() {
+        let t = projekt();
+        let root = t.path().to_string_lossy().into_owned();
+        let mut ix = index_von(&t);
+        ix.remove("04_SHOTS/notiz.txt"); // nie auf dem NAS
+        ix.remove("03_UNREAL/P/Saved/Autosaves/auto.bin");
+        ix.remove("03_UNREAL/P/Intermediate/x.bin"); // Wegwerf: darf weg
+        let r = abo_ordner_leeren(root.clone(), wegwerf(), ix, None).unwrap();
+        assert_eq!(r.behalten_anzahl, 2, "{r:?}");
+        assert!(!r.ordner_weg);
+        assert!(t.path().join("04_SHOTS/notiz.txt").exists());
+        assert!(t.path().join("03_UNREAL/P/Saved/Autosaves/auto.bin").exists());
+        assert!(!t.path().join("00_PRODUKTION").exists());
+        assert!(!t.path().join("03_UNREAL/P/Intermediate").exists());
+        // Rest weg → alles gesichert → Ordner verschwindet ganz.
+        fs::remove_file(t.path().join("04_SHOTS/notiz.txt")).unwrap();
+        fs::remove_dir_all(t.path().join("03_UNREAL")).unwrap();
+        let r = abo_ordner_leeren(root, wegwerf(), index_von(&t), None).unwrap();
+        assert!(r.ordner_weg, "{r:?}");
+        assert!(!t.path().exists());
     }
 
     #[test]
