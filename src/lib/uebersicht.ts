@@ -78,6 +78,8 @@ export type Spalte = {
   freiD: number | null;
   /** nimmt Wünsche anderer Rechner an (syncomat ≥ v0.9.27) */
   kannWuensche: boolean;
+  /** nicht direkt verbunden, aber über das NAS erreichbar (frische Notiz) */
+  ueberNas?: boolean;
   /** Dateisystem von D: (Abos nur auf NTFS); null = unbekannt / kein D: */
   dFs: string | null;
   /** zuletzt verbunden (ms), wenn gerade nicht verbunden */
@@ -104,7 +106,9 @@ const KIND = "abos";
 const TAKT_MS = 3_000;
 const NOTIZ_MS = 15_000;
 /** Eine Notiz älter als das gilt als „nicht mehr gemeldet“. */
-const NOTIZ_ALT_MS = 10 * 60_000;
+const NOTIZ_ALT_MS = 25 * 60_000;
+/** Notiz spätestens so oft neu schreiben (Lebenszeichen über den Kanal). */
+const HERZSCHLAG_MS = 10 * 60_000;
 
 export function zelleAusStatus(s: FolderStatus | null, f: Folder): Zelle {
   if (f.paused) return { zustand: "angehalten", grund: "Pausiert" };
@@ -163,6 +167,10 @@ export function useUebersicht({
   const [zuletzt, setZuletzt] = useState<Record<DeviceID, number>>({});
   const konfliktVorherRef = useRef<Record<string, number>>({});
   const lastNoteRef = useRef("");
+  /** Zuletzt geschrieben (ms) — die Notiz wird spätestens alle 10 min erneuert,
+   * damit andere sehen, dass dieser Rechner läuft (auch ohne direkte
+   * Verbindung, z. B. der Mac über ZeroTier nur zum NAS). */
+  const lastNoteAtRef = useRef(0);
 
   const folders = (config?.folders ?? []).filter((f) => f.id !== intern?.id && !istInhaltOrdner(f));
   const folderKey = folders.map((f) => `${f.id}:${f.paused ? 1 : 0}:${f.devices.length}`).join(",");
@@ -308,7 +316,7 @@ export function useUebersicht({
     if (!ready || !myID || !intern) return;
     let cancelled = false;
     const run = async () => {
-      if (eigeneKey !== lastNoteRef.current) {
+      if (eigeneKey !== lastNoteRef.current || Date.now() - lastNoteAtRef.current > HERZSCHLAG_MS) {
         const notiz: AboNotiz = {
           by: myID,
           at: Date.now(),
@@ -326,7 +334,10 @@ export function useUebersicht({
           deviceId: myID,
           content: JSON.stringify(notiz),
         })
-          .then(() => (lastNoteRef.current = eigeneKey))
+          .then(() => {
+            lastNoteRef.current = eigeneKey;
+            lastNoteAtRef.current = Date.now();
+          })
           .catch((e) => console.warn("[abos] Notiz schreiben", e));
       }
       const raws = await invoke<string[]>("device_notes_read_all", { folderPath: intern.path, kind: KIND }).catch(
@@ -364,12 +375,14 @@ export function useUebersicht({
       id: d.deviceID,
       name: d.name?.trim() || n?.name?.trim() || d.deviceID.slice(0, 7),
       ich: false,
-      online: !!connections[d.deviceID]?.connected,
+      // Direkt verbunden — oder über das NAS erreichbar (frische Notiz im Kanal).
+      online: !!connections[d.deviceID]?.connected || (!!n && Date.now() - n.at < NOTIZ_ALT_MS),
+      ueberNas: !connections[d.deviceID]?.connected && !!n && Date.now() - n.at < NOTIZ_ALT_MS,
       rolle: n?.rolle ?? null,
       freiD: n?.frei_d ?? null,
       dFs: n?.d_fs ?? null,
       kannWuensche: (n?.kann_wuensche ?? 0) >= WUNSCH_PROTOKOLL,
-      zuletzt: connections[d.deviceID]?.connected ? null : (zuletzt[d.deviceID] ?? null),
+      zuletzt: connections[d.deviceID]?.connected ? null : (zuletzt[d.deviceID] ?? (n ? n.at : null)),
     });
   }
 

@@ -38,9 +38,33 @@ const BERICHTE_LS = "syncomat.abo.berichte";
 const ROLLE_LS = "syncomat.geraet.rolle";
 const POLL_MS = 30_000;
 const LAEUFT_MIN_MS = 60_000; // Fortschritt höchstens einmal je Minute und Auftrag
-/** Reserve auf dem Ziel-Laufwerk nach dem Abo: max(100 GB, 10 % der Grösse). */
-export const RESERVE_MIN = 100 * 1024 ** 3;
+/** Platz (Marlon 08.11.2026, „nicht bevormunden“): gesperrt wird nur, wenn
+ * das Abo selbst nicht passt (plus Arbeitsraum für Syncthing). Bliebe danach
+ * weniger als die Reserve frei — 10 % des Laufwerks, höchstens 100 GB —,
+ * gibt es nur einen Hinweis. (Bis v0.9.32: Reserve mindestens 100 GiB und
+ * gesperrt — ein Mac mit 41 GB frei konnte nie abonnieren.) */
+export const RESERVE_MAX = 100 * 1024 ** 3;
 export const RESERVE_ANTEIL = 0.1;
+export const ARBEITSRAUM = 2 * 1024 ** 3;
+
+/** Ort der Projekte in Texten: „D:“ (Windows) bzw. „im Projektordner“ (Mac). */
+export const projekteOrt = () => (istWindows() ? "auf D:" : "im Projektordner");
+
+export function platzPruefung(
+  frei: number,
+  total: number,
+  bytes: number,
+): { passt: boolean; text: string | null } {
+  const fmt = (n: number) => (n >= 1e12 ? `${(n / 1e12).toFixed(1)} TB` : n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(0, n / 1e6).toFixed(1)} MB`);
+  if (frei < bytes + ARBEITSRAUM) {
+    return { passt: false, text: `Zu wenig Platz ${projekteOrt()}: nötig ${fmt(bytes)} (+ ${fmt(ARBEITSRAUM)} Arbeitsraum), frei ${fmt(frei)}.` };
+  }
+  const reserve = Math.min(RESERVE_MAX, total * RESERVE_ANTEIL);
+  if (frei - bytes < reserve) {
+    return { passt: true, text: `Hinweis: danach bleiben nur ${fmt(frei - bytes)} frei ${projekteOrt()}.` };
+  }
+  return { passt: true, text: null };
+}
 
 export type GeraeteRolle = "arbeitsplatz" | "render";
 export type AboZustand = "angenommen" | "laeuft" | "fertig" | "abgelehnt" | "abgebrochen";
@@ -411,16 +435,10 @@ export function useAboAusfuehrung({
       return ablehnen(a, `Laufwerk für Projekte nicht gefunden (${String(e)}).`);
     }
     if (!aboDateisystemErlaubt(disk.file_system)) {
-      return ablehnen(a, `D: ist ${disk.file_system || "unbekannt"}, erwartet NTFS oder exFAT.`);
+      return ablehnen(a, `${wurzel} ist ${disk.file_system || "unbekannt"}, erwartet NTFS, APFS oder exFAT.`);
     }
-    const reserve = Math.max(RESERVE_MIN, disk.total_bytes * RESERVE_ANTEIL);
-    if (disk.available_bytes < g.bytes_erwartet + reserve) {
-      const gb = (n: number) => `${(n / 1024 ** 3).toFixed(1)} GB`;
-      return ablehnen(
-        a,
-        `Zu wenig Platz auf D: — frei ${gb(disk.available_bytes)}, nötig ${gb(g.bytes_erwartet)} + Reserve ${gb(reserve)}.`,
-      );
-    }
+    const platz = platzPruefung(disk.available_bytes, disk.total_bytes, g.bytes_erwartet);
+    if (!platz.passt) return ablehnen(a, platz.text ?? "Zu wenig Platz.");
     const st = await invoke<string>("path_state", { path: ziel }).catch((e) => `fehler: ${String(e)}`);
     if (st !== "fehlt" && st !== "leer") {
       return ablehnen(a, `Ziel ${ziel} ist ${st} — abonniert wird nur in ein leeres Ziel.`);

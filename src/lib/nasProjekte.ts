@@ -25,8 +25,7 @@ import {
 import { isAboFolderId } from "./datenzentrale";
 import {
   NAME_RE,
-  RESERVE_ANTEIL,
-  RESERVE_MIN,
+  platzPruefung,
   aboDateisystemErlaubt,
   auswahlAusIgnores,
   composeAboIgnores,
@@ -206,17 +205,16 @@ async function aboStartenEinmal(
   v: AboVorbereitung,
   auswahl: string[],
   rolle: GeraeteRolle,
-): Promise<void> {
+): Promise<string | null> {
   pruefeAuswahl(auswahl);
   auswahl = normalisiereAuswahl(auswahl);
   const bytes = bytesDerAuswahl(v.baum, auswahl, v.globalBytes);
-  const reserve = Math.max(RESERVE_MIN, v.totalBytes * RESERVE_ANTEIL);
   const frei = ((await invoke("disk_info", { path: v.ziel })) as { available_bytes: number }).available_bytes;
-  if (frei < bytes + reserve) {
-    throw new Error(`Zu wenig Platz auf D:. Nötig ${gb(bytes)}, frei ${gb(frei)} (Reserve ${gb(reserve)}).`);
-  }
+  const platz = platzPruefung(frei, v.totalBytes, bytes);
+  if (!platz.passt) throw new Error(platz.text ?? "Zu wenig Platz.");
   await setFolderIgnores(ep, p.folderId, composeAboIgnores(auswahl, rolle));
   merkeAuswahl(p.folderId, auswahl);
+  return platz.text;
 }
 
 /** Kennzeichen eines kurzlebigen Ordners, der nur das Inhaltsverzeichnis
@@ -242,7 +240,7 @@ export function inhaltHolen(
   // Angebot merken, bevor Syncthing es beim Anlegen des Ordners streicht.
   gemerkteAngebote.set(p.folderId, { p, bis: Date.now() + MERKEN_MS });
   return mitSperre(p.folderId, () => inhaltHolenEinmal(ep, p, myID)).then((b) => {
-    baumPuffer.set(p.folderId, { b, at: Date.now() });
+    if (b.globalBytes > 0 || b.baum.length > 0) baumPuffer.set(p.folderId, { b, at: Date.now() });
     return b;
   });
 }
@@ -278,7 +276,9 @@ async function inhaltHolenEinmal(
       await sleep(2000);
       const verbunden = await Promise.all(p.anbieter.map((d) => getRemoteCompletion(ep, p.folderId, d).catch(() => null)));
       const st = await getFolderStatus(ep, p.folderId).catch(() => null);
-      if (st && verbunden.some((c) => c?.remoteState === "valid") && st.state === "idle" && (st.globalFiles > 0 || i >= 5)) {
+      // Auf das Inhaltsverzeichnis warten (über ZeroTier, z. B. vom Mac, dauert
+      // es länger) — ein leeres nur nach 60 s annehmen (leeres Projekt).
+      if (st && verbunden.some((c) => c?.remoteState === "valid") && st.state === "idle" && (st.globalFiles > 0 || i >= 29)) {
         const roh = await getBrowse(ep, p.folderId, -1).catch(() => []);
         return { baum: baumAusBrowse(roh), globalBytes: st.globalBytes };
       }
@@ -440,12 +440,12 @@ async function auswahlAendernEinmal(
   const { baum, globalBytes } = await baumVonOrdner(ep, f.id);
   const s0 = await getFolderStatus(ep, f.id);
   const zuwachs = Math.max(0, bytesDerAuswahl(baum, neu, globalBytes) - Math.max(0, s0.localBytes - p0.entfernen_bytes));
+  let platzHinweis: string | null = null;
   if (zuwachs > 0) {
     const d = (await invoke("disk_info", { path: f.path })) as { available_bytes: number; total_bytes: number };
-    const reserve = Math.max(RESERVE_MIN, d.total_bytes * RESERVE_ANTEIL);
-    if (d.available_bytes < zuwachs + reserve) {
-      throw new Error(`Zu wenig Platz auf D:. Dazu kämen ${gb(zuwachs)}, frei ${gb(d.available_bytes)} (Reserve ${gb(reserve)}).`);
-    }
+    const platz = platzPruefung(d.available_bytes, d.total_bytes, zuwachs);
+    if (!platz.passt) throw new Error(platz.text ?? "Zu wenig Platz.");
+    platzHinweis = platz.text;
   }
 
   const entfernen = p0.entfernen_anzahl > 0;
@@ -530,7 +530,7 @@ async function auswahlAendernEinmal(
     }
   }
   merkeAuswahl(f.id, neu);
-  return text;
+  return platzHinweis ? `${text} ${platzHinweis}` : text;
 }
 
 /** Vorbereitung verwerfen: Ordner aus dem Abgleich, leeres Ziel wieder weg. */
@@ -598,7 +598,7 @@ export function aboVorbereiten(ep: Endpoint, p: NasProjekt, myID: DeviceID, roll
   return mitSperre(p.folderId, () => aboVorbereitenEinmal(ep, p, myID, rolle, onSchritt));
 }
 
-export function aboStarten(ep: Endpoint, p: NasProjekt, v: AboVorbereitung, auswahl: string[], rolle: GeraeteRolle): Promise<void> {
+export function aboStarten(ep: Endpoint, p: NasProjekt, v: AboVorbereitung, auswahl: string[], rolle: GeraeteRolle): Promise<string | null> {
   return mitSperre(p.folderId, () => aboStartenEinmal(ep, p, v, auswahl, rolle));
 }
 

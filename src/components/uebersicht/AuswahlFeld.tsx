@@ -276,13 +276,14 @@ export function AuswahlFeld({
       if (zeile.hier) return aboAuswahlAendern(ep, zeile.hier, neu, rolle, myID, (t) => setBusy(t));
       if (!zeile.angebot) throw new Error("Das NAS bietet dieses Projekt hier nicht an.");
       const v = await aboVorbereiten(ep, zeile.angebot, myID, rolle, (t) => setBusy(t));
+      let hinweis: string | null = null;
       try {
-        await aboStarten(ep, zeile.angebot, v, neu, rolle);
+        hinweis = await aboStarten(ep, zeile.angebot, v, neu, rolle);
       } catch (e) {
         await aboAbbrechen(ep, zeile.angebot.folderId, v.ziel, zeile.angebot.anbieter);
         throw e;
       }
-      return "Abonniert. Die Daten kommen jetzt vom NAS.";
+      return `Abonniert. Die Daten kommen jetzt vom NAS.${hinweis ? ` ${hinweis}` : ""}`;
     });
   const hierBeenden = () =>
     ausfuehren("Abo beenden …", async () => {

@@ -309,11 +309,13 @@ async function ausfuehren(
   const p = nasProjekte(pending, folders).find((x) => x.folderId === w.folder_id);
   if (!p) throw new Error("Das NAS bietet dieses Projekt hier (noch) nicht an.");
   const v = await aboVorbereiten(ep, p, myID, rolle, () => {});
+  let hinweis: string | null = null;
   try {
-    await aboStarten(ep, p, v, w.auswahl, rolle);
+    hinweis = await aboStarten(ep, p, v, w.auswahl, rolle);
   } catch (e) {
     await aboAbbrechen(ep, p.folderId, v.ziel, p.anbieter);
     throw e;
   }
-  return w.auswahl.length === 0 ? "Abonniert (ganzes Projekt)." : `Abonniert (${w.auswahl.length} Ordner).`;
+  const t = w.auswahl.length === 0 ? "Abonniert (ganzes Projekt)." : `Abonniert (${w.auswahl.length} Ordner).`;
+  return hinweis ? `${t} ${hinweis}` : t;
 }
