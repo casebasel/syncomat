@@ -1,12 +1,61 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, KeyRound, Plus, RefreshCw, Search } from "lucide-react";
-import type { Spalte, Zeile } from "../../lib/uebersicht";
+import { Check, ChevronDown, ChevronRight, KeyRound, Plus, RefreshCw, Search } from "lucide-react";
+import { zeilenStand, type Spalte, type Zeile } from "../../lib/uebersicht";
 import type { Wunsch } from "../../lib/wuensche";
 import { ZellSymbol, zellText } from "./ZellSymbol";
 
 type Filter = "alle" | "hier" | "stoerung" | "plugins";
 
-const gb = (n: number | null) => (n == null ? "—" : n >= 1e12 ? `${(n / 1e12).toFixed(1)} TB` : `${Math.round(n / 1e9)} GB`);
+/** Grösse in passender Einheit — nie „0 GB“ für ein paar hundert MB (Marlon 08.11.2026). */
+const gb = (n: number | null) =>
+  n == null
+    ? "—"
+    : n >= 1e12
+      ? `${(n / 1e12).toFixed(1)} TB`
+      : n >= 1e10
+        ? `${Math.round(n / 1e9)} GB`
+        : n >= 1e9
+          ? `${(n / 1e9).toFixed(1)} GB`
+          : n >= 1e6
+            ? `${Math.round(n / 1e6)} MB`
+            : n > 0
+              ? `${Math.max(1, Math.round(n / 1e3))} KB`
+              : "0 KB";
+/** „14:32“ heute, sonst „7.11. 14:32“. */
+function uhr(t: number): string {
+  const d = new Date(t);
+  const hm = d.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+  return d.toDateString() === new Date().toDateString() ? hm : `${d.getDate()}.${d.getMonth() + 1}. ${hm}`;
+}
+
+/** Stand über alle Rechner: Häkchen + „alle“ bzw. „2/3“ (Marlon 08.11.2026:
+ * „dass ich weiss, dass alle auf dem neuesten Stand sind“). Ok ohne Farbe. */
+function StandMarke({ z }: { z: Zeile }) {
+  const st = zeilenStand(z);
+  if (st.art === "keiner") return null;
+  const zeit = z.zuletztGeaendert ? ` · zuletzt geändert ${uhr(z.zuletztGeaendert)}` : "";
+  if (st.art === "alle") {
+    return (
+      <span
+        className="shrink-0 inline-flex items-center gap-0.5 text-[12px] text-[var(--sm-text2)]"
+        title={`Alle ${st.anzahl} Rechner mit Abo sind auf dem gleichen Stand${zeit}`}
+      >
+        <Check className="size-3.5 text-[var(--sm-text)]" strokeWidth={2.5} aria-hidden />
+        alle
+      </span>
+    );
+  }
+  const teile = [st.laedt ? `${st.laedt} lädt` : "", st.aus ? `${st.aus} aus` : ""].filter(Boolean).join(", ");
+  return (
+    <span
+      className="sm-zahl shrink-0 text-[12px] text-[var(--sm-text2)]"
+      title={`${st.aktuell} von ${st.anzahl} Rechnern aktuell${teile ? ` (${teile})` : ""}${zeit}`}
+    >
+      {st.aktuell}/{st.anzahl}
+    </span>
+  );
+}
+
 /** Kurzwort für die Störung einer Zeile (wichtigstes zuerst). */
 function stoerungText(z: Zeile): string {
   const zellen = Object.values(z.zellen);
@@ -168,9 +217,9 @@ export function Uebersicht({
                 {stoerungText(z)}
               </span>
             )}
-            {z.bytes != null && (
-              <span className="ml-auto shrink-0 sm-zahl font-mono text-[12px] text-[var(--sm-text2)]">{gb(z.bytes)}</span>
-            )}
+            <span className="ml-auto" />
+            {!z.stoerung && <StandMarke z={z} />}
+            {z.bytes != null && <span className="shrink-0 sm-zahl font-mono text-[12px] text-[var(--sm-text2)]">{gb(z.bytes)}</span>}
           </button>
         </th>
         {spalten.map((s, i) => {

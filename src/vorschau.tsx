@@ -7,6 +7,7 @@ import { Leiste } from "./components/uebersicht/Leiste";
 import { Uebersicht } from "./components/uebersicht/Uebersicht";
 import { AuswahlFeld } from "./components/uebersicht/AuswahlFeld";
 import { OrdnerAnAlle } from "./components/uebersicht/OrdnerAnAlle";
+import { Start } from "./components/uebersicht/Start";
 import { FolderInspector } from "./components/FolderInspector";
 import { Statusbar } from "./components/Statusbar";
 import type { Spalte, Zeile, Zelle } from "./lib/uebersicht";
@@ -33,6 +34,7 @@ const spalten: Spalte[] = rechner.map(([id, name, rolle, frei, online], i) => ({
   freiD: id === "MAC" ? null : frei,
   kannWuensche: id !== "RND5",
   dFs: id === "MAC" ? null : id === "X39" ? "exFAT" : "NTFS",
+  totalD: id === "MAC" ? null : id === "RND5" ? null : 2e12,
 }));
 const namen = [
   "PM_MEDITERRANEAN", "INTERN_BURNED", "TKB_IMAGEFILM", "VERKEHRSHAUS_VR", "EXLIBRIS_SPOT", "XSENS_DEMO",
@@ -70,6 +72,8 @@ const projekte: Zeile[] = namen.map((n, i) => {
     zellen,
     stoerung: Object.values(zellen).some((c) => c.zustand === "angehalten" || !!c.konflikte),
     bytes: hier ? Math.round(rnd() * 600e9) : null,
+    offenBytes: n === "VERKEHRSHAUS_VR" ? 210e9 : 0,
+    zuletztGeaendert: hier ? Date.now() - Math.round(rnd() * 8 * 3600e3) : null,
   };
 });
 projekte.sort((a, b) => Number(b.stoerung) - Number(a.stoerung) || a.name.localeCompare(b.name));
@@ -83,6 +87,8 @@ const plugins: Zeile[] = ["Marketplace 5.5", "Marketplace 5.6", "Marketplace 5.7
   zellen: Object.fromEntries(spalten.map((s) => [s.id, s.id === "MAC" ? { zustand: "nicht" } : { zustand: "aktuell", offline: !s.online }])),
   stoerung: false,
   bytes: 38e9,
+  offenBytes: 0,
+  zuletztGeaendert: Date.now() - 3600e3,
 }));
 
 function Vorschau() {
@@ -124,8 +130,31 @@ function Vorschau() {
         <button className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[var(--sm-blau)] text-white">Akzeptieren</button>
       </div>
       <div className="flex-1 flex overflow-hidden">
-      <Leiste ansicht={q.has("ordner") ? "ordner" : "uebersicht"} onAnsicht={() => {}} stoerungen={1} update={false} angebote={2} />
-      {q.has("ordner") ? (
+      <Leiste ansicht={q.has("start") ? "start" : q.has("ordner") ? "ordner" : "uebersicht"} onAnsicht={() => {}} stoerungen={1} update={false} angebote={2} />
+      {q.has("start") ? (
+        <Start
+          bereit
+          rechnerName="i9"
+          rolle="Arbeitsplatz"
+          version="0.9.38"
+          updateState={{ kind: "up-to-date" }}
+          spalten={spalten}
+          projekte={projekte}
+          plugins={plugins}
+          offenBytes={210e9}
+          inBps={84e6}
+          outBps={3.2e6}
+          zuletzt={new Date(Date.now() - 40e3)}
+          versionen={Object.fromEntries(spalten.map((s) => [s.id, s.id === "RND5" ? "0.9.35" : "0.9.38"]))}
+          nasVerbunden
+          angebote={2}
+          onZelle={() => {}}
+          onOrdner={() => {}}
+          onEinstellungen={() => {}}
+          onAbgleichen={() => {}}
+          pruefe={false}
+        />
+      ) : q.has("ordner") ? (
         <OrdnerAnAlle
           onAnlegen={() => {}}
           ordner={plugins.map((p) => ({ id: p.folderId, name: p.name, bytes: p.bytes, stoerung: false, onOeffnen: () => {} }))}

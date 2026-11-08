@@ -481,6 +481,10 @@ export async function neuVerbinden(ep: Endpoint, alle: DeviceID[]): Promise<void
   }
 }
 
+/** Statistik je Ordner — u. a. letzte geänderte Datei (Zeitpunkt). */
+export const getFolderStats = (ep: Endpoint) =>
+  api<Record<FolderID, { lastFile?: { at?: string; filename?: string }; lastScan?: string }>>(ep, "/rest/stats/folder");
+
 /** Statistik je Gerät — u. a. wann es zuletzt verbunden war. */
 export const getDeviceStats = (ep: Endpoint) =>
   api<Record<DeviceID, { lastSeen?: string; lastConnectionDurationS?: number }>>(ep, "/rest/stats/device");

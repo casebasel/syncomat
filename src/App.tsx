@@ -75,6 +75,7 @@ import { Leiste, type Ansicht } from "./components/uebersicht/Leiste";
 import { Uebersicht } from "./components/uebersicht/Uebersicht";
 import { AuswahlFeld } from "./components/uebersicht/AuswahlFeld";
 import { OrdnerAnAlle } from "./components/uebersicht/OrdnerAnAlle";
+import { Start } from "./components/uebersicht/Start";
 import { useUebersicht } from "./lib/uebersicht";
 import { FolderInspector } from "./components/FolderInspector";
 import { GlobalActivityView } from "./components/GlobalActivityView";
@@ -395,7 +396,7 @@ function App() {
   // den ersten Ordner zurück, wenn nichts Gültiges gewählt ist. effectiveSelectedId
   // geht an die Sidebar fürs Highlight, damit der Default-Ordner markiert bleibt.
   // Hauptbereiche (Leiste links) und die gewählte Zeile der Übersicht.
-  const [ansicht, setAnsicht] = useState<Ansicht>("uebersicht");
+  const [ansicht, setAnsicht] = useState<Ansicht>("start");
   const [gewaehlt, setGewaehltRoh] = useState<string | null>(null);
   /** Gewählter Schnittpunkt Projekt × Rechner (Auswahlfeld rechts). */
   const [gewaehltRechner, setGewaehltRechner] = useState<string | null>(null);
@@ -692,6 +693,37 @@ function App() {
                   />
                 );
               })()
+            ) : ansicht === "start" && !panel ? (
+              <Start
+                bereit={ready}
+                rechnerName={myName}
+                rolle={geraeteRolle.rolle === "render" ? "Render" : "Arbeitsplatz"}
+                version={version}
+                updateState={updater.state}
+                spalten={uebersicht.spalten}
+                projekte={uebersicht.projekte}
+                plugins={uebersicht.plugins}
+                offenBytes={aggregate.needBytes}
+                inBps={rate.inBps}
+                outBps={rate.outBps}
+                zuletzt={aggregate.lastUpdate}
+                versionen={Object.fromEntries(Object.entries(updateAll.notes).map(([id, n]) => [id, n.version]))}
+                nasVerbunden={
+                  updateAll.noChannel.size === 0
+                    ? null
+                    : [...updateAll.noChannel].some((id) => connectionsByID[id]?.connected)
+                }
+                angebote={visiblePending.length}
+                onZelle={(z, s) => {
+                  setAnsicht("uebersicht");
+                  setGewaehltRoh(z.folderId);
+                  setGewaehltRechner(z.art === "projekt" ? s.id : null);
+                }}
+                onOrdner={() => setAnsicht("ordner")}
+                onEinstellungen={() => setAnsicht("einstellungen")}
+                onAbgleichen={() => void onScan()}
+                pruefe={scanning}
+              />
             ) : ansicht === "ordner" && !panel ? (
               <OrdnerAnAlle
                 onAnlegen={() => setPanel({ kind: "create-folder" })}

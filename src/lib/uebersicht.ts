@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   folderError,
   getDeviceStats,
+  getFolderStats,
   getFolderIgnores,
   getFolderStatus,
   getRemoteCompletion,
@@ -67,6 +68,10 @@ export type Zeile = {
   stoerung: boolean;
   /** Grösse der Arbeitskopie auf diesem Rechner (nur wenn hier). */
   bytes: number | null;
+  /** Hier noch zu laden (Bytes), nur wenn hier. */
+  offenBytes: number | null;
+  /** Letzte abgeglichene Änderung (ms, aus Syncthing), nur wenn hier. */
+  zuletztGeaendert: number | null;
 };
 
 export type Spalte = {
@@ -76,6 +81,8 @@ export type Spalte = {
   online: boolean;
   rolle: GeraeteRolle | null;
   freiD: number | null;
+  /** Gesamtgrösse des Projekt-Laufwerks (null = unbekannt, ältere Version) */
+  totalD: number | null;
   /** nimmt Wünsche anderer Rechner an (syncomat ≥ v0.9.27) */
   kannWuensche: boolean;
   /** nicht direkt verbunden, aber über das NAS erreichbar (frische Notiz) */
@@ -94,6 +101,8 @@ type AboNotiz = {
   frei_d: number | null;
   /** Dateisystem von D: */
   d_fs?: string | null;
+  /** Gesamtgrösse von D: (für Speicherbalken) */
+  total_d?: number | null;
   abos: AboNotizEintrag[];
   /** Protokoll der Wünsche (fehlt = ältere Version, nimmt keine an) */
   kann_wuensche?: number;
@@ -121,6 +130,25 @@ export function zelleAusStatus(s: FolderStatus | null, f: Folder): Zelle {
     return { zustand: "laedt", prozent: total > 0 ? Math.floor((s.localBytes / total) * 100) : 0, ...fehler };
   }
   return { zustand: "aktuell", ...fehler };
+}
+
+/** Stand eines Projekts über alle Rechner, die es abonniert haben. */
+export type ZeilenStand =
+  | { art: "alle"; anzahl: number }
+  | { art: "teils"; aktuell: number; anzahl: number; aus: number; laedt: number }
+  | { art: "keiner" };
+export function zeilenStand(z: Zeile): ZeilenStand {
+  const abos = Object.values(z.zellen).filter((c) => c.zustand !== "nicht" && c.zustand !== "unbekannt");
+  if (abos.length === 0) return { art: "keiner" };
+  const aktuell = abos.filter((c) => c.zustand === "aktuell" && !c.offline && !c.konflikte && !c.dateifehler).length;
+  if (aktuell === abos.length) return { art: "alle", anzahl: abos.length };
+  return {
+    art: "teils",
+    aktuell,
+    anzahl: abos.length,
+    aus: abos.filter((c) => c.offline).length,
+    laedt: abos.filter((c) => c.zustand === "laedt").length,
+  };
 }
 
 /** Braucht diese Zelle Aufmerksamkeit? (angehalten, Konflikte, Dateifehler) */
@@ -165,6 +193,7 @@ export function useUebersicht({
   const [ungesichert, setUngesichert] = useState<Record<string, { anzahl: number; beispiele: string[] }>>({});
   const [konflikte, setKonflikte] = useState<Record<string, number>>({});
   const [zuletzt, setZuletzt] = useState<Record<DeviceID, number>>({});
+  const [geaendert, setGeaendert] = useState<Record<string, number>>({});
   const konfliktVorherRef = useRef<Record<string, number>>({});
   const lastNoteRef = useRef("");
   /** Zuletzt geschrieben (ms) — die Notiz wird spätestens alle 10 min erneuert,
@@ -247,6 +276,15 @@ export function useUebersicht({
         if (Number.isFinite(t) && t > 86_400_000) m[id] = t;
       }
       setZuletzt(m);
+      const fs = await getFolderStats(ep).catch(() => null);
+      if (fs && !cancelled) {
+        const g: Record<string, number> = {};
+        for (const [id, v] of Object.entries(fs)) {
+          const t = v.lastFile?.at ? Date.parse(v.lastFile.at) : NaN;
+          if (Number.isFinite(t) && t > 86_400_000) g[id] = t;
+        }
+        setGeaendert(g);
+      }
     };
     void zs();
     const id6 = setInterval(() => void zs(), 60_000);
@@ -323,6 +361,7 @@ export function useUebersicht({
           rolle,
           frei_d: frei?.frei ?? null,
           d_fs: frei?.fs ?? null,
+          total_d: frei?.total ?? null,
           abos: eigeneAbos,
           kann_wuensche: WUNSCH_PROTOKOLL,
           ...(myName ? { name: myName } : {}),
@@ -366,7 +405,7 @@ export function useUebersicht({
   // ── Modell zusammensetzen ──
   const spalten: Spalte[] = [];
   if (myID) {
-    spalten.push({ id: myID, name: myName || "Dieser Rechner", ich: true, online: true, rolle, freiD: frei?.frei ?? null, dFs: frei?.fs ?? null, kannWuensche: true });
+    spalten.push({ id: myID, name: myName || "Dieser Rechner", ich: true, online: true, rolle, freiD: frei?.frei ?? null, totalD: frei?.total ?? null, dFs: frei?.fs ?? null, kannWuensche: true });
   }
   for (const d of config?.devices ?? []) {
     if (d.deviceID === myID || ohneSyncomat.has(d.deviceID)) continue;
@@ -380,6 +419,7 @@ export function useUebersicht({
       ueberNas: !connections[d.deviceID]?.connected && !!n && Date.now() - n.at < NOTIZ_ALT_MS,
       rolle: n?.rolle ?? null,
       freiD: n?.frei_d ?? null,
+      totalD: n?.total_d ?? null,
       dFs: n?.d_fs ?? null,
       kannWuensche: (n?.kann_wuensche ?? 0) >= WUNSCH_PROTOKOLL,
       zuletzt: connections[d.deviceID]?.connected ? null : (zuletzt[d.deviceID] ?? (n ? n.at : null)),
@@ -390,12 +430,14 @@ export function useUebersicht({
   const projekte = new Map<string, Zeile>();
   const neueZeile = (folderId: string, name: string, art: Zeile["art"]): Zeile => {
     const pid = art === "projekt" ? projektIdAusFolderId(folderId) : null;
-    return { folderId, name, art, farbe: pid ? projektFarbe(pid) : null, hier: null, angebot: null, zellen: {}, stoerung: false, bytes: null };
+    return { folderId, name, art, farbe: pid ? projektFarbe(pid) : null, hier: null, angebot: null, zellen: {}, stoerung: false, bytes: null, offenBytes: null, zuletztGeaendert: null };
   };
   for (const f of folders.filter((x) => isAboFolderId(x.id))) {
     const z = neueZeile(f.id, f.label || f.id, "projekt");
     z.hier = f;
     z.bytes = status[f.id]?.localBytes ?? null;
+    z.offenBytes = status[f.id]?.needBytes ?? null;
+    z.zuletztGeaendert = geaendert[f.id] ?? null;
     projekte.set(f.id, z);
   }
   for (const a of angebote) {
@@ -447,6 +489,8 @@ export function useUebersicht({
       const z = neueZeile(f.id, f.label || f.id, "plugin");
       z.hier = f;
       z.bytes = status[f.id]?.localBytes ?? null;
+      z.offenBytes = status[f.id]?.needBytes ?? null;
+      z.zuletztGeaendert = geaendert[f.id] ?? null;
       for (const sp of spalten) {
         if (sp.ich) {
           const zz = zelleAusStatus(status[f.id] ?? null, f);

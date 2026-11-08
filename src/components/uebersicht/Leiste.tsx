@@ -1,6 +1,6 @@
-import { Activity, FolderSync, LayoutGrid, Settings } from "lucide-react";
+import { Activity, FolderSync, Gauge, LayoutGrid, Settings } from "lucide-react";
 
-export type Ansicht = "uebersicht" | "ordner" | "aktivitaet" | "einstellungen";
+export type Ansicht = "start" | "uebersicht" | "ordner" | "aktivitaet" | "einstellungen";
 
 /** Schmale Leiste links: drei Bereiche, mehr nicht. 92 px (80 bis v0.9.29, bei 11 px Schrift zu schmal): das
  * längste Wort („Einstellungen“) muss unter dem Symbol ganz lesbar sein. */
@@ -50,7 +50,8 @@ export function Leiste({
           </svg>
         </div>
       </div>
-      {eintrag("uebersicht", "Übersicht", LayoutGrid, stoerungen > 0 ? String(stoerungen) : null)}
+      {eintrag("start", "Start", Gauge, stoerungen > 0 ? String(stoerungen) : null)}
+      {eintrag("uebersicht", "Übersicht", LayoutGrid)}
       {eintrag("ordner", "Ordner", FolderSync, angebote > 0 ? String(angebote) : null, true)}
       {eintrag("aktivitaet", "Aktivität", Activity)}
       <div className="mt-auto" />
