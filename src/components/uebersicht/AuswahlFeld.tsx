@@ -436,8 +436,8 @@ export function AuswahlFeld({
                   <p className="font-semibold text-[var(--sm-ocker-text)]">{d ? d.title : `Angehalten${zelle.grund ? `: ${zelle.grund}` : ""}`}</p>
                   {macGeschuetzt ? (
                     <p className="text-[12px]">
-                      Der Ordner liegt in Downloads, Dokumente oder Schreibtisch — macOS lässt Syncthing dort nicht hinein. Abo beenden (ohne
-                      Löschen), unter „Ordner für Projekte“ einen Ordner ausserhalb wählen (z. B. ~/Projekte) und neu abonnieren.
+                      Der Ordner fehlt — gelöscht, verschoben, oder in Downloads/Dokumente/Schreibtisch, wo macOS Syncthing nicht hineinlässt.
+                      Abo beenden (ohne Löschen), unter „Ordner für Projekte“ einen Ordner ausserhalb wählen (z. B. ~/Projekte) und neu abonnieren.
                     </p>
                   ) : (
                     d && <p className="text-[12px]">{d.action}</p>

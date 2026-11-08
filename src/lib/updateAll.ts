@@ -43,15 +43,23 @@ export type UpdateNote = {
   request?: { version: string; at: number };
 };
 
-/** Semver-Vergleich für `x.y.z` (ohne Vorabversionen). */
+/** Semver-Vergleich für `x.y.z` und Vorabversionen `x.y.z-test.N`: eine
+ * Vorabversion ist älter als dieselbe fertige Version (0.9.36-test.1 < 0.9.36). */
 export function compareVersions(a: string, b: string): number {
-  const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
-  const pb = b.split(".").map((n) => parseInt(n, 10) || 0);
+  const [ka, va = ""] = a.split("-", 2);
+  const [kb, vb = ""] = b.split("-", 2);
+  const pa = ka.split(".").map((n) => parseInt(n, 10) || 0);
+  const pb = kb.split(".").map((n) => parseInt(n, 10) || 0);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const d = (pa[i] ?? 0) - (pb[i] ?? 0);
     if (d !== 0) return d;
   }
-  return 0;
+  if (va === vb) return 0;
+  if (!va) return 1; // fertig > Vorabversion
+  if (!vb) return -1;
+  const na = parseInt(va.replace(/\D+/g, ""), 10) || 0;
+  const nb = parseInt(vb.replace(/\D+/g, ""), 10) || 0;
+  return na - nb || va.localeCompare(vb);
 }
 
 function loadRequest(): { version: string; at: number } | null {

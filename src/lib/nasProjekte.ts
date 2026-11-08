@@ -344,6 +344,21 @@ function indexAusBrowse(tree: unknown): Record<string, [number, number]> {
   return out;
 }
 
+/** Geräte ohne syncomat = das NAS (der Hub). Gesetzt von der App aus „Alle
+ * Geräte“ (useUpdateAll.noChannel). Massgebend für „hat das NAS alles?“ —
+ * introducedBy allein reicht nicht: auf dem Mac stand render als „selbst
+ * eingetragen“, weil render das Projekt ebenfalls angeboten hatte. */
+let nasGeraete = new Set<DeviceID>();
+export function setzeNasGeraete(ids: Iterable<DeviceID>) {
+  nasGeraete = new Set(ids);
+}
+/** Die NAS-Geräte eines Ordners; ohne Kenntnis: die nicht vorgestellten. */
+function nasImOrdner(f: Folder, myID: DeviceID): DeviceID[] {
+  const andere = f.devices.filter((d) => d.deviceID !== myID);
+  const bekannt = andere.filter((d) => nasGeraete.has(d.deviceID));
+  return (bekannt.length > 0 ? bekannt : andere.filter((d) => !d.introducedBy)).map((d) => d.deviceID);
+}
+
 /** Hat das NAS den Stand von hier vollständig? Pflicht sind die selbst
  * eingetragenen Gegenstellen (der NAS-Hub, der das Projekt angeboten hat);
  * Rechner, die der Hub nur vorgestellt hat (introducedBy), dürfen aus sein —
@@ -353,13 +368,13 @@ function indexAusBrowse(tree: unknown): Record<string, [number, number]> {
 async function alleHabenAlles(ep: Endpoint, f: Folder, myID: DeviceID): Promise<string | null> {
   const andere = f.devices.filter((d) => d.deviceID !== myID);
   if (andere.length === 0) return "Der Ordner ist mit keinem anderen Gerät geteilt.";
-  const pflicht = andere.filter((d) => !d.introducedBy);
-  if (pflicht.length === 0) return "Kein NAS im Ordner eingetragen.";
+  const pflicht = new Set(nasImOrdner(f, myID));
+  if (pflicht.size === 0) return "Kein NAS im Ordner eingetragen.";
   for (const d of andere) {
     const c = await getRemoteCompletion(ep, f.id, d.deviceID).catch(() => null);
     const verbunden = !!c && c.remoteState === "valid";
     if (!verbunden) {
-      if (!d.introducedBy) return `Das NAS (${d.deviceID.slice(0, 7)}) ist nicht verbunden.`;
+      if (pflicht.has(d.deviceID)) return `Das NAS (${d.deviceID.slice(0, 7)}) ist nicht verbunden.`;
       continue;
     }
     if (c!.completion < 100 || c!.needItems > 0 || c!.needDeletes > 0) {
@@ -518,7 +533,7 @@ async function auswahlAendernEinmal(
     try {
       // Gegenprobe je Datei (bis LOESCHEN_PROBE_MAX, sonst gleichmässig verteilt):
       // für Syncthing ignoriert, gleiche Version wie global, auf dem NAS vorhanden.
-      const nasIds = new Set(f.devices.filter((d) => d.deviceID !== myID && !d.introducedBy).map((d) => d.deviceID));
+      const nasIds = new Set(nasImOrdner(f, myID));
       const schritt = Math.max(1, Math.ceil(pfade.length / LOESCHEN_PROBE_MAX));
       for (let i = 0; i < pfade.length; i += schritt) {
         const rel = pfade[i];
@@ -605,7 +620,7 @@ async function aboBeendenEinmal(ep: Endpoint, f: Folder, myID: DeviceID, loesche
   const grund = await alleHabenAlles(ep, f, myID);
   if (grund) throw new Error(`${grund} Abo bleibt, bis der Abgleich fertig ist.`);
 
-  const nasIds = new Set(f.devices.filter((d) => d.deviceID !== myID && !d.introducedBy).map((d) => d.deviceID));
+  const nasIds = new Set(nasImOrdner(f, myID));
   let index: Record<string, [number, number]> = {};
   let wegwerf: string[] = [];
   let toleranzMs = 1;
@@ -630,6 +645,8 @@ async function aboBeendenEinmal(ep: Endpoint, f: Folder, myID: DeviceID, loesche
     }
   }
 
+  // Vor dem Herausnehmen prüfen und vormerken — Syncthing entfernt dabei .stfolder.
+  if (loeschen) await invoke("abo_ordner_vormerken", { root: f.path });
   await deleteFolder(ep, f.id);
   // Das Angebot des NAS erscheint sonst erst nach dem nächsten Verbindungsaufbau
   // wieder — bis dahin gemerkt, damit das Projekt gleich wieder abonnierbar ist.

@@ -62,7 +62,7 @@ import { useInternFolder } from "./lib/internChannel";
 import { isAboFolderId, useDatenzentrale } from "./lib/datenzentrale";
 import { useAboAusfuehrung, useGeraeteRolle } from "./lib/abo";
 import { useStatusDatei } from "./lib/statusDatei";
-import { aboBeenden, istInhaltOrdner } from "./lib/nasProjekte";
+import { aboBeenden, istInhaltOrdner, setzeNasGeraete } from "./lib/nasProjekte";
 import { useWuensche } from "./lib/wuensche";
 import { useAusgeblendet } from "./lib/ausgeblendet";
 import {
@@ -327,6 +327,8 @@ function App() {
     installAndRestart: updater.installAndRestart,
   });
   const myName = devices.find((d) => d.deviceID === myID)?.name?.trim() || datenzentrale.state.computerName || "";
+  // Das NAS = Geräte ohne syncomat (für „hat das NAS alles?“ vor jedem Löschen).
+  useEffect(() => setzeNasGeraete(updateAll.noChannel), [updateAll.noChannel]);
   const uebersicht = useUebersicht({
     ep: endpoint,
     ready,

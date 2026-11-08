@@ -108,6 +108,8 @@ jobs:
 
             Automatische Updates ab dieser Version aktiv.
           releaseDraft: false
-          prerelease: false
+          # Testfassungen (Tag v…-test.N) als Vorabversion: releases/latest —
+          # und damit die automatische Aktualisierung — sieht sie nicht.
+          prerelease: ${{ contains(github.ref_name, '-test') }}
           includeUpdaterJson: true
           args: ${{ matrix.args }}

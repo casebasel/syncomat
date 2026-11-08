@@ -475,6 +475,39 @@ pub struct OrdnerGeleert {
     pub fehler: Vec<String>,
 }
 
+/// Abo-Ordner, die VOR dem Herausnehmen aus Syncthing geprüft wurden (mit
+/// .stfolder). Syncthing entfernt .stfolder beim Herausnehmen — danach würde
+/// `wurzel` den Ordner nicht mehr als Syncthing-Ordner erkennen (render,
+/// 08.11.2026: „.stfolder fehlt“, nichts gelöscht).
+static VORGEMERKT: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
+
+/// Vor „Abo beenden“ mit Löschen: Ordner prüfen (Syncthing-Ordner, kein
+/// Laufwerksstamm) und für `abo_ordner_leeren` vormerken.
+#[tauri::command]
+pub fn abo_ordner_vormerken(root: String) -> Result<(), String> {
+    let w = wurzel(&root)?;
+    let mut v = VORGEMERKT.lock().map_err(|_| "Sperre".to_string())?;
+    if !v.contains(&w) {
+        v.push(w);
+    }
+    Ok(())
+}
+
+/// Wurzel für das Leeren: vorgemerkt (dann darf .stfolder fehlen) oder noch
+/// ein Syncthing-Ordner.
+fn wurzel_zum_leeren(root: &str) -> Result<PathBuf, String> {
+    let p = fs::canonicalize(root).map_err(|e| format!("{root}: {e}"))?;
+    let mut v = VORGEMERKT.lock().map_err(|_| "Sperre".to_string())?;
+    if let Some(i) = v.iter().position(|x| *x == p) {
+        v.remove(i);
+        if p.is_dir() && p.components().filter(|c| matches!(c, Component::Normal(_))).count() >= 1 {
+            return Ok(p);
+        }
+    }
+    drop(v);
+    wurzel(root)
+}
+
 /// Nach „Abo beenden“ (Ordner ist schon aus Syncthing genommen — Löschen
 /// reist nirgends hin): löscht im Abo-Ordner nur, was nachweislich auf dem
 /// NAS ist (Grösse und Zeit wie im Index) und Wegwerf (Caches, OS-Reste).
@@ -488,7 +521,7 @@ pub fn abo_ordner_leeren(
     index: Index,
     toleranz_ms: Option<i64>,
 ) -> Result<OrdnerGeleert, String> {
-    let w = wurzel(&root)?;
+    let w = wurzel_zum_leeren(&root)?;
     let tol = toleranz(toleranz_ms);
     let regeln = Regeln::neu(&[], &wegwerf)?;
     let d = dateien(&w)?;
@@ -772,6 +805,24 @@ mod tests {
         let r = abo_ordner_leeren(root, wegwerf(), index_von(&t), None).unwrap();
         assert!(r.ordner_weg, "{r:?}");
         assert!(!t.path().exists());
+    }
+
+    #[test]
+    fn leeren_nach_entferntem_stfolder() {
+        let t = projekt();
+        let root = t.path().to_string_lossy().into_owned();
+        let ix = index_von(&t);
+        // ohne Vormerken und ohne .stfolder: abgelehnt
+        fs::remove_dir_all(t.path().join(".stfolder")).unwrap();
+        assert!(abo_ordner_leeren(root.clone(), wegwerf(), ix.clone(), None).is_err());
+        // vorgemerkt (vorher mit .stfolder), dann .stfolder weg: erlaubt
+        fs::create_dir_all(t.path().join(".stfolder")).unwrap();
+        abo_ordner_vormerken(root.clone()).unwrap();
+        fs::remove_dir_all(t.path().join(".stfolder")).unwrap();
+        let r = abo_ordner_leeren(root.clone(), wegwerf(), ix.clone(), None).unwrap();
+        assert!(r.geloescht > 0, "{r:?}");
+        // Vormerkung gilt nur einmal
+        assert!(abo_ordner_leeren(root, wegwerf(), ix, None).is_err() || !t.path().exists());
     }
 
     #[test]
