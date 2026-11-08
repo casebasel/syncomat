@@ -40,7 +40,8 @@ export type Folder = {
   path: string;
   type: "sendreceive" | "sendonly" | "receiveonly";
   paused: boolean;
-  devices: { deviceID: DeviceID }[];
+  /** introducedBy: von wem vorgestellt (leer = selbst eingetragen, z. B. der NAS-Hub) */
+  devices: { deviceID: DeviceID; introducedBy?: DeviceID }[];
   versioning?: FolderVersioning;
   ignorePerms?: boolean;
   /** WICHTIG: nicht setzen — Syncthing auto-detected pro folder.path.

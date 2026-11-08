@@ -344,15 +344,27 @@ function indexAusBrowse(tree: unknown): Record<string, [number, number]> {
   return out;
 }
 
-/** Sind ALLE Gegenstellen des Ordners verbunden und haben den Stand von hier
- * vollständig? (Nicht nur die verbundenen — fehlt das NAS, wird nichts gelöscht.) */
+/** Hat das NAS den Stand von hier vollständig? Pflicht sind die selbst
+ * eingetragenen Gegenstellen (der NAS-Hub, der das Projekt angeboten hat);
+ * Rechner, die der Hub nur vorgestellt hat (introducedBy), dürfen aus sein —
+ * sind sie verbunden, müssen auch sie vollständig sein (Mac, 08.11.2026:
+ * ein ausgeschalteter x5950 blockierte sonst jedes Löschen).
+ * null = alles gut, sonst der Grund. */
 async function alleHabenAlles(ep: Endpoint, f: Folder, myID: DeviceID): Promise<string | null> {
-  const andere = f.devices.map((d) => d.deviceID).filter((d) => d !== myID);
+  const andere = f.devices.filter((d) => d.deviceID !== myID);
   if (andere.length === 0) return "Der Ordner ist mit keinem anderen Gerät geteilt.";
+  const pflicht = andere.filter((d) => !d.introducedBy);
+  if (pflicht.length === 0) return "Kein NAS im Ordner eingetragen.";
   for (const d of andere) {
-    const c = await getRemoteCompletion(ep, f.id, d).catch(() => null);
-    if (!c || c.remoteState !== "valid") return `Gerät ${d.slice(0, 7)} ist nicht verbunden.`;
-    if (c.completion < 100 || c.needItems > 0 || c.needDeletes > 0) return `Gerät ${d.slice(0, 7)} hat noch nicht alles von hier.`;
+    const c = await getRemoteCompletion(ep, f.id, d.deviceID).catch(() => null);
+    const verbunden = !!c && c.remoteState === "valid";
+    if (!verbunden) {
+      if (!d.introducedBy) return `Das NAS (${d.deviceID.slice(0, 7)}) ist nicht verbunden.`;
+      continue;
+    }
+    if (c!.completion < 100 || c!.needItems > 0 || c!.needDeletes > 0) {
+      return `Gerät ${d.deviceID.slice(0, 7)} hat noch nicht alles von hier.`;
+    }
   }
   return null;
 }
@@ -386,8 +398,8 @@ export function aboAuswahlAendern(
   return mitSperre(f.id, () => auswahlAendernEinmal(ep, f, auswahl, rolle, myID, onSchritt));
 }
 
-/** Höchstzahl Dateien für die Gegenprobe je Datei bei Syncthing. */
-const GEGENPROBE_MAX = 400;
+/** Gegenprobe je Datei vor jedem Löschen: jede Datei bis zu dieser Zahl, darüber verteilt. */
+const LOESCHEN_PROBE_MAX = 5000;
 
 async function auswahlAendernEinmal(
   ep: Endpoint,
@@ -504,9 +516,10 @@ async function auswahlAendernEinmal(
   if (entfernen) {
     onSchritt("Abgewählte Ordner hier entfernen …");
     try {
-      // Gegenprobe je Datei (bis GEGENPROBE_MAX, sonst gleichmässig verteilt):
-      // für Syncthing ignoriert, gleiche Version wie global, auf einem anderen Gerät.
-      const schritt = Math.max(1, Math.ceil(pfade.length / GEGENPROBE_MAX));
+      // Gegenprobe je Datei (bis LOESCHEN_PROBE_MAX, sonst gleichmässig verteilt):
+      // für Syncthing ignoriert, gleiche Version wie global, auf dem NAS vorhanden.
+      const nasIds = new Set(f.devices.filter((d) => d.deviceID !== myID && !d.introducedBy).map((d) => d.deviceID));
+      const schritt = Math.max(1, Math.ceil(pfade.length / LOESCHEN_PROBE_MAX));
       for (let i = 0; i < pfade.length; i += schritt) {
         const rel = pfade[i];
         const fi = await getDbFile(ep, f.id, rel);
@@ -516,7 +529,7 @@ async function auswahlAendernEinmal(
         if (!l || !(l.ignored || ((l.localFlags ?? 0) & 2) !== 0)) {
           throw new Error(`Syncthing führt ${rel} noch nicht als ignoriert — nichts gelöscht.`);
         }
-        if (!g || g.deleted || v(l) !== v(g) || !(fi.availability ?? []).some((a) => a.id !== myID)) {
+        if (!g || g.deleted || v(l) !== v(g) || !(fi.availability ?? []).some((a) => nasIds.has(a.id))) {
           throw new Error(`${rel} ist auf keinem anderen Gerät im selben Stand — nichts gelöscht.`);
         }
       }
@@ -587,22 +600,12 @@ async function aboBeendenEinmal(ep: Endpoint, f: Folder, myID: DeviceID, loesche
   const s = await getFolderStatus(ep, f.id);
   if (s.state !== "idle") throw new Error("Der Ordner arbeitet gerade. Bitte warten, bis er fertig ist.");
   const andere = f.devices.map((d) => d.deviceID).filter((d) => d !== myID);
-  if (loeschen) {
-    // Strenger als ohne Löschen: ALLE Gegenstellen verbunden und vollständig.
-    const grund = await alleHabenAlles(ep, f, myID);
-    if (grund) throw new Error(`${grund} Abo bleibt, bis der Abgleich fertig ist.`);
-  } else {
-    const stand = await Promise.all(andere.map((d) => getRemoteCompletion(ep, f.id, d).catch(() => null)));
-    // Alle verbundenen Gegenstellen müssen den Stand von hier vollständig
-    // haben — und mindestens eine muss verbunden sein.
-    const verbunden = stand.filter((c) => c?.remoteState === "valid");
-    const vollstaendig = (c: (typeof stand)[number]) =>
-      !!c && c.completion >= 100 && c.needItems === 0 && c.needDeletes === 0;
-    if (verbunden.length === 0 || !verbunden.every(vollstaendig)) {
-      throw new Error("Noch nicht alles von hier ist auf dem NAS. Abo bleibt, bis der Abgleich fertig ist.");
-    }
-  }
+  // Das NAS muss alles von hier haben (vorgestellte, ausgeschaltete Rechner
+  // blockieren nicht); beim Löschen zusätzlich je Datei die Gegenprobe.
+  const grund = await alleHabenAlles(ep, f, myID);
+  if (grund) throw new Error(`${grund} Abo bleibt, bis der Abgleich fertig ist.`);
 
+  const nasIds = new Set(f.devices.filter((d) => d.deviceID !== myID && !d.introducedBy).map((d) => d.deviceID));
   let index: Record<string, [number, number]> = {};
   let wegwerf: string[] = [];
   let toleranzMs = 1;
@@ -611,16 +614,17 @@ async function aboBeendenEinmal(ep: Endpoint, f: Folder, myID: DeviceID, loesche
     wegwerf = schutzRegeln((await getFolderIgnores(ep, f.id)).ignore ?? []).wegwerf;
     const fs = ((await invoke("disk_info", { path: f.path }).catch(() => null)) as { file_system?: string } | null)?.file_system ?? "";
     toleranzMs = zeitToleranzMs(fs);
-    // Gegenprobe je Datei (bis GEGENPROBE_MAX, gleichmässig verteilt): hier
-    // gleiche Version wie global und auf einem anderen Gerät vorhanden.
+    // Gegenprobe je Datei: hier gleiche Version wie global und auf einem
+    // anderen Gerät vorhanden — jede Datei bis LOESCHEN_PROBE_MAX, darüber
+    // gleichmässig verteilt (Rust prüft zusätzlich jede Datei gegen den Index).
     const pfade = Object.keys(index).sort();
-    const schritt = Math.max(1, Math.ceil(pfade.length / GEGENPROBE_MAX));
+    const schritt = Math.max(1, Math.ceil(pfade.length / LOESCHEN_PROBE_MAX));
     for (let i = 0; i < pfade.length; i += schritt) {
       const fi = await getDbFile(ep, f.id, pfade[i]).catch(() => null);
       const l = fi?.local;
       if (!fi || !l || l.ignored || ((l.localFlags ?? 0) & 2) !== 0) continue; // hier nicht abgeglichen → wird ohnehin nicht gelöscht
       const v = (x: { version?: string[] } | null | undefined) => JSON.stringify(x?.version ?? null);
-      if (!fi.global || v(l) !== v(fi.global) || !(fi.availability ?? []).some((a) => a.id !== myID)) {
+      if (!fi.global || v(l) !== v(fi.global) || !(fi.availability ?? []).some((a) => nasIds.has(a.id))) {
         throw new Error(`${pfade[i]} ist auf dem NAS nicht im selben Stand — Abo bleibt, nichts gelöscht.`);
       }
     }
