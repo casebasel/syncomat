@@ -241,7 +241,7 @@ export function AuswahlFeld({
   const geaendert = !abonniert || neu.join("\n") !== vorher.join("\n") || (zelle.auswahl === undefined && abonniert);
   const bytes = baum ? bytesDerAuswahl(baum.baum, neu, baum.globalBytes) : null;
   const leer = benutzer && neu.length === 0;
-  // Wo Projekte hier liegen: Windows D:\, Mac ein gewählter Ordner.
+  // Wo Projekte hier liegen: Windows D:\Projekte\, Mac ein gewählter Ordner.
   const [wurzel, setWurzel] = useState(projekteWurzel);
   useEffect(() => {
     const neu = () => setWurzel(projekteWurzel());
@@ -378,6 +378,11 @@ export function AuswahlFeld({
               Verstanden
             </button>
           </div>
+        )}
+        {spalte.ich && istWindows() && !abonniert && wurzel && (
+          <p className="text-[13px] text-[var(--sm-text2)]">
+            Die Arbeitskopie kommt nach <span className="font-mono text-[var(--sm-text)] break-all">{wurzel}{zeile.name}</span>.
+          </p>
         )}
         {spalte.ich && !istWindows() && (
           <div className="rounded-md border border-[var(--sm-linie)] px-3 py-2 text-[13px] space-y-1.5">

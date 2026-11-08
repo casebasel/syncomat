@@ -283,11 +283,13 @@ const WURZEL_LS = "syncomat.projekte.wurzel";
 export const istWindows = () => typeof navigator !== "undefined" && /Win/i.test(navigator.userAgent);
 
 /** Wo die Arbeitskopien der Projekte liegen (Rolle „projekte“): unter Windows
- * immer `D:\`; auf dem Mac ein einmal gewählter Ordner (z. B. ~/Projekte oder
- * eine externe SSD), der dort die Rolle von D: übernimmt (Marlon 08.11.2026).
+ * `D:\Projekte\` — ein Überordner statt direkt in D: (Marlon 08.11.2026;
+ * gleicher Name wie tank/Projekte auf dem NAS; bis v0.9.33 `D:\`, bestehende
+ * Abos bleiben dort). Auf dem Mac ein einmal gewählter Ordner (z. B.
+ * ~/Projekte oder eine externe SSD), der dort die Rolle übernimmt.
  * null = auf diesem Rechner (noch) keiner. Endet immer mit dem Trenner. */
 export function projekteWurzel(): string | null {
-  if (istWindows()) return "D:\\";
+  if (istWindows()) return "D:\\Projekte\\";
   try {
     const w = localStorage.getItem(WURZEL_LS);
     if (!w) return null;

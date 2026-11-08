@@ -15,6 +15,9 @@
 >   ausgeschaltete Rechner beim Start alles nach.
 > - Die geltende Auswahl steht in der `.stignore` (Quelle der Wahrheit), die Notiz meldet sie
 >   allen (`abos[].auswahl`), `status.json` ebenso.
+> - **Ablage (Marlon 08.11.2026, ab v0.9.34):** Windows `D:\Projekte\<NAME>` statt `D:\<NAME>`
+>   (gleicher Name wie `tank/Projekte`); ältere Abos bleiben, wo sie sind. Mac: ein gewählter
+>   „Ordner für Projekte“. exFAT erlaubt (Hinweis), FAT32 nie.
 
 > **🧭 Stand 2026-11-02 (abends) — syncomat wird Datenagent der Datenzentrale.**
 > Massgebend: Repo `casebasel/datenzentrale`, `docs/KONZEPT.md` bis Commit c86b938 —
