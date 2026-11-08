@@ -10,6 +10,8 @@ echte App mit einer Testfassung, nicht die Vorschau.
    Der Workflow macht daraus eine **Vorabversion** — die automatische Aktualisierung sieht sie
    nicht, die Studio-Rechner bleiben unberührt.
 2. Installieren auf **render** (Windows, NTFS) und dem **MacBook** (APFS, über ZeroTier).
+   Der Mac muss **entsperrt** sein: gesperrt schläft die Oberfläche von syncomat, Wünsche
+   warten dann bis zum Entsperren (08.11.2026). Windows läuft auch gesperrt weiter.
    x3950 (exFAT) nur, wenn Laufwerks-Code geändert wurde.
 3. Testen mit `TEST_SYNCOMAT` (enthält absichtlich Umlaute, NFD-Namen, Leerzeichen, `&`,
    Klammern, `[alt]`). Gesteuert über Wünsche im internen Kanal — derselbe Code wie ein Klick.
