@@ -84,6 +84,7 @@ export function Start({
   nasVerbunden,
   angebote,
   aelter,
+  veraltet = false,
   onZelle,
   onOrdner,
   onEinstellungen,
@@ -109,6 +110,8 @@ export function Start({
   angebote: number;
   /** Rechner mit älterer Schutzstufe (alte syncomat-Version) */
   aelter?: Set<string>;
+  /** dieser Rechner ist zu alt (Versionsschutz) */
+  veraltet?: boolean;
   onZelle: (z: Zeile, s: Spalte) => void;
   onOrdner: () => void;
   onEinstellungen: () => void;
@@ -129,7 +132,8 @@ export function Start({
     }
   }
   // Rechner mit alter syncomat-Version (unter der Schutzstufe dieser Version).
-  const alteRechner = spalten.filter((s) => !s.ich && aelter?.has(s.id));
+  // Nur eingeschaltete — ausgeschaltete holen sich das Update beim Start selbst.
+  const alteRechner = spalten.filter((s) => !s.ich && s.online && aelter?.has(s.id));
 
   // Was lädt gerade — hier und bei den anderen (aus deren Notizen).
   const laeuft: { z: Zeile; s: Spalte; prozent: number; offen: number | null }[] = [];
@@ -217,8 +221,9 @@ export function Start({
             )}
             {zuletzt && <span>zuletzt geprüft {seit(zuletzt.getTime())}</span>}
             <button onClick={onEinstellungen} className="inline-flex items-center gap-1.5 hover:text-[var(--sm-text)] underline-offset-2 hover:underline">
-              {updateDa && <Zeichen art="warn" />}
-              syncomat {version ? `v${version}` : ""} · {updateDa ? "Update verfügbar" : updateState.kind === "up-to-date" ? "aktuell" : "Version prüfen"}
+              {(updateDa || veraltet) && <Zeichen art="warn" />}
+              syncomat {version ? `v${version}` : ""} ·{" "}
+              {veraltet ? "zu alt — Projekte angehalten" : updateDa ? "Update verfügbar" : updateState.kind === "up-to-date" ? "aktuell" : "Version prüfen"}
             </button>
             {angebote > 0 && (
               <button onClick={onOrdner} className="inline-flex items-center gap-1.5 hover:text-[var(--sm-text)] underline-offset-2 hover:underline">
@@ -325,7 +330,7 @@ export function Start({
                           />
                         )}
                       </span>
-                      <span className="sm-zahl w-32 shrink-0 text-right text-[12px] inline-flex items-center justify-end gap-1.5">
+                      <span className="sm-zahl w-36 shrink-0 whitespace-nowrap text-right text-[12px] inline-flex items-center justify-end gap-1.5">
                         {eng && <Zeichen art="warn" />}
                         {s.freiD == null ? (
                           <span className="text-[var(--sm-text2)]">{s.ich ? "kein Projektlaufwerk" : "—"}</span>
@@ -336,7 +341,7 @@ export function Start({
                         )}
                       </span>
                       <span
-                        className="sm-zahl w-16 shrink-0 pr-2 text-right text-[12px] inline-flex items-center justify-end gap-1.5"
+                        className="sm-zahl w-28 shrink-0 whitespace-nowrap pr-2 text-right text-[12px] inline-flex items-center justify-end gap-1.5"
                         title={alt ? "Ältere syncomat-Version — „Alle Geräte aktualisieren“ in den Einstellungen" : undefined}
                       >
                         {alt && <Zeichen art="warn" />}

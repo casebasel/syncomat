@@ -407,12 +407,20 @@ export function useUebersicht({
   if (myID) {
     spalten.push({ id: myID, name: myName || "Dieser Rechner", ich: true, online: true, rolle, freiD: frei?.frei ?? null, totalD: frei?.total ?? null, dFs: frei?.fs ?? null, kannWuensche: true });
   }
+  // Name: der hier eingetragene — ausser er ist leer, doppelt vergeben oder
+  // gleich dem eigenen (render, 08.11.2026: x5950 hiess dort „render“); dann
+  // der Name, den der Rechner selbst meldet.
+  const eingetragen = (config?.devices ?? []).map((d) => d.name?.trim().toLowerCase() ?? "");
+  const eigenerName = (myName || "").trim().toLowerCase();
   for (const d of config?.devices ?? []) {
     if (d.deviceID === myID || ohneSyncomat.has(d.deviceID)) continue;
     const n = notizen[d.deviceID];
+    const hier = d.name?.trim() ?? "";
+    const fraglich = !hier || hier.toLowerCase() === eigenerName || eingetragen.filter((x) => x === hier.toLowerCase()).length > 1;
+    const gemeldet = n?.name?.trim().replace(/\.local$/i, "") ?? "";
     spalten.push({
       id: d.deviceID,
-      name: d.name?.trim() || n?.name?.trim() || d.deviceID.slice(0, 7),
+      name: (fraglich && gemeldet ? gemeldet.toLowerCase() : hier) || gemeldet || d.deviceID.slice(0, 7),
       ich: false,
       // Direkt verbunden — oder über das NAS erreichbar (frische Notiz im Kanal).
       online: !!connections[d.deviceID]?.connected || (!!n && Date.now() - n.at < NOTIZ_ALT_MS),

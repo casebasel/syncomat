@@ -737,6 +737,7 @@ function App() {
                 }
                 angebote={visiblePending.length}
                 aelter={new Set(updateAll.aelter)}
+                veraltet={updateAll.veraltet}
                 onZelle={(z, s) => {
                   setAnsicht("uebersicht");
                   setGewaehltRoh(z.folderId);
