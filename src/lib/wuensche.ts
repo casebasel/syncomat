@@ -298,8 +298,16 @@ async function ausfuehren(
   const folders = (config?.folders ?? []).filter((f) => !istInhaltOrdner(f));
   const hier = folders.find((f) => f.id === w.folder_id) ?? null;
   // Stimmt der Stand noch mit dem überein, den der Sender sah?
-  const jetzt = hier ? auswahlAusIgnores((await getFolderIgnores(ep, hier.id)).ignore) : null;
-  if (hier && jetzt === null) throw new Error("Die Auswahl hier ist nicht lesbar — nicht ausgeführt.");
+  const jetzt = hier
+    ? auswahlAusIgnores((await getFolderIgnores(ep, hier.id).catch(() => ({ ignore: null }))).ignore)
+    : null;
+  if (hier && jetzt === null) {
+    // Beenden geht auch bei kaputtem Abo (Ordner fehlt → Ignore-Liste nicht
+    // lesbar; Mac 08.11.2026). Mit Löschen bleibt es sicher: ein fehlender
+    // Ordner scheitert vor dem Herausnehmen, dann wird nichts gelöscht.
+    if (w.art === "beenden") return aboBeenden(ep, hier, myID, w.loeschen === true);
+    throw new Error("Die Auswahl hier ist nicht lesbar — nicht ausgeführt.");
+  }
   const s = (x: string[] | null) => (x === null ? "nicht abonniert" : x.length === 0 ? "Alles" : normalisiereAuswahl(x).join(", "));
   if (s(jetzt) !== s(w.vorher)) {
     throw new Error(`Hier gilt inzwischen „${s(jetzt)}“ statt „${s(w.vorher)}“ — nicht ausgeführt. Bitte neu senden.`);
