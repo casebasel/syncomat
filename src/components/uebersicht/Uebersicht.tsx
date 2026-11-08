@@ -163,7 +163,10 @@ export function Uebersicht({
               {z.name}
             </span>
             {z.stoerung && (
-              <span className="shrink-0 text-[12px] font-semibold text-[var(--sm-ocker-text)]">{stoerungText(z)}</span>
+              <span className="shrink-0 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--sm-text)]">
+                <span aria-hidden className="size-1.5 rounded-full bg-[var(--sm-ocker)]" />
+                {stoerungText(z)}
+              </span>
             )}
             {z.bytes != null && (
               <span className="ml-auto shrink-0 sm-zahl font-mono text-[12px] text-[var(--sm-text2)]">{gb(z.bytes)}</span>
@@ -236,10 +239,13 @@ export function Uebersicht({
           <span className="font-semibold">{lage.abosHier}</span>
           <span className="text-[var(--sm-kopf-text2)]"> {lage.abosHier === 1 ? "Abo" : "Abos"} hier</span>
           {lage.stoerungen > 0 && (
-            <span className="ml-3 font-semibold text-[var(--sm-ocker)]">{lage.stoerungen} mit Störung</span>
+            <span className="ml-3 inline-flex items-center gap-1.5 font-semibold">
+              <span aria-hidden className="size-1.5 rounded-full bg-[var(--sm-kopf-warn)]" />
+              {lage.stoerungen} mit Störung
+            </span>
           )}
           {(lage.ungesichert ?? 0) > 0 && (
-            <span className="ml-3 font-semibold text-[var(--sm-ocker)]" title="Dateien in Projekten mit Teil-Auswahl, die ausserhalb der Auswahl liegen — sie werden nicht abgeglichen und nicht gesichert.">
+            <span className="ml-3 font-semibold text-[var(--sm-kopf-warn)]" title="Dateien in Projekten mit Teil-Auswahl, die ausserhalb der Auswahl liegen — sie werden nicht abgeglichen und nicht gesichert.">
               {lage.ungesichert} nicht gesichert
             </span>
           )}

@@ -15,11 +15,14 @@
   --sm-kopf-text2: #b8bec8;
   --sm-blau: oklch(0.55 0.2 262);
   --sm-blau-flaeche: oklch(0.95 0.03 262);
-  --sm-ocker: oklch(0.62 0.13 75);
-  --sm-ocker-flaeche: oklch(0.95 0.04 80);
+  --sm-ocker: oklch(0.490 0.115 70); /* warn (Tag), DESIGN-GEMEINSAM */
+  /* Auf dem schwarzen Kopf und der Leiste immer der Nacht-Wert von warn. */
+  --sm-kopf-warn: oklch(0.820 0.140 80);
+  --sm-ocker-flaeche: var(--sm-flaeche); /* warn-grund nicht mehr als Hinweisfläche */
   /* Ocker als Schrift: dunkler, damit 11–13 px ≥ 4.5:1 auf Weiss halten */
-  --sm-ocker-text: oklch(0.5 0.11 70);
-  --sm-rot: oklch(0.55 0.2 27);
+  /* DESIGN-GEMEINSAM: warn nur als Zeichen, Text bleibt in Textfarbe. */
+  --sm-ocker-text: var(--sm-text);
+  --sm-rot: oklch(0.480 0.180 25); /* rot (Tag), DESIGN-GEMEINSAM */
   --sm-ich: oklch(0.97 0.012 262);
   color-scheme: light dark;
 }
@@ -36,10 +39,10 @@
     --sm-kopf-text2: #9aa1ac;
     --sm-blau: oklch(0.66 0.17 262);
     --sm-blau-flaeche: oklch(0.27 0.06 262);
-    --sm-ocker: oklch(0.72 0.13 75);
-    --sm-ocker-flaeche: oklch(0.28 0.05 75);
-    --sm-ocker-text: oklch(0.76 0.13 75);
-    --sm-rot: oklch(0.65 0.19 27);
+    --sm-ocker: oklch(0.820 0.140 80); /* warn (Nacht), DESIGN-GEMEINSAM */
+    --sm-ocker-flaeche: var(--sm-flaeche);
+    --sm-ocker-text: var(--sm-text);
+    --sm-rot: oklch(0.710 0.170 25); /* rot (Nacht) */
     --sm-ich: oklch(0.2 0.02 262);
   }
 }

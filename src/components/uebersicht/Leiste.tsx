@@ -32,7 +32,7 @@ export function Leiste({
       <Icon className="size-[18px]" strokeWidth={1.75} />
       {label}
       {marke && (
-        <span className={`sm-zahl absolute top-1.5 right-2.5 min-w-4 h-4 px-1 rounded-full text-[11px] leading-4 font-bold ${info ? "bg-[var(--sm-blau)] text-white" : "bg-[var(--sm-ocker)] text-black"}`}>
+        <span className={`sm-zahl absolute top-1.5 right-2.5 min-w-4 h-4 px-1 rounded-full text-[11px] leading-4 font-bold ${info ? "bg-[var(--sm-blau)] text-white" : "bg-[var(--sm-kopf-warn)] text-black"}`}>
           {marke}
         </span>
       )}
