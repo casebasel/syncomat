@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { ChevronDown, ChevronRight, Loader2, X } from "lucide-react";
-import { bytesDerAuswahl, type BaumKnoten, type DeviceID, type Endpoint } from "../../lib/syncthing";
+import { bytesDerAuswahl, describeFolderError, type BaumKnoten, type DeviceID, type Endpoint } from "../../lib/syncthing";
 import type { Spalte, Zeile } from "../../lib/uebersicht";
 import {
   EXFAT_HINWEIS,
@@ -255,7 +255,18 @@ export function AuswahlFeld({
   const wurzelWaehlen = async () => {
     try {
       const pfad = await open({ directory: true, title: "Ordner für Projekte (statt Laufwerk D:)" });
-      if (typeof pfad === "string") setzeProjekteWurzel(pfad);
+      if (typeof pfad === "string") {
+        // macOS schützt Downloads, Dokumente und Schreibtisch — Syncthing kommt
+        // dort ohne Freigabe nicht hinein („folder path missing“, 08.11.2026).
+        if (/\/(Downloads|Documents|Desktop)(\/|$)/.test(pfad)) {
+          setMeldung({
+            ok: false,
+            text: "Bitte einen Ordner ausserhalb von Downloads, Dokumente und Schreibtisch wählen — macOS lässt Syncthing dort nicht hinein. Zum Beispiel einen neuen Ordner „Projekte“ im Benutzerordner.",
+          });
+          return;
+        }
+        setzeProjekteWurzel(pfad);
+      }
     } catch (e) {
       setMeldung({ ok: false, text: e instanceof Error ? e.message : String(e) });
     }
@@ -415,9 +426,25 @@ export function AuswahlFeld({
 
         {(zelle.zustand === "angehalten" || zelle.konflikte || zelle.dateifehler) && (
           <div className="rounded-md border border-[var(--sm-linie)] px-3 py-2 text-[14px] space-y-1.5" role="alert">
-            {zelle.zustand === "angehalten" && (
-              <p className="font-semibold text-[var(--sm-ocker-text)]">Angehalten{zelle.grund ? `: ${zelle.grund}` : ""}</p>
-            )}
+            {zelle.zustand === "angehalten" && (() => {
+              const d = zelle.grund && zelle.grund !== "Pausiert" ? describeFolderError(zelle.grund) : null;
+              const macGeschuetzt =
+                spalte.ich && !istWindows() && !!zeile.hier && /folder path missing/i.test(zelle.grund ?? "") &&
+                /\/(Downloads|Documents|Desktop)(\/|$)/.test(zeile.hier.path);
+              return (
+                <>
+                  <p className="font-semibold text-[var(--sm-ocker-text)]">{d ? d.title : `Angehalten${zelle.grund ? `: ${zelle.grund}` : ""}`}</p>
+                  {macGeschuetzt ? (
+                    <p className="text-[12px]">
+                      Der Ordner liegt in Downloads, Dokumente oder Schreibtisch — macOS lässt Syncthing dort nicht hinein. Abo beenden (ohne
+                      Löschen), unter „Ordner für Projekte“ einen Ordner ausserhalb wählen (z. B. ~/Projekte) und neu abonnieren.
+                    </p>
+                  ) : (
+                    d && <p className="text-[12px]">{d.action}</p>
+                  )}
+                </>
+              );
+            })()}
             {!!zelle.konflikte && <p className="font-semibold text-[var(--sm-ocker-text)]">{zelle.konflikte} Konflikt(e) — zwei Fassungen derselben Datei.</p>}
             {!!zelle.dateifehler && <p className="font-semibold text-[var(--sm-ocker-text)]">{zelle.dateifehler} Datei(en) lassen sich nicht abgleichen.</p>}
             {spalte.ich && aktionen && (
