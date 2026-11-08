@@ -4,21 +4,22 @@
 // des Speicher-Wächters gleich (abgestimmt 07.11.2026): FNV-1a 32 Bit über die
 // UTF-8-Bytes der projekt.id, mod 12, über diese Reihe. Nur für Projekte —
 // Plugins, eigene Ordner und offene Ordner bekommen keine Farbe.
-// Alle Töne ≥ 3,3:1 gegen #FFFFFF und #0E0F12 (nachgerechnet).
+// Palette: Le Corbusier, Polychromie architecturale (Marlon 08.11.2026, über
+// stage-system, für alle Apps gleich; Rechnung unverändert, nur die 12 Werte).
 
 export const PROJEKT_FARBEN = [
-  { name: "Lindgrün", css: "oklch(0.60 0.15 128)" },
-  { name: "Grün", css: "oklch(0.58 0.15 148)" },
-  { name: "Smaragd", css: "oklch(0.60 0.13 165)" },
-  { name: "Türkis", css: "oklch(0.60 0.11 190)" },
-  { name: "Petrol", css: "oklch(0.56 0.10 210)" },
-  { name: "Stahlblau", css: "oklch(0.58 0.09 232)" },
-  { name: "Indigo", css: "oklch(0.55 0.15 280)" },
-  { name: "Violett", css: "oklch(0.58 0.16 300)" },
-  { name: "Purpur", css: "oklch(0.58 0.16 318)" },
-  { name: "Pflaume", css: "oklch(0.58 0.15 338)" },
-  { name: "Oliv", css: "oklch(0.60 0.11 108)" },
-  { name: "Moos", css: "oklch(0.50 0.09 140)" },
+  { name: "Bleu outremer 31", nr: "32020", css: "#4E6498" },
+  { name: "Bleu céruléen 31", nr: "32030", css: "#366C8E" },
+  { name: "Céruléen vif", nr: "32031", css: "#5A8A93" },
+  { name: "Vert anglais", nr: "32040", css: "#2C695A" },
+  { name: "Vert 59", nr: "4320G", css: "#559778" },
+  { name: "Vert olive vif", nr: "4320F", css: "#A4AA35" },
+  { name: "Ombre naturelle moyenne", nr: "32141", css: "#877C6A" },
+  { name: "Orange", nr: "32080", css: "#DE6433" },
+  { name: "Terre sienne brique", nr: "32121", css: "#A86A5D" },
+  { name: "Rose vif", nr: "4320C", css: "#DE8DA0" },
+  { name: "Rouge rubia", nr: "32101", css: "#901442" },
+  { name: "Gris 59", nr: "4320H", css: "#616F74" },
 ] as const;
 
 /** FNV-1a 32 Bit über die UTF-8-Bytes. */

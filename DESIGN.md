@@ -33,18 +33,18 @@ colors:
   ocker-text-dunkel: "oklch(0.76 0.13 75)"
   rot-dunkel: "oklch(0.65 0.19 27)"
   ich-dunkel: "oklch(0.2 0.02 262)"
-  projekt-00-lindgruen: "oklch(0.60 0.15 128)"
-  projekt-01-gruen: "oklch(0.58 0.15 148)"
-  projekt-02-smaragd: "oklch(0.60 0.13 165)"
-  projekt-03-tuerkis: "oklch(0.60 0.11 190)"
-  projekt-04-petrol: "oklch(0.56 0.10 210)"
-  projekt-05-stahlblau: "oklch(0.58 0.09 232)"
-  projekt-06-indigo: "oklch(0.55 0.15 280)"
-  projekt-07-violett: "oklch(0.58 0.16 300)"
-  projekt-08-purpur: "oklch(0.58 0.16 318)"
-  projekt-09-pflaume: "oklch(0.58 0.15 338)"
-  projekt-10-oliv: "oklch(0.60 0.11 108)"
-  projekt-11-moos: "oklch(0.50 0.09 140)"
+  projekt-00-bleu-outremer-31: "#4E6498"
+  projekt-01-bleu-ceruleen-31: "#366C8E"
+  projekt-02-ceruleen-vif: "#5A8A93"
+  projekt-03-vert-anglais: "#2C695A"
+  projekt-04-vert-59: "#559778"
+  projekt-05-vert-olive-vif: "#A4AA35"
+  projekt-06-ombre-naturelle-moyenne: "#877C6A"
+  projekt-07-orange: "#DE6433"
+  projekt-08-terre-sienne-brique: "#A86A5D"
+  projekt-09-rose-vif: "#DE8DA0"
+  projekt-10-rouge-rubia: "#901442"
+  projekt-11-gris-59: "#616F74"
 typography:
   title:
     fontFamily: "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"Segoe UI\", system-ui, sans-serif"
@@ -176,7 +176,7 @@ Neutral und fast farblos; Farbe tritt nur auf, wenn sie etwas bedeutet.
 
 ### Tertiary
 - **Verlustrot** (`rot`): ausschliesslich drohender oder eingetretener Datenverlust. Fehler, Offline, Konflikte und Warnungen sind nicht rot.
-- **Projektfarben** (`projekt-00` … `projekt-11`, Lindgrün bis Moos): je Projekt ein fester Ton. Index = FNV-1a 32 Bit über die UTF-8-Bytes der projekt.id, mod 12 (`src/lib/projektFarbe.ts`, identisch in der Seite des Speicher-Wächters). Alle Töne mindestens 3.3:1 gegen `#ffffff` und `#0e0f12`. Erscheint nur als 3-px-Kante.
+- **Projektfarben** (`projekt-00` … `projekt-11`): Le Corbusier, Polychromie architecturale (ab 08.11.2026, für alle Apps gleich): 0 `#4E6498` bleu outremer 31 · 1 `#366C8E` bleu céruléen 31 · 2 `#5A8A93` céruléen vif · 3 `#2C695A` vert anglais · 4 `#559778` vert 59 · 5 `#A4AA35` vert olive vif · 6 `#877C6A` ombre naturelle moyenne · 7 `#DE6433` orange · 8 `#A86A5D` terre sienne brique · 9 `#DE8DA0` rose vif · 10 `#901442` rouge rubia · 11 `#616F74` gris 59. Index = FNV-1a 32 Bit über die UTF-8-Bytes der projekt.id, mod 12 (`src/lib/projektFarbe.ts`, identisch in der Seite des Speicher-Wächters). Erscheint nur als 3-px-Kante.
 
 ### Neutral
 - **Grund** (`grund`): Arbeitsfläche, Tabelle, Felder.
