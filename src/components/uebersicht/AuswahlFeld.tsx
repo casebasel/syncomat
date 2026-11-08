@@ -208,7 +208,8 @@ export function AuswahlFeld({
   const [ueberallFragen, setUeberallFragen] = useState(false);
   const [beendenFragen, setBeendenFragen] = useState(false);
   /** Beim Beenden den Ordner löschen (nur, was sicher auf dem NAS ist). */
-  const [ordnerLoeschen, setOrdnerLoeschen] = useState(true);
+  // Bei angehaltenem Abo (z. B. Ordner fehlt) nicht vorgewählt — Löschen geht dort nicht.
+  const [ordnerLoeschen, setOrdnerLoeschen] = useState(zelle.zustand !== "angehalten");
 
   // Ordnerbaum holen: aus dem eigenen Abo, sonst nur das Inhaltsverzeichnis vom NAS.
   useEffect(() => {

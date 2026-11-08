@@ -7,6 +7,8 @@ import {
   getBrowse,
   getConfig,
   neuVerbinden,
+  folderError,
+  describeFolderError,
   getDbFile,
   getFolderErrors,
   getFolderIgnores,
@@ -613,6 +615,20 @@ type OrdnerGeleert = { geloescht: number; bytes: number; behalten: string[]; beh
  */
 async function aboBeendenEinmal(ep: Endpoint, f: Folder, myID: DeviceID, loeschen: boolean): Promise<string> {
   const s = await getFolderStatus(ep, f.id);
+  // Kaputtes Abo (Ordner fehlt, Markierung fehlt …): Syncthing steht auf
+  // „error“. Beenden ohne Löschen nimmt nur den Eintrag heraus und fasst keine
+  // Dateien an — das muss gehen (Mac 08.11.2026: liess sich nie beenden).
+  const ordnerFehler = folderError(s);
+  if (ordnerFehler) {
+    if (loeschen) {
+      throw new Error(`Der Ordner hat einen Fehler (${describeFolderError(ordnerFehler).title}) — ohne „Ordner löschen“ beenden.`);
+    }
+    await deleteFolder(ep, f.id);
+    const andereIds = f.devices.map((d) => d.deviceID).filter((d) => d !== myID);
+    gemerkteAngebote.set(f.id, { p: { folderId: f.id, name: f.label || f.id, anbieter: andereIds }, bis: Date.now() + MERKEN_MS });
+    await neuVerbinden(ep, andereIds);
+    return `Abo beendet (der Ordner hatte einen Fehler: ${describeFolderError(ordnerFehler).title}). An ${f.path} wurde nichts verändert.`;
+  }
   if (s.state !== "idle") throw new Error("Der Ordner arbeitet gerade. Bitte warten, bis er fertig ist.");
   const andere = f.devices.map((d) => d.deviceID).filter((d) => d !== myID);
   // Das NAS muss alles von hier haben (vorgestellte, ausgeschaltete Rechner
