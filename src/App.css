@@ -18,6 +18,8 @@
   --sm-ocker: oklch(0.490 0.115 70); /* warn (Tag), DESIGN-GEMEINSAM */
   /* Auf dem schwarzen Kopf und der Leiste immer der Nacht-Wert von warn. */
   --sm-kopf-warn: oklch(0.820 0.140 80);
+  /* ok (DESIGN-GEMEINSAM): grün = bestätigt aktuell (Marlon 08.11.2026) */
+  --sm-gruen: oklch(0.470 0.130 150);
   --sm-ocker-flaeche: var(--sm-flaeche); /* warn-grund nicht mehr als Hinweisfläche */
   /* Ocker als Schrift: dunkler, damit 11–13 px ≥ 4.5:1 auf Weiss halten */
   /* DESIGN-GEMEINSAM: warn nur als Zeichen, Text bleibt in Textfarbe. */
@@ -40,6 +42,7 @@
     --sm-blau: oklch(0.66 0.17 262);
     --sm-blau-flaeche: oklch(0.27 0.06 262);
     --sm-ocker: oklch(0.820 0.140 80); /* warn (Nacht), DESIGN-GEMEINSAM */
+    --sm-gruen: oklch(0.760 0.150 150);
     --sm-ocker-flaeche: var(--sm-flaeche);
     --sm-ocker-text: var(--sm-text);
     --sm-rot: oklch(0.710 0.170 25); /* rot (Nacht) */

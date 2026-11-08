@@ -62,7 +62,7 @@ const Zeichen = ({ art }: { art: "warn" | "ok" | "aus" }) => (
   <span
     aria-hidden
     className={`size-2 shrink-0 rounded-full ${
-      art === "warn" ? "bg-[var(--sm-ocker)]" : art === "ok" ? "bg-[var(--sm-text)]" : "border border-[var(--sm-text2)]"
+      art === "warn" ? "bg-[var(--sm-ocker)]" : art === "ok" ? "bg-[var(--sm-gruen)]" : "border border-[var(--sm-text2)]"
     }`}
   />
 );
@@ -187,7 +187,7 @@ export function Start({
             ) : (
               <span
                 aria-hidden
-                className={`size-3 shrink-0 rounded-full ${satzArt === "warn" ? "bg-[var(--sm-ocker)]" : "bg-[var(--sm-text)]"}`}
+                className={`size-3 shrink-0 rounded-full ${satzArt === "warn" ? "bg-[var(--sm-ocker)]" : "bg-[var(--sm-gruen)]"}`}
               />
             )}
             {satz}

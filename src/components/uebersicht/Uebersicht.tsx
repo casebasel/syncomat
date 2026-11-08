@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, KeyRound, Plus, RefreshCw, Search } from "lucide-react";
-import { zeilenStand, type Spalte, type Zeile } from "../../lib/uebersicht";
+import { ChevronDown, ChevronRight, KeyRound, Plus, RefreshCw, Search } from "lucide-react";
+import { zeilenStand, type Spalte, type Zeile, type Zelle } from "../../lib/uebersicht";
 import type { Wunsch } from "../../lib/wuensche";
 import { ZellSymbol, zellText } from "./ZellSymbol";
 
@@ -34,24 +34,23 @@ function StandMarke({ z }: { z: Zeile }) {
   const st = zeilenStand(z);
   if (st.art === "keiner") return null;
   const zeit = z.zuletztGeaendert ? ` · zuletzt geändert ${uhr(z.zuletztGeaendert)}` : "";
-  if (st.art === "alle") {
-    return (
-      <span
-        className="shrink-0 inline-flex items-center gap-0.5 text-[12px] text-[var(--sm-text2)]"
-        title={`Alle ${st.anzahl} Rechner mit Abo sind auf dem gleichen Stand${zeit}`}
-      >
-        <Check className="size-3.5 text-[var(--sm-text)]" strokeWidth={2.5} aria-hidden />
-        alle
-      </span>
-    );
-  }
-  const teile = [st.laedt ? `${st.laedt} lädt` : "", st.aus ? `${st.aus} aus` : ""].filter(Boolean).join(", ");
+  const abos = Object.values(z.zellen).filter((c) => c.zustand !== "nicht" && c.zustand !== "unbekannt");
+  const laden = abos.filter((c) => c.zustand === "laedt");
+  // Zusammenfassung mit denselben Zeichen: grün = alle bestätigt aktuell,
+  // Kuchen = es lädt noch (kleinster Fortschritt), grau = einer ist aus.
+  const sammel: Zelle =
+    st.art === "alle"
+      ? { zustand: "aktuell" }
+      : laden.length > 0
+        ? { zustand: "laedt", prozent: Math.min(...laden.map((c) => c.prozent ?? 0)) }
+        : { zustand: "aktuell", offline: true };
+  const text =
+    st.art === "alle"
+      ? `Alle ${st.anzahl} Rechner mit Abo sind bestätigt aktuell${zeit}`
+      : `${st.aktuell} von ${st.anzahl} bestätigt aktuell${st.laedt ? ` · ${st.laedt} lädt` : ""}${st.aus ? ` · ${st.aus} aus` : ""}${zeit}`;
   return (
-    <span
-      className="sm-zahl shrink-0 text-[12px] text-[var(--sm-text2)]"
-      title={`${st.aktuell} von ${st.anzahl} Rechnern aktuell${teile ? ` (${teile})` : ""}${zeit}`}
-    >
-      {st.aktuell}/{st.anzahl}
+    <span className="shrink-0 inline-flex" title={text} aria-label={text}>
+      <ZellSymbol z={sammel} size={12} />
     </span>
   );
 }
@@ -488,7 +487,8 @@ export function Uebersicht({
           {(
             [
               [{ zustand: "aktuell" }, "aktuell"],
-              [{ zustand: "laedt", prozent: 60 }, "lädt"],
+              [{ zustand: "laedt", prozent: 40 }, "lädt"],
+              [{ zustand: "aktuell", offline: true }, "aus (letzter Stand)"],
               [{ zustand: "aktuell", teil: true }, "nur Unterordner"],
               [{ zustand: "angehalten" }, "angehalten"],
               [{ zustand: "unbekannt" }, "unbekannt"],
