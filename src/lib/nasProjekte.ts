@@ -84,6 +84,17 @@ export const gb = (n: number) =>
   n >= 1e12 ? `${(n / 1e12).toFixed(1)} TB` : n >= 1e9 ? `${(n / 1e9).toFixed(n >= 1e11 ? 0 : 1)} GB` : n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(0, Math.round(n / 1e3))} KB`;
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+/** Versionsschutz: zu alte Version → keine Abläufe, die Daten verändern. */
+let veraltetFlag = false;
+export function setzeVeraltet(v: boolean) {
+  veraltetFlag = v;
+}
+function pruefeAktuell() {
+  if (veraltetFlag) {
+    throw new Error("Diese syncomat-Version ist zu alt — Projekte sind angehalten. Bitte zuerst aktualisieren.");
+  }
+}
+
 /** Nie zwei Abläufe gleichzeitig für denselben Ordner (Inhaltsverzeichnis,
  * Abonnieren, Auswahl ändern, Abo beenden — vom Knopf oder als Wunsch). */
 const sperren = new Map<string, Promise<unknown>>();
@@ -412,6 +423,11 @@ export function aboAuswahlAendern(
   myID: DeviceID,
   onSchritt: (text: string) => void = () => {},
 ): Promise<string> {
+  try {
+    pruefeAktuell();
+  } catch (e) {
+    return Promise.reject(e);
+  }
   return mitSperre(f.id, () => auswahlAendernEinmal(ep, f, auswahl, rolle, myID, onSchritt));
 }
 
@@ -683,6 +699,11 @@ async function aboBeendenEinmal(ep: Endpoint, f: Folder, myID: DeviceID, loesche
 }
 
 export function aboVorbereiten(ep: Endpoint, p: NasProjekt, myID: DeviceID, rolle: GeraeteRolle, onSchritt: (text: string) => void): Promise<AboVorbereitung> {
+  try {
+    pruefeAktuell();
+  } catch (e) {
+    return Promise.reject(e);
+  }
   return mitSperre(p.folderId, () => aboVorbereitenEinmal(ep, p, myID, rolle, onSchritt));
 }
 
@@ -691,5 +712,13 @@ export function aboStarten(ep: Endpoint, p: NasProjekt, v: AboVorbereitung, ausw
 }
 
 export function aboBeenden(ep: Endpoint, f: Folder, myID: DeviceID, loeschen = false): Promise<string> {
+  // Beenden ohne Löschen nimmt nur den Eintrag heraus — das geht auch veraltet.
+  if (loeschen) {
+    try {
+      pruefeAktuell();
+    } catch (e) {
+      return Promise.reject(e);
+    }
+  }
   return mitSperre(f.id, () => aboBeendenEinmal(ep, f, myID, loeschen));
 }

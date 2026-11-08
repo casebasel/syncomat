@@ -23,6 +23,14 @@ import type { UpdateState } from "./updater";
 // Version, nie eine, die es nicht gibt.
 
 const KIND = "update";
+
+/** Schutzstufe: nur erhöhen, wenn sich etwas an der Datensicherheit ändert
+ * (Löschen, Verkleinern, Wünsche, Ignore-Schichten). Ein Rechner mit
+ * niedrigerer Stufe als die neueste im Studio hält seine Projekt-Abos an und
+ * holt sich das Update (Marlon 08.11.2026: „eine zu alte Instanz könnte ein
+ * Chaos anrichten“). Versionen vor v0.9.38 kennen das Feld nicht (= 0).
+ * 1 = v0.9.38: Abo beenden mit sicherem Löschen, NAS-Regel, Wünsche mit vorher. */
+export const SCHUTZSTUFE = 1;
 const REQUEST_LS = "syncomat.updateAll.request";
 /** So oft die Notizen lesen (lokale Dateien, billig). 15 s statt 60 s
  * (bis v0.9.18): ein Fern-Update startet so rund eine Minute früher. Geschrieben
@@ -37,6 +45,8 @@ export type UpdateNote = {
   by: DeviceID;
   at: number;
   version: string;
+  /** Schutzstufe (siehe SCHUTZSTUFE); fehlt bei Versionen vor v0.9.38. */
+  schutzstufe?: number;
   /** Eigener Name (Computername) — damit die anderen ihn zeigen können,
    * auch wenn sie das Gerät ohne Namen kennen (sonst nur „H6V6IPX“). */
   name?: string;
@@ -119,6 +129,7 @@ export function useUpdateAll({
         by: myID,
         at: Date.now(),
         version,
+        schutzstufe: SCHUTZSTUFE,
         ...(myName ? { name: myName } : {}),
         ...(ownRequest ? { request: ownRequest } : {}),
       };
@@ -209,6 +220,21 @@ export function useUpdateAll({
   if (ownRequest && myID && (!request || compareVersions(ownRequest.version, request.version) > 0)) {
     request = { version: ownRequest.version, by: myID };
   }
+  // Schutzstufe: Gibt es im Studio eine höhere als meine, bin ich zu alt —
+  // dann gilt die neueste Version dieser Stufe als Aufforderung an mich (auch
+  // ohne dass jemand „Alle Geräte aktualisieren“ drückt).
+  let neueste: UpdateNote | null = null;
+  for (const n of Object.values(notes)) {
+    if ((n.schutzstufe ?? 0) > SCHUTZSTUFE && (!neueste || compareVersions(n.version, neueste.version) > 0)) neueste = n;
+  }
+  const veraltet = !!neueste;
+  if (neueste && (!request || compareVersions(neueste.version, request.version) > 0)) {
+    request = { version: neueste.version, by: neueste.by };
+  }
+  /** Geräte mit syncomat, deren Schutzstufe niedriger ist als meine. */
+  const aelter = Object.values(notes)
+    .filter((n) => n.by !== myID && (n.schutzstufe ?? 0) < SCHUTZSTUFE)
+    .map((n) => n.by);
   const behind = !!(request && version && compareVersions(request.version, version) > 0);
 
   // Selbst aktualisieren, sobald der Updater ein passendes Release gefunden hat.
@@ -267,5 +293,5 @@ export function useUpdateAll({
       ? { ...notes, [myID]: { by: myID, at: Date.now(), version } }
       : notes;
 
-  return { notes: withOwn, noChannel, request, requestAll };
+  return { notes: withOwn, noChannel, request, requestAll, veraltet, aelter };
 }

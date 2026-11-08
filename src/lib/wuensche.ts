@@ -143,6 +143,7 @@ export function useWuensche({
   rolle,
   erledigtVon,
   connections,
+  gesperrt = false,
 }: {
   ep: Endpoint | null;
   ready: boolean;
@@ -154,6 +155,8 @@ export function useWuensche({
   /** Ergebnisse der anderen Rechner (aus ihren Abos-Notizen). */
   erledigtVon: Record<DeviceID, WunschErgebnis[]>;
   connections: Record<DeviceID, Connection>;
+  /** Versionsschutz: zu alt → Wünsche warten (nicht ausführen, nicht verbrauchen). */
+  gesperrt?: boolean;
 }) {
   const startRef = useRef(Date.now());
   const [eigene, setEigene] = useState<Wunsch[] | null>(null);
@@ -261,7 +264,7 @@ export function useWuensche({
   const bereit = anMich.filter(
     (w) => w.art === "beenden" || gegenstellen(w).some((d) => connections[d]?.connected),
   );
-  const anMichKey = Date.now() - startRef.current < 30_000 ? "" : bereit.map((w) => w.id).join(",");
+  const anMichKey = gesperrt || Date.now() - startRef.current < 30_000 ? "" : bereit.map((w) => w.id).join(",");
 
   useEffect(() => {
     if (!ep || !ready || !myID || !anMichKey || busyRef.current) return;

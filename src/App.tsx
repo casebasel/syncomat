@@ -62,9 +62,10 @@ import { useInternFolder } from "./lib/internChannel";
 import { isAboFolderId, useDatenzentrale } from "./lib/datenzentrale";
 import { useAboAusfuehrung, useGeraeteRolle } from "./lib/abo";
 import { useStatusDatei } from "./lib/statusDatei";
-import { aboBeenden, istInhaltOrdner, setzeNasGeraete } from "./lib/nasProjekte";
+import { aboBeenden, istInhaltOrdner, setzeNasGeraete, setzeVeraltet } from "./lib/nasProjekte";
 import { useWuensche } from "./lib/wuensche";
 import { useAusgeblendet } from "./lib/ausgeblendet";
+import { useVersionsSchutz } from "./lib/versionsSchutz";
 import {
   setFolderIgnores,
   tuneFolderForSize,
@@ -330,6 +331,9 @@ function App() {
   const myName = devices.find((d) => d.deviceID === myID)?.name?.trim() || datenzentrale.state.computerName || "";
   // Das NAS = Geräte ohne syncomat (für „hat das NAS alles?“ vor jedem Löschen).
   useEffect(() => setzeNasGeraete(updateAll.noChannel), [updateAll.noChannel]);
+  // Versionsschutz: zu alt → Projekt-Abos anhalten, Abläufe sperren, Update holen.
+  useEffect(() => setzeVeraltet(updateAll.veraltet), [updateAll.veraltet]);
+  useVersionsSchutz({ ep: endpoint, ready, folders: config.data?.folders ?? [], veraltet: updateAll.veraltet });
   const uebersicht = useUebersicht({
     ep: endpoint,
     ready,
@@ -353,6 +357,7 @@ function App() {
     rolle: geraeteRolle.rolle,
     erledigtVon: uebersicht.erledigtVon,
     connections: connectionsByID,
+    gesperrt: updateAll.veraltet,
   });
   useNotificationTriggers({
     enabled: notifications.enabled,
@@ -505,6 +510,23 @@ function App() {
 
   return (
     <main className="h-screen bg-[var(--sm-grund)] text-[var(--sm-text)] antialiased flex flex-col overflow-hidden">
+      {updateAll.veraltet && (
+        <div role="alert" className="shrink-0 px-4 py-3 flex items-center gap-3 border-b border-[var(--sm-linie)] bg-[var(--sm-kopf)] text-[var(--sm-kopf-text)]">
+          <span aria-hidden className="size-3 shrink-0 rounded-full bg-[var(--sm-kopf-warn)]" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[15px] font-bold">Achtung: Diese syncomat-Version ist zu alt.</div>
+            <div className="text-[13px] text-[var(--sm-kopf-text2)]">
+              Ein anderer Rechner hat eine neuere Version mit besserem Schutz. Die Projekte hier sind angehalten, bis aktualisiert ist — es geht nichts verloren. Plugins laufen weiter.
+            </div>
+          </div>
+          <button
+            onClick={() => (updater.state.kind === "available" ? updater.installAndRestart() : updater.recheck())}
+            className="shrink-0 h-8 px-3 rounded-md bg-[var(--sm-blau)] text-white text-[13px] font-semibold"
+          >
+            {updater.state.kind === "downloading" ? "Lädt …" : updater.state.kind === "checking" ? "Prüft …" : "Jetzt aktualisieren"}
+          </button>
+        </div>
+      )}
       {!updateDismissed && (
         <UpdateBanner
           state={updater.state}
@@ -714,6 +736,7 @@ function App() {
                     : [...updateAll.noChannel].some((id) => connectionsByID[id]?.connected)
                 }
                 angebote={visiblePending.length}
+                aelter={new Set(updateAll.aelter)}
                 onZelle={(z, s) => {
                   setAnsicht("uebersicht");
                   setGewaehltRoh(z.folderId);

@@ -83,6 +83,7 @@ export function Start({
   versionen,
   nasVerbunden,
   angebote,
+  aelter,
   onZelle,
   onOrdner,
   onEinstellungen,
@@ -106,6 +107,8 @@ export function Start({
   /** NAS-Hub verbunden? null = kein NAS bekannt */
   nasVerbunden: boolean | null;
   angebote: number;
+  /** Rechner mit älterer Schutzstufe (alte syncomat-Version) */
+  aelter?: Set<string>;
   onZelle: (z: Zeile, s: Spalte) => void;
   onOrdner: () => void;
   onEinstellungen: () => void;
@@ -125,9 +128,8 @@ export function Start({
       if (t) probleme.push({ z, s, text: t });
     }
   }
-  if (nasVerbunden === false) {
-    /* eigener Eintrag unten im Statussatz */
-  }
+  // Rechner mit alter syncomat-Version (unter der Schutzstufe dieser Version).
+  const alteRechner = spalten.filter((s) => !s.ich && aelter?.has(s.id));
 
   // Was lädt gerade — hier und bei den anderen (aus deren Notizen).
   const laeuft: { z: Zeile; s: Spalte; prozent: number; offen: number | null }[] = [];
@@ -149,8 +151,8 @@ export function Start({
   if (!bereit) {
     satz = "Syncthing startet …";
     satzArt = "laedt";
-  } else if (probleme.length > 0 || nasVerbunden === false) {
-    const n = probleme.length + (nasVerbunden === false ? 1 : 0);
+  } else if (probleme.length > 0 || nasVerbunden === false || alteRechner.length > 0) {
+    const n = probleme.length + (nasVerbunden === false ? 1 : 0) + alteRechner.length;
     satz = n === 1 ? "Eine Sache braucht Aufmerksamkeit." : `${n} Sachen brauchen Aufmerksamkeit.`;
     satzArt = "warn";
   } else if (laedt) {
@@ -229,8 +231,22 @@ export function Start({
 
         <div className="max-w-[1100px] grid gap-x-10 gap-y-7 lg:grid-cols-2">
           <div className="space-y-7 min-w-0">
-            <Abschnitt titel="Braucht Aufmerksamkeit" zahl={probleme.length}>
-              {probleme.length === 0 ? (
+            <Abschnitt titel="Braucht Aufmerksamkeit" zahl={probleme.length + alteRechner.length}>
+              {alteRechner.map((s) => (
+                <button
+                  key={`alt|${s.id}`}
+                  onClick={onEinstellungen}
+                  className="w-full h-10 flex items-center gap-2.5 text-left border-b border-[var(--sm-linie-fein)] hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--sm-blau)]"
+                >
+                  <span aria-hidden className="self-stretch w-[3px] shrink-0" />
+                  <Zeichen art="warn" />
+                  <span className="min-w-0 truncate text-[13px] font-semibold">{s.name}</span>
+                  <span className="ml-auto min-w-0 truncate pr-2 text-[12px]">
+                    alte syncomat-Version{versionen[s.id] ? ` (v${versionen[s.id]})` : ""} — bitte aktualisieren
+                  </span>
+                </button>
+              ))}
+              {probleme.length === 0 && alteRechner.length === 0 ? (
                 <p className="py-2.5 text-[13px] text-[var(--sm-text2)]">Nichts offen.</p>
               ) : (
                 <ul>
