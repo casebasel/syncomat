@@ -125,6 +125,6 @@ function directionLabel(e: ActivityEvent): string {
   if (e.action === "deleted") return "Gelöscht";
   if (e.direction === "conflict") return "Konflikt";
   if (e.direction === "up") return "Hochgeladen";
-  if (e.direction === "local") return "Lokal geändert";
+  if (e.direction === "local") return "Hier neu/geändert";
   return "Empfangen";
 }

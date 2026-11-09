@@ -132,6 +132,10 @@ export function nasBestaetigt(folderId: string, bis: number) {
  * Globaler Listener auf den Syncthing-Event-Bus. Muss EINMAL beim App-Start
  * gemountet werden — daher der `useActivityListener`-Hook in App.tsx.
  */
+/** Eigene Steuerdateien von syncomat (interner Kanal, Notizen) gehören nicht ins Protokoll. */
+const intern = (folderId: string, path: string) =>
+  folderId === "syncomat-intern" || path === ".syncomat" || path.startsWith(".syncomat/") || path.startsWith(".syncomat\\");
+
 function handleSyncEvent(e: SyncEvent) {
   if (e.type === "ItemFinished") {
     const d = e.data as {
@@ -141,7 +145,7 @@ function handleSyncEvent(e: SyncEvent) {
       type: string;
       error?: string;
     };
-    if (!d?.folder || !d?.item) return;
+    if (!d?.folder || !d?.item || intern(d.folder, d.item)) return;
     const action: ActivityEvent["action"] =
       d.action === "delete" ? "deleted" : d.action === "metadata" ? "modified" : "added";
     addEvent({
@@ -156,7 +160,7 @@ function handleSyncEvent(e: SyncEvent) {
     });
   } else if (e.type === "LocalChangeDetected") {
     const d = e.data as { folderID: string; path: string; type: string; action: string };
-    if (!d?.folderID || !d?.path) return;
+    if (!d?.folderID || !d?.path || intern(d.folderID, d.path)) return;
     addEvent({
       id: uid(),
       ts: Date.now(),
