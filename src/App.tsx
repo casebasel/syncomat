@@ -64,7 +64,7 @@ import { isAboFolderId, useDatenzentrale } from "./lib/datenzentrale";
 import { useAboAusfuehrung, useGeraeteRolle } from "./lib/abo";
 import { useStatusDatei } from "./lib/statusDatei";
 import { aboBeenden, alleHabenAlles, istInhaltOrdner, setzeNasGeraete, setzeVeraltet } from "./lib/nasProjekte";
-import { nasBestaetigt, ordnerMitWartenden } from "./lib/activity";
+import { nasBestaetigt, ordnerMitWartenden, useActivityListener } from "./lib/activity";
 import { useWuensche } from "./lib/wuensche";
 import { useAusgeblendet } from "./lib/ausgeblendet";
 import { useVersionsSchutz } from "./lib/versionsSchutz";
@@ -336,6 +336,7 @@ function App() {
   // Versionsschutz: zu alt → Projekt-Abos anhalten, Abläufe sperren, Update holen.
   useEffect(() => setzeVeraltet(updateAll.veraltet), [updateAll.veraltet]);
   useVersionsSchutz({ ep: endpoint, ready, folders: config.data?.folders ?? [], veraltet: updateAll.veraltet });
+  useActivityListener();
   // Protokoll: lokale Änderungen als „beim NAS“ bestätigen, sobald das NAS den
   // Stand des Ordners vollständig hat (Marlon 09.11.2026).
   useEffect(() => {

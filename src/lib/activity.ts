@@ -187,6 +187,13 @@ function handleSyncEvent(e: SyncEvent) {
 }
 
 let attached = false;
+/** Einmal in App.tsx: Protokoll hört ab dem Start zu — nicht erst, wenn
+ * „Aktivität“ geöffnet ist (bis v0.9.38 ging alles dazwischen verloren). */
+export function useActivityListener() {
+  useEffect(() => {
+    ensureAttached();
+  }, []);
+}
 function ensureAttached() {
   if (attached) return;
   const handler: EventHandler = handleSyncEvent;
