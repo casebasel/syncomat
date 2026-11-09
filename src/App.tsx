@@ -10,6 +10,7 @@ import {
   putFolder,
   scanAllFolders,
   INTERN_FOLDER_ID,
+  getFolderStatus,
   MAX_CONFLICTS,
   useAggregateStatus,
   useConfig,
@@ -62,7 +63,8 @@ import { useInternFolder } from "./lib/internChannel";
 import { isAboFolderId, useDatenzentrale } from "./lib/datenzentrale";
 import { useAboAusfuehrung, useGeraeteRolle } from "./lib/abo";
 import { useStatusDatei } from "./lib/statusDatei";
-import { aboBeenden, istInhaltOrdner, setzeNasGeraete, setzeVeraltet } from "./lib/nasProjekte";
+import { aboBeenden, alleHabenAlles, istInhaltOrdner, setzeNasGeraete, setzeVeraltet } from "./lib/nasProjekte";
+import { nasBestaetigt, ordnerMitWartenden } from "./lib/activity";
 import { useWuensche } from "./lib/wuensche";
 import { useAusgeblendet } from "./lib/ausgeblendet";
 import { useVersionsSchutz } from "./lib/versionsSchutz";
@@ -334,6 +336,28 @@ function App() {
   // Versionsschutz: zu alt → Projekt-Abos anhalten, Abläufe sperren, Update holen.
   useEffect(() => setzeVeraltet(updateAll.veraltet), [updateAll.veraltet]);
   useVersionsSchutz({ ep: endpoint, ready, folders: config.data?.folders ?? [], veraltet: updateAll.veraltet });
+  // Protokoll: lokale Änderungen als „beim NAS“ bestätigen, sobald das NAS den
+  // Stand des Ordners vollständig hat (Marlon 09.11.2026).
+  useEffect(() => {
+    if (!endpoint || !ready || !myID) return;
+    let cancelled = false;
+    const pruefen = async () => {
+      for (const id of ordnerMitWartenden()) {
+        const f = config.data?.folders.find((x) => x.id === id);
+        if (!f || cancelled) continue;
+        const start = Date.now();
+        const s = await getFolderStatus(endpoint, id).catch(() => null);
+        if (!s || s.state !== "idle") continue;
+        if ((await alleHabenAlles(endpoint, f, myID).catch(() => "fehler")) === null) nasBestaetigt(id, start);
+      }
+    };
+    const t = setInterval(() => void pruefen(), 20_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endpoint?.url, ready, myID, config.data]);
   const uebersicht = useUebersicht({
     ep: endpoint,
     ready,

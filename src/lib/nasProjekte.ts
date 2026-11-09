@@ -25,6 +25,7 @@ import {
   type PendingFolder,
 } from "./syncthing";
 import { isAboFolderId } from "./datenzentrale";
+import { protokolliere } from "./activity";
 import {
   NAME_RE,
   platzPruefung,
@@ -227,6 +228,7 @@ async function aboStartenEinmal(
   if (!platz.passt) throw new Error(platz.text ?? "Zu wenig Platz.");
   await setFolderIgnores(ep, p.folderId, composeAboIgnores(auswahl, rolle));
   merkeAuswahl(p.folderId, auswahl);
+  protokolliere(p.folderId, `Abonniert: ${auswahl.length === 0 ? "ganzes Projekt" : auswahl.join(", ")} — ${gb(bytes)} kommen vom NAS.`, "added");
   return platz.text;
 }
 
@@ -378,7 +380,7 @@ function nasImOrdner(f: Folder, myID: DeviceID): DeviceID[] {
  * sind sie verbunden, müssen auch sie vollständig sein (Mac, 08.11.2026:
  * ein ausgeschalteter x5950 blockierte sonst jedes Löschen).
  * null = alles gut, sonst der Grund. */
-async function alleHabenAlles(ep: Endpoint, f: Folder, myID: DeviceID): Promise<string | null> {
+export async function alleHabenAlles(ep: Endpoint, f: Folder, myID: DeviceID): Promise<string | null> {
   const andere = f.devices.filter((d) => d.deviceID !== myID);
   if (andere.length === 0) return "Der Ordner ist mit keinem anderen Gerät geteilt.";
   const pflicht = new Set(nasImOrdner(f, myID));
@@ -576,6 +578,7 @@ async function auswahlAendernEinmal(
     }
   }
   merkeAuswahl(f.id, neu);
+  protokolliere(f.id, `Auswahl geändert: ${neu.length === 0 ? "ganzes Projekt" : neu.join(", ")}. ${text}`, entfernen ? "deleted" : "modified");
   return platzHinweis ? `${text} ${platzHinweis}` : text;
 }
 
@@ -720,5 +723,8 @@ export function aboBeenden(ep: Endpoint, f: Folder, myID: DeviceID, loeschen = f
       return Promise.reject(e);
     }
   }
-  return mitSperre(f.id, () => aboBeendenEinmal(ep, f, myID, loeschen));
+  return mitSperre(f.id, () => aboBeendenEinmal(ep, f, myID, loeschen)).then((t) => {
+    protokolliere(f.id, t, loeschen ? "deleted" : "modified");
+    return t;
+  });
 }

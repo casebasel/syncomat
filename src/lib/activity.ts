@@ -20,20 +20,55 @@ export type ActivityEvent = {
   size: number;
   /** 'down' = vom Peer empfangen, 'up' = an Peer gesendet, 'local' = lokale
    * Änderung erkannt (nicht durch Sync), 'conflict' = sync-conflict-File. */
-  direction: "down" | "up" | "local" | "conflict";
+  direction: "down" | "up" | "local" | "conflict" | "app";
   /** Device-ID des Peers (kurz) — leer bei 'local' */
   peer: string;
   /** Art der Änderung */
   action: "added" | "modified" | "deleted" | "conflict";
+  /** Nur bei „local“: wartet aufs NAS bzw. das NAS hat den Stand (bestätigt). */
+  nas?: "wartet" | "bestaetigt";
+  /** Nur bei „app“: was syncomat getan hat, in Worten. */
+  text?: string;
 };
 
-const MAX_EVENTS_PER_FOLDER = 200;
+const MAX_EVENTS_PER_FOLDER = 500;
+const MAX_GESAMT = 2000;
+const LS = "syncomat.aktivitaet";
 
 // Modul-Cache: pro Folder die letzten N Events. Geteilt zwischen mehreren
 // useFolderActivity-Subscribern (falls jemand zwei FolderInspectors parallel
 // hat — z.B. zukünftig Split-Screen).
 const cache = new Map<string, ActivityEvent[]>();
 const subscribers = new Map<string, Set<() => void>>();
+
+// Protokoll bleibt über Neustarts und Updates erhalten (Marlon 09.11.2026:
+// „das Protokoll vollständiger“) — die letzten MAX_GESAMT Einträge.
+try {
+  const alt = JSON.parse(localStorage.getItem(LS) ?? "[]") as ActivityEvent[];
+  if (Array.isArray(alt)) {
+    for (const e of alt) {
+      if (!e?.folderId || !e?.id) continue;
+      const l = cache.get(e.folderId) ?? [];
+      l.push(e);
+      cache.set(e.folderId, l);
+    }
+  }
+} catch {
+  /* ohne Speicher nur diese Sitzung */
+}
+let speichernTimer: ReturnType<typeof setTimeout> | null = null;
+function speichern() {
+  if (speichernTimer) return;
+  speichernTimer = setTimeout(() => {
+    speichernTimer = null;
+    try {
+      const alle = [...cache.values()].flat().sort((a, b) => b.ts - a.ts).slice(0, MAX_GESAMT);
+      localStorage.setItem(LS, JSON.stringify(alle));
+    } catch {
+      /* voll oder gesperrt — dann nur im Speicher */
+    }
+  }, 2000);
+}
 
 function notifyFolder(folderId: string) {
   const subs = subscribers.get(folderId);
@@ -61,6 +96,36 @@ function addEvent(ev: ActivityEvent) {
   const next = [ev, ...list].slice(0, MAX_EVENTS_PER_FOLDER);
   cache.set(ev.folderId, next);
   notifyFolder(ev.folderId);
+  speichern();
+}
+
+/** Schritt von syncomat selbst ins Protokoll (Abo, Auswahl, Beenden, Wunsch). */
+export function protokolliere(folderId: string, text: string, action: ActivityEvent["action"] = "modified") {
+  addEvent({ id: uid(), ts: Date.now(), folderId, path: "", size: 0, direction: "app", peer: "", action, text });
+}
+
+/** Ordner mit lokalen Änderungen, die noch aufs NAS warten. */
+export function ordnerMitWartenden(): string[] {
+  return [...cache.entries()].filter(([, l]) => l.some((e) => e.nas === "wartet")).map(([id]) => id);
+}
+
+/** Das NAS hat den Stand dieses Ordners vollständig: alle lokalen Änderungen
+ * bis `bis` (ms) als „beim NAS“ bestätigen. */
+export function nasBestaetigt(folderId: string, bis: number) {
+  const l = cache.get(folderId);
+  if (!l) return;
+  let geaendert = false;
+  const next = l.map((e) => {
+    if (e.nas === "wartet" && e.ts <= bis) {
+      geaendert = true;
+      return { ...e, nas: "bestaetigt" as const };
+    }
+    return e;
+  });
+  if (!geaendert) return;
+  cache.set(folderId, next);
+  notifyFolder(folderId);
+  speichern();
 }
 
 /**
@@ -100,9 +165,12 @@ function handleSyncEvent(e: SyncEvent) {
       size: 0,
       direction: "local",
       peer: "",
-      action: d.action === "deleted" ? "deleted" : "modified",
+      action: d.action === "deleted" ? "deleted" : d.action === "added" ? "added" : "modified",
+      nas: "wartet",
     });
-  } else if (e.type === "RemoteChangeDetected") {
+  } else if (e.type === "RemoteChangeDetected" && false) {
+    // Entfernte Änderungen zeigt ItemFinished, sobald sie hier angekommen sind —
+    // RemoteChangeDetected (Strom /rest/events/disk) gäbe jede Zeile doppelt.
     const d = e.data as { folderID: string; path: string; modifiedBy: string; action: string };
     if (!d?.folderID || !d?.path) return;
     addEvent({

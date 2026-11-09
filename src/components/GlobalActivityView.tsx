@@ -6,6 +6,7 @@ import {
   Ban,
   CheckCircle2,
   FileX,
+  Info,
   FolderOpen,
   Pencil,
   PauseCircle,
@@ -177,7 +178,7 @@ export function GlobalActivityView({
           {items.length === 0 ? (
             <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 px-3 py-4 text-center">
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Noch keine Aktivität in dieser Session. Sync läuft im Hintergrund.
+                Noch keine Aktivität. Änderungen hier und von anderen Rechnern erscheinen, sobald sie passieren.
               </p>
             </div>
           ) : (
@@ -350,7 +351,9 @@ function ActivityRow({
   const peerLabel =
     event.direction === "up"
       ? `→ ${event.peer || "peer"}`
-      : event.peer || (event.direction === "local" ? "lokal" : "");
+      : event.direction === "app"
+        ? "syncomat"
+        : event.peer || (event.direction === "local" ? "hier" : "");
 
   return (
     <div
@@ -378,21 +381,32 @@ function ActivityRow({
           unbekannt
         </span>
       )}
-      <span
-        className="font-mono text-[11px] truncate flex-1 text-neutral-700 dark:text-neutral-200"
-        dir="auto"
-        title={event.path}
-      >
-        {event.path}
-      </span>
+      {event.direction === "app" ? (
+        <span className="text-[12px] truncate flex-1 text-[var(--sm-text)]" title={event.text}>
+          {event.text}
+        </span>
+      ) : (
+        <span className="font-mono text-[11px] truncate flex-1 text-[var(--sm-text)]" dir="auto" title={event.path}>
+          {event.path}
+        </span>
+      )}
+      {event.nas && (
+        <span
+          className={`text-[11px] shrink-0 ${event.nas === "bestaetigt" ? "text-[var(--sm-gruen)]" : "text-[var(--sm-text2)]"}`}
+          title={event.nas === "bestaetigt" ? "Das NAS hat diesen Stand (Änderung ist dort angekommen)" : "Noch nicht beim NAS bestätigt"}
+        >
+          {event.nas === "bestaetigt" ? "beim NAS ✓" : "wartet aufs NAS"}
+        </span>
+      )}
       <span className="text-[10px] text-neutral-400 dark:text-neutral-500 tabular-nums shrink-0">
-        {fmtActivityBytes(event.size)}
+        {event.size > 0 ? fmtActivityBytes(event.size) : ""}
       </span>
     </div>
   );
 }
 
 function directionIcon(e: ActivityEvent) {
+  if (e.direction === "app") return Info;
   if (e.action === "deleted") return FileX;
   if (e.direction === "conflict" || e.action === "conflict") return Ban;
   if (e.direction === "up") return ArrowUp;
@@ -401,10 +415,11 @@ function directionIcon(e: ActivityEvent) {
 }
 
 function directionColor(e: ActivityEvent): string {
-  if (e.action === "deleted") return "text-rose-500 dark:text-rose-400";
+  if (e.direction === "app") return "text-[var(--sm-blau)]";
+  if (e.action === "deleted") return "text-[var(--sm-text2)]";
   if (e.direction === "conflict" || e.action === "conflict")
     return "text-amber-600 dark:text-amber-400";
   if (e.direction === "up") return "text-blue-500 dark:text-blue-400";
-  if (e.direction === "local") return "text-neutral-500 dark:text-neutral-400";
+  if (e.direction === "local") return "text-[var(--sm-text)]";
   return "text-emerald-500 dark:text-emerald-400";
 }

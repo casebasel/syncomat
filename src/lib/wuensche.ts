@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Config, Connection, DeviceID, Endpoint, Folder, PendingFolder } from "./syncthing";
 import { auswahlAusIgnores, normalisiereAuswahl, pruefeAuswahl, type GeraeteRolle } from "./abo";
 import { getFolderIgnores } from "./syncthing";
+import { protokolliere } from "./activity";
 import {
   aboAbbrechen,
   aboAuswahlAendern,
@@ -280,6 +281,9 @@ export function useWuensche({
         ergebnis = { id: w.id, ok: false, text: e instanceof Error ? e.message : String(e), at: Date.now() };
       }
       setErledigt(merkeErledigt(ergebnis));
+      // Erfolg protokolliert der jeweilige Ablauf selbst; hier nur, woher es kam
+      // bzw. warum nicht ausgeführt.
+      protokolliere(w.folder_id, ergebnis.ok ? `Auf Wunsch eines anderen Rechners ausgeführt.` : `Wunsch eines anderen Rechners nicht ausgeführt: ${ergebnis.text}`);
     })().finally(() => {
       busyRef.current = false;
       setLaeuft(null);

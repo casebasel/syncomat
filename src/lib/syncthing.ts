@@ -601,10 +601,13 @@ export async function* subscribeEvents(
   ep: Endpoint,
   since = 0,
   signal?: AbortSignal,
+  /** "/rest/events/disk": lokale und entfernte Datei-Änderungen
+   * (LocalChangeDetected, RemoteChangeDetected) — sind im normalen Strom nicht dabei. */
+  pfad = "/rest/events",
 ): AsyncIterable<SyncEvent> {
   while (!signal?.aborted) {
     const res = await fetch(
-      `${ep.url}/rest/events?since=${since}&timeout=60`,
+      `${ep.url}${pfad}?since=${since}&timeout=60`,
       { headers: { "X-API-Key": ep.api_key }, signal },
     );
     if (!res.ok) throw new Error(`/rest/events → ${res.status}`);
@@ -648,7 +651,9 @@ class EventBus {
     if (!this.endpoint || this.abort) return;
     const ctrl = new AbortController();
     this.abort = ctrl;
-    void this.loop(this.endpoint, ctrl.signal);
+    void this.loop(this.endpoint, ctrl.signal, "/rest/events");
+    // Zweiter Strom: Datei-Änderungen (hier gelöscht/geändert) fürs Protokoll.
+    void this.loop(this.endpoint, ctrl.signal, "/rest/events/disk");
   }
 
   private stop() {
@@ -664,12 +669,12 @@ class EventBus {
     this.start();
   }
 
-  private async loop(ep: Endpoint, signal: AbortSignal) {
+  private async loop(ep: Endpoint, signal: AbortSignal, pfad: string) {
     let since = 0;
     let backoff = 1000;
     while (!signal.aborted) {
       try {
-        for await (const event of subscribeEvents(ep, since, signal)) {
+        for await (const event of subscribeEvents(ep, since, signal, pfad)) {
           for (const h of this.listeners) {
             try {
               h(event);
