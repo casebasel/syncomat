@@ -442,6 +442,8 @@ function BuendelRow({
   const bytes = b.events.reduce((a, e) => a + (e.size || 0), 0);
   const peers = [...new Set(b.events.map((e) => e.peer).filter(Boolean))];
   const was = b.geloescht ? (b.direction === "local" ? "hier gelöscht" : "gelöscht") : RICHTUNG[b.direction] ?? "";
+  // Der Ordner selbst zählt nicht als Datei.
+  const anzahl = b.events.filter((e) => e.path !== b.oben).length || b.events.length;
   const wartet = b.events.filter((e) => e.nas === "wartet").length;
   const bestaetigt = b.events.filter((e) => e.nas === "bestaetigt").length;
   return (
@@ -469,7 +471,7 @@ function BuendelRow({
         )}
         <span className="text-[12px] truncate flex-1 text-[var(--sm-text)]" dir="auto">
           <ChevronRight className={`inline size-3.5 -mt-0.5 mr-1 transition-transform ${offen ? "rotate-90" : ""}`} aria-hidden />
-          <span className="font-semibold">{b.oben || "Stammordner"}</span>: {b.events.length} Dateien {was}
+          <span className="font-semibold">{b.oben || "Stammordner"}</span>: {anzahl} {anzahl === 1 ? "Datei" : "Dateien"} {was}
           {b.bis - b.von > 60_000 && (
             <span className="text-[var(--sm-text2)]"> · über {Math.round((b.bis - b.von) / 60_000)} min</span>
           )}

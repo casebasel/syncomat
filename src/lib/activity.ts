@@ -340,9 +340,11 @@ export type Buendel = {
 const BUENDEL_MIN = 3;
 const BUENDEL_LUECKE_MS = 3 * 60_000;
 
+/** Oberster Teil des Pfads: der Unterordner — oder bei einem Eintrag im Stamm
+ * der Name selbst (so gehört der Ordner „X“ zum Bündel seiner Dateien „X/…“). */
 const obenVon = (p: string) => {
   const i = p.search(/[\\/]/);
-  return i < 0 ? "" : p.slice(0, i);
+  return i < 0 ? p : p.slice(0, i);
 };
 
 /** Events (neueste zuerst) in Einzelzeilen und Bündel aufteilen. */
