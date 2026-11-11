@@ -120,6 +120,16 @@ export const ABO_BASIS: string[] = [
   // Stage-Plugin: lokale Sicherung von Kamera-Versatz, Leinwand und .ndisplay-
   // Kopie — Stand DIESES Rechners, wandert nie (stage-system 11.11.2026).
   "**/Saved/StageCompanion",
+  // Stand des Rechners bzw. Cache, für alle Rollen (stage-system/Marlon
+  // 12.11.2026). Caches mit (?d), damit sie das Löschen eines Ordners von fern
+  // nicht blockieren; *.tmp deckt die Zeile oben schon ab. Ausdrücklich NICHT
+  // ausgenommen: Saved/MovieRenders, Saved/Screenshots, Saved/Collections.
+  "(?d)**/Saved/webcache_*",
+  "(?d)**/Saved/ShaderDebugInfo",
+  "**/Saved/AutoScreenshot.png",
+  "**/Saved/UnrealBuildTool",
+  "**/Saved/SourceControl",
+  "**/Saved/Support",
 ];
 
 /** Ausnahmen je Rolle (Bauliste Schritt 3, Punkt 3; E33). */
