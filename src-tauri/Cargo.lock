@@ -3822,7 +3822,7 @@ dependencies = [
 
 [[package]]
 name = "syncomat"
-version = "0.9.41-test.2"
+version = "0.9.41"
 dependencies = [
  "base64 0.22.1",
  "hmac",
