@@ -117,6 +117,9 @@ export const ABO_BASIS: string[] = [
   "**/Saved/Autosaves",
   "**/Saved/Logs",
   "**/Saved/Crashes",
+  // Stage-Plugin: lokale Sicherung von Kamera-Versatz, Leinwand und .ndisplay-
+  // Kopie — Stand DIESES Rechners, wandert nie (stage-system 11.11.2026).
+  "**/Saved/StageCompanion",
 ];
 
 /** Ausnahmen je Rolle (Bauliste Schritt 3, Punkt 3; E33). */
