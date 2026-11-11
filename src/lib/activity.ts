@@ -31,8 +31,8 @@ export type ActivityEvent = {
   text?: string;
 };
 
-const MAX_EVENTS_PER_FOLDER = 500;
-const MAX_GESAMT = 2000;
+const MAX_EVENTS_PER_FOLDER = 2000;
+const MAX_GESAMT = 5000;
 const LS = "syncomat.aktivitaet";
 
 // Modul-Cache: pro Folder die letzten N Events. Geteilt zwischen mehreren
@@ -318,3 +318,68 @@ export function fmtActivityBytes(n: number): string {
   if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
+
+// ── Bündeln (Marlon 11.11.2026) ──────────────────────────────────
+// Eine Verteilung mit vielen Dateien (z. B. ein Plugin vom i9) soll eine
+// aufklappbare Zeile sein, nicht hunderte. Gebündelt wird, was direkt
+// aufeinander folgt: gleicher Ordner, gleiche Richtung, gleiche Art (gelöscht
+// oder nicht), gleicher oberster Unterordner, höchstens 3 min Abstand.
+
+export type Buendel = {
+  id: string;
+  folderId: string;
+  /** oberster Unterordner (z. B. das Plugin), "" = Dateien im Stamm */
+  oben: string;
+  direction: ActivityEvent["direction"];
+  geloescht: boolean;
+  von: number;
+  bis: number;
+  events: ActivityEvent[];
+};
+
+const BUENDEL_MIN = 3;
+const BUENDEL_LUECKE_MS = 3 * 60_000;
+
+const obenVon = (p: string) => {
+  const i = p.search(/[\\/]/);
+  return i < 0 ? "" : p.slice(0, i);
+};
+
+/** Events (neueste zuerst) in Einzelzeilen und Bündel aufteilen. */
+export function buendeln(events: ActivityEvent[]): (ActivityEvent | Buendel)[] {
+  const out: (ActivityEvent | Buendel)[] = [];
+  let lauf: ActivityEvent[] = [];
+  const schliessen = () => {
+    if (lauf.length >= BUENDEL_MIN) {
+      const e0 = lauf[0]!;
+      out.push({
+        id: `b-${e0.id}`,
+        folderId: e0.folderId,
+        oben: obenVon(e0.path),
+        direction: e0.direction,
+        geloescht: e0.action === "deleted",
+        bis: e0.ts,
+        von: lauf[lauf.length - 1]!.ts,
+        events: lauf,
+      });
+    } else out.push(...lauf);
+    lauf = [];
+  };
+  for (const e of events) {
+    const l = lauf[lauf.length - 1];
+    const passt =
+      l &&
+      e.direction !== "app" &&
+      l.direction === e.direction &&
+      l.folderId === e.folderId &&
+      (l.action === "deleted") === (e.action === "deleted") &&
+      obenVon(l.path) === obenVon(e.path) &&
+      l.ts - e.ts <= BUENDEL_LUECKE_MS;
+    if (!passt) schliessen();
+    lauf.push(e);
+  }
+  schliessen();
+  return out;
+}
+
+export const istBuendel = (x: ActivityEvent | Buendel): x is Buendel => "events" in x;

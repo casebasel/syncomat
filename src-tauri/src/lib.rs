@@ -163,6 +163,8 @@ pub fn run() {
             papierkorb::papierkorb_ordner,
             papierkorb::in_papierkorb,
             papierkorb::papierkorb_aufraeumen,
+            papierkorb::papierkorb_belegung,
+            papierkorb::papierkorb_leeren,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

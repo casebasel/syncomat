@@ -17,6 +17,13 @@ export const PAPIERKORB_TAGE = 30;
 const orte = new Map<string, string>();
 /** Papierkorb-Pfad eines Ordners auf diesem Rechner (null = noch nicht eingerichtet). */
 export const papierkorbVon = (folderId: string) => orte.get(folderId) ?? null;
+/** Alle eingerichteten Papierkorb-Pfade dieses Rechners. */
+export const papierkorbOrte = () => [...orte.values()];
+
+export type Belegung = { ort: string; bytes: number; dateien: number };
+export const papierkorbBelegung = () =>
+  invoke<Belegung[]>("papierkorb_belegung", { aktive: papierkorbOrte() });
+export const papierkorbLeeren = () => invoke<number>("papierkorb_leeren", { aktive: papierkorbOrte() });
 
 function soll(ort: string): FolderVersioning {
   return {

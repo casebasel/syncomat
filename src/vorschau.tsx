@@ -8,6 +8,7 @@ import { Uebersicht } from "./components/uebersicht/Uebersicht";
 import { AuswahlFeld } from "./components/uebersicht/AuswahlFeld";
 import { OrdnerAnAlle } from "./components/uebersicht/OrdnerAnAlle";
 import { Start } from "./components/uebersicht/Start";
+import { GlobalActivityView } from "./components/GlobalActivityView";
 import { FolderInspector } from "./components/FolderInspector";
 import { Statusbar } from "./components/Statusbar";
 import type { Spalte, Zeile, Zelle } from "./lib/uebersicht";
@@ -131,7 +132,18 @@ function Vorschau() {
       </div>
       <div className="flex-1 flex overflow-hidden">
       <Leiste ansicht={q.has("start") ? "start" : q.has("ordner") ? "ordner" : "uebersicht"} onAnsicht={() => {}} stoerungen={1} update={false} angebote={2} />
-      {q.has("start") ? (
+      {q.has("aktivitaet") ? (
+        <GlobalActivityView
+          folders={[
+            { id: "mp56", label: "Marketplace 5.6", path: "C:\\x", type: "sendreceive", paused: false, devices: [] } as never,
+            { id: "dz-pm", label: "PM_MEDITERRANEAN", path: "D:\\Projekte\\PM_MEDITERRANEAN", type: "sendreceive", paused: false, devices: [] } as never,
+          ]}
+          tagsByFolderID={{ mp56: ["Unreal-Marketplace"] }}
+          endpoint={null}
+          ready={false}
+          onSelectFolder={() => {}}
+        />
+      ) : q.has("start") ? (
         <Start
           bereit
           rechnerName="i9"

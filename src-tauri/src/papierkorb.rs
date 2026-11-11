@@ -185,6 +185,75 @@ pub fn papierkorb_aufraeumen(aktive: Vec<String>, tage: u64) -> Result<u32, Stri
     Ok(weg)
 }
 
+
+fn summe(dir: &Path) -> (u64, u64) {
+    let (mut b, mut n) = (0, 0);
+    let mut stapel = vec![dir.to_path_buf()];
+    while let Some(d) = stapel.pop() {
+        let Ok(it) = fs::read_dir(&d) else { continue };
+        for e in it.flatten() {
+            let Ok(m) = fs::symlink_metadata(e.path()) else { continue };
+            if m.is_dir() {
+                stapel.push(e.path());
+            } else if m.is_file() {
+                b += m.len();
+                n += 1;
+            }
+        }
+    }
+    (b, n)
+}
+
+/// Basen (`…/.syncomat-papierkorb`) der aktiven Papierkörbe, ohne Doppelte.
+fn basen_von(aktive: &[String]) -> Vec<PathBuf> {
+    let mut v: Vec<PathBuf> = aktive
+        .iter()
+        .filter_map(|p| PathBuf::from(p).parent().map(Path::to_path_buf))
+        .filter(|b| b.file_name().and_then(|n| n.to_str()) == Some(NAME))
+        .collect();
+    v.sort();
+    v.dedup();
+    v
+}
+
+#[derive(serde::Serialize)]
+pub struct Belegung {
+    pub ort: String,
+    pub bytes: u64,
+    pub dateien: u64,
+}
+
+/// Grösse je Papierkorb-Basis (pro Laufwerk eine).
+#[tauri::command]
+pub fn papierkorb_belegung(aktive: Vec<String>) -> Vec<Belegung> {
+    basen_von(&aktive)
+        .into_iter()
+        .map(|b| {
+            let (bytes, dateien) = summe(&b);
+            Belegung { ort: b.to_string_lossy().to_string(), bytes, dateien }
+        })
+        .collect()
+}
+
+/// Alles in den Papierkörben löschen (auch die von beendeten Abos). Die Ordner
+/// selbst bleiben, Syncthing braucht sie.
+#[tauri::command]
+pub fn papierkorb_leeren(aktive: Vec<String>) -> Result<u64, String> {
+    let zukunft = SystemTime::now() + Duration::from_secs(86_400);
+    let mut weg = 0;
+    for b in basen_von(&aktive) {
+        let Ok(it) = fs::read_dir(&b) else { continue };
+        for e in it.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                weg += summe(&p).1;
+                leeren(&p, zukunft);
+            }
+        }
+    }
+    Ok(weg)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -218,6 +287,10 @@ mod tests {
         assert_eq!(papierkorb_aufraeumen(a, 0).unwrap(), 1);
         assert!(!alt.exists());
         assert!(aktiv.join("a").exists());
+        let bel = papierkorb_belegung(vec![aktiv.to_string_lossy().to_string()]);
+        assert_eq!((bel.len(), bel[0].dateien), (1, 1));
+        assert_eq!(papierkorb_leeren(vec![aktiv.to_string_lossy().to_string()]).unwrap(), 1);
+        assert!(aktiv.is_dir() && summe(&pk).1 == 0);
         fs::remove_dir_all(&t).unwrap();
     }
 }

@@ -1,4 +1,6 @@
-import { ArrowDown, ArrowUp, Loader2, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowDown, ArrowUp, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { papierkorbBelegung, papierkorbLeeren, type Belegung } from "../../lib/papierkorb";
 import type { Spalte, Zeile, Zelle } from "../../lib/uebersicht";
 import type { UpdateState } from "../../lib/updater";
 import { compareVersions } from "../../lib/updateAll";
@@ -66,6 +68,88 @@ const Zeichen = ({ art }: { art: "warn" | "ok" | "aus" }) => (
     }`}
   />
 );
+
+/** Papierkorb dieses Rechners: Grösse je Laufwerk, leeren mit Rückfrage. */
+function PapierkorbAbschnitt() {
+  const [bel, setBel] = useState<Belegung[] | null>(null);
+  const [frage, setFrage] = useState(false);
+  const [laeuft, setLaeuft] = useState(false);
+  const laden = () => void papierkorbBelegung().then(setBel).catch(() => setBel([]));
+  useEffect(() => {
+    const erst = setTimeout(laden, 3000);
+    const t = setInterval(laden, 60_000);
+    return () => {
+      clearTimeout(erst);
+      clearInterval(t);
+    };
+  }, []);
+  const summe = (bel ?? []).reduce((a, b) => a + b.bytes, 0);
+  const dateien = (bel ?? []).reduce((a, b) => a + b.dateien, 0);
+  return (
+    <Abschnitt titel="Papierkorb hier" zahl={dateien || undefined}>
+      {bel == null ? (
+        <p className="py-2.5 text-[13px] text-[var(--sm-text2)]">Wird gezählt …</p>
+      ) : (
+        <>
+          <ul>
+            {bel.map((b) => (
+              <li key={b.ort} className="h-10 flex items-center gap-2.5 border-b border-[var(--sm-linie-fein)]">
+                <Trash2 className="size-3.5 shrink-0 text-[var(--sm-text2)]" aria-hidden />
+                <span className="min-w-0 truncate font-mono text-[12px]" title={b.ort}>
+                  {b.ort}
+                </span>
+                <span className="sm-zahl ml-auto shrink-0 pr-2 text-[12px]">
+                  {b.dateien === 0 ? "leer" : `${groesse(b.bytes)} · ${b.dateien} ${b.dateien === 1 ? "Datei" : "Dateien"}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="pt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <p className="text-[12px] text-[var(--sm-text2)] flex-1 min-w-[14rem]">
+              Was dieser Rechner verliert (von fern überschrieben oder gelöscht, ältere Fassung eines Konflikts). Leert sich nach
+              30 Tagen selbst.
+            </p>
+            {dateien > 0 &&
+              (frage ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="text-[12px]">{groesse(summe)} endgültig löschen?</span>
+                  <button
+                    disabled={laeuft}
+                    onClick={() => {
+                      setLaeuft(true);
+                      void papierkorbLeeren()
+                        .catch(() => {})
+                        .finally(() => {
+                          setLaeuft(false);
+                          setFrage(false);
+                          laden();
+                        });
+                    }}
+                    className="h-7 px-2.5 rounded-md bg-[var(--sm-rot)] text-[var(--sm-grund)] text-[12px] font-semibold disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+                  >
+                    {laeuft ? "Löscht …" : "Ja, leeren"}
+                  </button>
+                  <button
+                    onClick={() => setFrage(false)}
+                    className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+                  >
+                    Abbrechen
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => setFrage(true)}
+                  className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[12px] font-semibold hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
+                >
+                  Papierkorb leeren
+                </button>
+              ))}
+          </div>
+        </>
+      )}
+    </Abschnitt>
+  );
+}
 
 export function Start({
   bereit,
@@ -352,6 +436,7 @@ export function Start({
                 })}
               </ul>
             </Abschnitt>
+            <PapierkorbAbschnitt />
           </div>
         </div>
         {ich == null && <p className="mt-6 text-[13px] text-[var(--sm-text2)]">Warte auf Syncthing …</p>}

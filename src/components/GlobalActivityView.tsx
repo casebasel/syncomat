@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertCircle,
   ArrowDown,
   ArrowUp,
   Ban,
   CheckCircle2,
+  ChevronRight,
   FileX,
   Info,
   FolderOpen,
@@ -13,10 +14,13 @@ import {
   RefreshCw,
 } from "lucide-react";
 import {
+  buendeln,
   fmtActivityBytes,
   fmtActivityTime,
+  istBuendel,
   useAllActivity,
   type ActivityEvent,
+  type Buendel,
 } from "../lib/activity";
 import {
   useFolderStatuses,
@@ -92,6 +96,8 @@ export function GlobalActivityView({
   onSelectFolder: (f: Folder) => void;
 }) {
   const items = useAllActivity();
+  // Viele Dateien einer Verteilung als eine aufklappbare Zeile (Marlon 11.11.2026).
+  const zeilen = useMemo(() => buendeln(items).slice(0, 300), [items]);
   const statuses = useFolderStatuses(endpoint, ready, folders);
 
   const folderById = useMemo(() => {
@@ -171,7 +177,7 @@ export function GlobalActivityView({
               Aktivität · alle Ordner
             </div>
             <div className="text-[10px] text-neutral-400 dark:text-neutral-500">
-              letzte 200 Events
+              {items.length} {items.length === 1 ? "Eintrag" : "Einträge"} · über Neustarts hinweg
             </div>
           </div>
 
@@ -188,14 +194,23 @@ export function GlobalActivityView({
               aria-label="Aktivität alle Ordner"
               className="rounded-lg border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-200 dark:divide-neutral-800"
             >
-              {items.map((e) => (
-                <ActivityRow
-                  key={e.id}
-                  event={e}
-                  folder={folderById.get(e.folderId)}
-                  onSelectFolder={onSelectFolder}
-                />
-              ))}
+              {zeilen.map((e) =>
+                istBuendel(e) ? (
+                  <BuendelRow
+                    key={e.id}
+                    b={e}
+                    folder={folderById.get(e.folderId)}
+                    onSelectFolder={onSelectFolder}
+                  />
+                ) : (
+                  <ActivityRow
+                    key={e.id}
+                    event={e}
+                    folder={folderById.get(e.folderId)}
+                    onSelectFolder={onSelectFolder}
+                  />
+                ),
+              )}
             </div>
           )}
         </div>
@@ -401,6 +416,81 @@ function ActivityRow({
       <span className="text-[10px] text-neutral-400 dark:text-neutral-500 tabular-nums shrink-0">
         {event.size > 0 ? fmtActivityBytes(event.size) : ""}
       </span>
+    </div>
+  );
+}
+
+const RICHTUNG: Record<string, string> = {
+  down: "heruntergeladen",
+  up: "gesendet",
+  local: "hier geändert",
+  conflict: "Konflikt",
+};
+
+function BuendelRow({
+  b,
+  folder,
+  onSelectFolder,
+}: {
+  b: Buendel;
+  folder: Folder | undefined;
+  onSelectFolder: (f: Folder) => void;
+}) {
+  const [offen, setOffen] = useState(false);
+  const e0 = b.events[0]!;
+  const Icon = directionIcon(e0);
+  const bytes = b.events.reduce((a, e) => a + (e.size || 0), 0);
+  const peers = [...new Set(b.events.map((e) => e.peer).filter(Boolean))];
+  const was = b.geloescht ? (b.direction === "local" ? "hier gelöscht" : "gelöscht") : RICHTUNG[b.direction] ?? "";
+  const wartet = b.events.filter((e) => e.nas === "wartet").length;
+  const bestaetigt = b.events.filter((e) => e.nas === "bestaetigt").length;
+  return (
+    <div>
+      <button
+        onClick={() => setOffen(!offen)}
+        aria-expanded={offen}
+        className="w-full px-3 py-2 flex items-center gap-3 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 focus-visible:outline-none"
+      >
+        <span className="text-[10px] text-neutral-400 dark:text-neutral-500 w-12 font-mono shrink-0">
+          {fmtActivityTime(b.bis)}
+        </span>
+        <span className={`shrink-0 ${directionColor(e0)}`}>
+          <Icon className="size-3.5" />
+        </span>
+        <span className="text-[10px] text-neutral-500 font-mono w-14 truncate shrink-0">
+          {peers.length === 1 ? peers[0] : b.direction === "local" ? "hier" : ""}
+        </span>
+        {folder ? (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-medium shrink-0">
+            {folder.label || folder.id.slice(0, 7)}
+          </span>
+        ) : (
+          <span className="text-[10px] text-neutral-400 italic shrink-0">unbekannt</span>
+        )}
+        <span className="text-[12px] truncate flex-1 text-[var(--sm-text)]" dir="auto">
+          <ChevronRight className={`inline size-3.5 -mt-0.5 mr-1 transition-transform ${offen ? "rotate-90" : ""}`} aria-hidden />
+          <span className="font-semibold">{b.oben || "Stammordner"}</span>: {b.events.length} Dateien {was}
+          {b.bis - b.von > 60_000 && (
+            <span className="text-[var(--sm-text2)]"> · über {Math.round((b.bis - b.von) / 60_000)} min</span>
+          )}
+        </span>
+        {(wartet > 0 || bestaetigt > 0) && (
+          <span className={`text-[11px] shrink-0 ${wartet === 0 ? "text-[var(--sm-gruen)]" : "text-[var(--sm-text2)]"}`}>
+            {wartet === 0 ? "beim NAS ✓" : `${wartet} warten aufs NAS`}
+          </span>
+        )}
+        <span className="text-[10px] text-neutral-400 tabular-nums shrink-0">{bytes > 0 ? fmtActivityBytes(bytes) : ""}</span>
+      </button>
+      {offen && (
+        <div className="pl-6 border-t border-neutral-100 dark:border-neutral-800/60 divide-y divide-neutral-100 dark:divide-neutral-800/60">
+          {b.events.slice(0, 500).map((e) => (
+            <ActivityRow key={e.id} event={e} folder={folder} onSelectFolder={onSelectFolder} />
+          ))}
+          {b.events.length > 500 && (
+            <p className="px-3 py-2 text-[11px] text-[var(--sm-text2)]">… und {b.events.length - 500} weitere</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
