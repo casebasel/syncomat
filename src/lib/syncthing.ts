@@ -116,6 +116,8 @@ export type FolderStatus = {
   /** Fehlende Dateien/Löschungen von den anderen Geräten. */
   needFiles?: number;
   needDeletes?: number;
+  /** Nur bei „Nur empfangen“: lokale Abweichungen, die „Zurücksetzen“ verwirft. */
+  receiveOnlyTotalItems?: number;
   /** Fehler des GANZEN Ordners (z. B. „folder marker missing", „folder path
    * missing"). Syncthing hält den Ordner dann an, `state` bleibt dabei oft
    * „idle" und `errors` 0 — bis v0.9.14 sah Syncomat das nicht und zeigte
@@ -148,9 +150,10 @@ export function describeFolderError(raw: string): { title: string; action: strin
     return {
       title: "Ordner-Marke .stfolder fehlt — Sync angehalten",
       action:
-        "Syncthing gleicht den Ordner nicht mehr ab, um Datenverlust zu verhindern. " +
-        "Prüfen, ob der Pfad stimmt und die Dateien vollständig sind; dann Ordner auf " +
-        "„Nur empfangen“ stellen, .stfolder neu anlegen, Abweichungen prüfen.",
+        "Passiert z. B. nach „Überprüfen“ im Epic Launcher. syncomat repariert das in " +
+        "der nächsten Minute selbst: Ist der Ordner vollständig, legt es die Marke neu " +
+        "an. Fehlt viel, holt es die fehlenden Dateien von den anderen zurück, ohne " +
+        "dort etwas zu löschen.",
     };
   }
   if (/folder path missing/i.test(raw)) {
@@ -391,6 +394,17 @@ export const scanAllFolders = async (ep: Endpoint, folders: Folder[]) => {
     }
   }
 };
+
+/** Lokale Abweichungen eines „Nur empfangen“-Ordners (gelöscht oder geändert). */
+export const getLocalChanged = (ep: Endpoint, id: FolderID, page = 1, perpage = 1000) =>
+  api<{ files: { name: string; deleted?: boolean }[] | null }>(
+    ep,
+    `/rest/db/localchanged?folder=${encodeURIComponent(id)}&page=${page}&perpage=${perpage}`,
+  );
+
+/** „Lokale Änderungen zurücksetzen“: holt den Stand der anderen zurück. */
+export const revertFolder = (ep: Endpoint, id: FolderID) =>
+  api<void>(ep, `/rest/db/revert?folder=${encodeURIComponent(id)}`, { method: "POST" });
 
 export const deletePendingDevice = (ep: Endpoint, id: DeviceID) =>
   api<void>(ep, `/rest/cluster/pending/devices?device=${encodeURIComponent(id)}`, {

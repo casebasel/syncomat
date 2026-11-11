@@ -68,6 +68,7 @@ import { nasBestaetigt, ordnerMitWartenden, useActivityListener } from "./lib/ac
 import { useWuensche } from "./lib/wuensche";
 import { useAusgeblendet } from "./lib/ausgeblendet";
 import { useVersionsSchutz } from "./lib/versionsSchutz";
+import { useMarkenWaechter } from "./lib/marke";
 import {
   setFolderIgnores,
   tuneFolderForSize,
@@ -337,6 +338,15 @@ function App() {
   useEffect(() => setzeVeraltet(updateAll.veraltet), [updateAll.veraltet]);
   useVersionsSchutz({ ep: endpoint, ready, folders: config.data?.folders ?? [], veraltet: updateAll.veraltet });
   useActivityListener();
+  // Fehlende Ordner-Marke (.stfolder) selbst reparieren, wie Resilio (Marlon 11.11.2026).
+  useMarkenWaechter({
+    ep: endpoint,
+    ready,
+    folders: config.data?.folders ?? [],
+    folderErrors: aggregate.folderErrors,
+    gesperrt: updateAll.veraltet,
+    benachrichtigen: notifications.enabled,
+  });
   // Protokoll: lokale Änderungen als „beim NAS“ bestätigen, sobald das NAS den
   // Stand des Ordners vollständig hat (Marlon 09.11.2026).
   useEffect(() => {

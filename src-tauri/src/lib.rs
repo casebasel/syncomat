@@ -6,6 +6,7 @@ mod folder_stats;
 mod invites;
 mod abo;
 mod auswahl;
+mod marke;
 mod datenzentrale;
 mod network_hints;
 mod reveal;
@@ -156,6 +157,8 @@ pub fn run() {
             auswahl::abo_ordner_leeren,
             auswahl::abo_ordner_vormerken,
             auswahl::muster_treffer,
+            marke::marke_stand,
+            marke::marke_anlegen,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
