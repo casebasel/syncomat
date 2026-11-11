@@ -43,7 +43,7 @@ import {
   useNotificationsEnabled,
 } from "./lib/notifications";
 import { useAutostart } from "./lib/autostart";
-import { useSyncMaintenance } from "./lib/maintenance";
+import { useKonfliktEinstellung, useSyncMaintenance } from "./lib/maintenance";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { CodeShowModal } from "./components/CodeShowModal";
 import { CreateFolderModal } from "./components/CreateFolderModal";
@@ -143,6 +143,7 @@ function App() {
   useFolderSettingsReplication(endpoint, ready, userFolders, myID);
   // Einmalige Wartung: setLowPriority aus, (?d)-Migration, ignorePerms, weakHash.
   useSyncMaintenance(endpoint, ready, userFolders);
+  useKonfliktEinstellung(endpoint, ready, folders);
   const tags = useFolderTags(folders);
   const tagsByFolderID = tags.byID;
   // Alle existierenden Tags für Autocomplete im TagEditor

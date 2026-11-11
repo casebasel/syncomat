@@ -129,3 +129,29 @@ export function useSyncMaintenance(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ep?.url, ep?.api_key, ready, folderKey]);
 }
+
+/** `maxConflicts` auf ALLEN Ordnern (auch Abos, die useSyncMaintenance
+ * auslässt) auf MAX_CONFLICTS halten — nur bei Abweichung, also kein Rescan
+ * im Normalfall. Abos von vor dem 11.11.2026 hatten noch 1. */
+export function useKonfliktEinstellung(ep: Endpoint | null, ready: boolean, folders: Folder[]): void {
+  const key = folders.map((f) => `${f.id}:${f.maxConflicts}`).join(",");
+  useEffect(() => {
+    if (!ep || !ready) return;
+    const falsch = folders.filter((f) => f.maxConflicts !== undefined && f.maxConflicts !== MAX_CONFLICTS);
+    if (falsch.length === 0) return;
+    (async () => {
+      for (const f of falsch) {
+        try {
+          const fresh = (await getConfig(ep)).folders.find((x) => x.id === f.id);
+          if (fresh && fresh.maxConflicts !== MAX_CONFLICTS) {
+            await putFolder(ep, { ...fresh, maxConflicts: MAX_CONFLICTS });
+          }
+        } catch (e) {
+          console.warn(`[maintenance] ${f.id} maxConflicts`, e);
+        }
+        await sleep(STAGGER_MS);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ep?.url, ready, key]);
+}
