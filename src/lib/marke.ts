@@ -181,8 +181,10 @@ export function useMarkenWaechter({
           const f = folders.find((x) => x.id === e.id);
           if (!f || f.paused) continue;
           if (Date.now() - (versucht.current.get(f.id) ?? 0) < PAUSE_MS) continue;
-          versucht.current.set(f.id, Date.now());
-          await mitSperre(f.id, () => reparieren(ep, f, melden)).catch((err) => {
+          // Pause nur nach einem Fehlschlag (sonst würde ein zweiter Vorfall
+          // im selben Ordner 10 min warten).
+          await mitSperre(f.id, () => reparieren(ep, f, melden)).then(() => versucht.current.delete(f.id)).catch((err) => {
+            versucht.current.set(f.id, Date.now());
             console.warn("[marke] reparieren", f.id, err);
             protokolliere(f.id, `Ordner-Marke konnte nicht repariert werden: ${String(err)}`);
           });
