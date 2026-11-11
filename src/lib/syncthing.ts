@@ -125,12 +125,11 @@ export type FolderStatus = {
   error?: string;
 };
 
-/** Konfliktkopien je Datei. 1 statt 0 (bis v0.9.15): Bei `maxConflicts=0`
- * löscht Syncthing die unterlegene Fassung eines echten Konflikts direkt, am
- * Papierkorb vorbei (`moveForConflict` in lib/model/folder_sendrecv.go) — still
- * verlorene Arbeit. Mit 1 bleibt sie als `.sync-conflict-…` liegen und erscheint
- * im Konflikt-Auflöser. */
-export const MAX_CONFLICTS = 1;
+/** Konfliktkopien je Datei: keine. Wie Resilio mit ausgeschaltetem Archiv
+ * gewinnt die neuere Fassung, die ältere wird verworfen (`moveForConflict` in
+ * lib/model/folder_sendrecv.go). Marlon 11.11.2026: keine Kopien — für den
+ * Ernstfall gibt es das NAS mit ZFS-Snapshots. v0.9.16–0.9.38 behielten 1. */
+export const MAX_CONFLICTS = 0;
 
 /** Interner Syncthing-Ordner für syncomat selbst (Versionen, Steuerinfos).
  * Liegt im App-Datenordner, wird an alle Geräte geteilt und nie als Nutzer-

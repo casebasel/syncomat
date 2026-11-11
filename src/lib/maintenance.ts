@@ -27,9 +27,8 @@ import { normalizeLocalIgnores } from "./folderSettings";
 //       (Rechte-Churn, "lokal geändert" auf receive-only-Ordnern).
 //    b) `weakHashThresholdPct 0 → 101` — Rolling-Hash bringt bei komplett
 //       neu geschriebenen Binärassets nichts, kostet nur CPU je Scan.
-//    c) (v5) `maxConflicts=1` (MAX_CONFLICTS) — v3 setzte 0 („still lösen"),
-//       aber dann löscht Syncthing den Konfliktverlierer am Papierkorb vorbei.
-//       Jetzt bleibt er als `.sync-conflict-`-Kopie und ist im Auflöser sichtbar.
+//    c) `maxConflicts` = MAX_CONFLICTS. v5 setzte 1 (Kopie behalten), v7 wieder
+//       0: die neuere Fassung gewinnt ohne Kopie, wie Resilio (Marlon 11.11.2026).
 //    d) (v4/v5) .stignore nachziehen (normalizeLocalIgnores): `!/.syncomat` vor
 //       dem Hidden-Muster (sonst syncen Tags, Papierkorb, geteilte Ignore-Liste
 //       und Netzwerk-Hinweise nicht), `.*` ohne `(?d)`, und `(?d)` auf
@@ -41,7 +40,7 @@ import { normalizeLocalIgnores } from "./folderSettings";
 //
 // Marker-Version hochzählen, wenn ein neuer Schritt dazukommt — alle Schritte
 // sind idempotent, ein erneuter Lauf schreibt nur, was wirklich fehlt.
-const MARK_PREFIX = "syncomat.maintenance.v6:";
+const MARK_PREFIX = "syncomat.maintenance.v7:";
 const STAGGER_MS = 1500; // Ordner nacheinander, nicht alle gleichzeitig neu starten
 
 // localStorage kann werfen (gesperrt/voll) — dann läuft die Wartung beim

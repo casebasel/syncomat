@@ -502,7 +502,7 @@ function App() {
       // caseSensitiveFS bewusst NICHT setzen — Syncthing auto-detected pro
       // folder.path. Hardcoded:true bricht silent den Sync mit Windows-Peers
       // (NTFS = case-insensitive), siehe Audit-Finding.
-      // Konfliktverlierer als .sync-conflict-Kopie behalten (MAX_CONFLICTS).
+      // Konflikte: neuere Fassung gewinnt, ohne Kopie (MAX_CONFLICTS).
       maxConflicts: MAX_CONFLICTS,
     };
     // Wenn der Empfänger ein Preset gewählt hat: tune Folder + setze .stignore

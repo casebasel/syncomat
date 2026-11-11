@@ -115,7 +115,7 @@ export function CreateFolderModal({
         ],
         // caseSensitiveFS NICHT setzen — Syncthing auto-detected pro path.
         // Hardcoded:true bricht Windows-Peer-Sync silent (NTFS = case-insensitive).
-        // Konfliktverlierer als .sync-conflict-Kopie behalten (MAX_CONFLICTS).
+        // Konflikte: neuere Fassung gewinnt, ohne Kopie (MAX_CONFLICTS).
         maxConflicts: MAX_CONFLICTS,
       };
       // Tuning anhand Estimate — fsWatcher, rescanInterval, copiers, etc.
