@@ -404,7 +404,8 @@ export async function alleHabenAlles(ep: Endpoint, f: Folder, myID: DeviceID): P
  * geht (live geprüft auf i9, 07.11.2026; Prüfung durch zweiten Agenten):
  *
  * 1. Alte Auswahl aus der .stignore lesen (nicht aus dem Browser-Speicher).
- * 2. Vergrössern nur, wo lokal nichts liegt („Streuner“ → ablehnen).
+ * 2. Vergrössern: lokale Dateien im neuen Bereich gleichen sich ab, die neuere
+ *    Fassung gewinnt (seit 11.11.2026, vorher abgelehnt).
  * 3. Platz für den Zuwachs prüfen.
  * Fällt etwas weg:
  * 4. Scannen, warten; hier fehlt nichts, keine Fehler; ALLE Gegenstellen
@@ -461,28 +462,11 @@ async function auswahlAendernEinmal(
 
   onSchritt("Ordner prüfen …");
   const p0 = await pruefe(null);
-  if (p0.streuner_anzahl > 0) {
-    // Lokale Dateien im neu dazukommenden Bereich. Gefährlich nur, wenn der
-    // Index den Pfad kennt (ältere Fassung oder auf dem NAS gelöscht — sie käme
-    // sonst zurück bzw. überschriebe Neueres). Ganz neue Dateien (dem Index
-    // unbekannt) werden einfach hochgeladen.
-    if (p0.streuner_alle.length < p0.streuner_anzahl) {
-      throw new Error(`Im neu gewählten Bereich liegen hier ${p0.streuner_anzahl} Dateien, die nicht abgeglichen werden — zu viele zum Einzelprüfen. Erst an einen sicheren Ort verschieben.`);
-    }
-    onSchritt(`${p0.streuner_anzahl} lokale Datei(en) im neuen Bereich prüfen …`);
-    const bekannt: string[] = [];
-    for (const rel of p0.streuner_alle) {
-      const fi = await getDbFile(ep, f.id, rel).catch((e: unknown) => (String(e).includes("404") ? null : "fehler"));
-      if (fi === "fehler") throw new Error(`Syncthing-Abfrage für ${rel} fehlgeschlagen. Auswahl bleibt, wie sie war.`);
-      if (fi && fi.global) bekannt.push(rel);
-    }
-    if (bekannt.length > 0) {
-      throw new Error(
-        `Im neu gewählten Bereich liegen hier ${bekannt.length} Datei(en), die das NAS in einem anderen Stand kennt (älter, geändert oder dort gelöscht), z. B. ${bekannt[0]}. ` +
-          "Erst an einen sicheren Ort verschieben — sonst könnten sie neuere Stände auf dem NAS überschreiben oder Gelöschtes zurückbringen.",
-      );
-    }
-  }
+  // Lokale Dateien im neu dazukommenden Bereich („Streuner“) blockieren nicht
+  // mehr (bis v0.9.38 abgelehnt): wie bei Resilio gewinnt die neuere Fassung,
+  // die ältere ist für den Ernstfall in den ZFS-Snapshots des NAS (Marlon
+  // 11.11.2026). Auf dem NAS Gelöschtes, das hier noch liegt, kommt zurück.
+  if (p0.streuner_anzahl > 0) onSchritt(`${p0.streuner_anzahl} lokale Datei(en) im neuen Bereich — die neuere Fassung gewinnt.`);
 
   const { baum, globalBytes } = await baumVonOrdner(ep, f.id);
   const s0 = await getFolderStatus(ep, f.id);

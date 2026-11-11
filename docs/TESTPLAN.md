@@ -16,7 +16,7 @@ echte App mit einer Testfassung, nicht die Vorschau.
 3. Testen mit `TEST_SYNCOMAT` (enthält absichtlich Umlaute, NFD-Namen, Leerzeichen, `&`,
    Klammern, `[alt]`). Gesteuert über Wünsche im internen Kanal — derselbe Code wie ein Klick.
 4. Nach **jedem** Schritt prüfen: NAS-Dateizahl unverändert (ausser gewollt), `needDeletes 0`,
-   keine `*.sync-conflict*`, Rechner `idle`/`need 0`.
+   keine `*.sync-conflict*` (seit 11.11.2026 gibt es nie Konfliktkopien), Rechner `idle`/`need 0`.
 5. Spuren aufräumen, Ergebnis-Tabelle an Marlon, erst dann Release-Okay einholen.
 
 ## Kern (jedes Mal, ~10 min)
@@ -26,10 +26,13 @@ echte App mit einer Testfassung, nicht die Vorschau.
 | K1 | Abonnieren benutzerdefiniert (2 Ordner, einer mit Umlaut) | nur diese Ordner lokal, Ziel `D:\Projekte\<NAME>` bzw. Mac-Projektordner |
 | K2 | Verkleinern | abgewählte Dateien lokal weg, NAS unverändert |
 | K3 | Vergrössern auf Alles mit **neuer** lokaler Datei | Datei kommt aufs NAS, 0 Konflikte |
-| K4 | Vergrössern, während lokal eine **andere Fassung** einer NAS-Datei liegt | abgelehnt, NAS-Fassung bleibt |
+| K4 | Vergrössern, während lokal eine **ältere Fassung** einer NAS-Datei liegt | NAS-Fassung (neuer) gewinnt überall, keine Konfliktkopie |
 | K5 | Veralteter Wunsch (`vorher` falsch) | abgelehnt, nichts geändert |
 | K6 | Abo beenden **mit Löschen**, mit einer nie abgeglichenen Datei (z. B. `Saved/Autosaves`) | Abo weg, Gesichertes gelöscht, die lokale Datei bleibt und wird gemeldet |
 | K7 | Abo beenden mit Löschen ohne Reste | Ordner ganz weg; Angebot kommt zurück (≤ 1 min) |
+| K8 | `.stfolder` löschen, Ordner voll | ≤ 1 min: Marke neu, Abgleich läuft, Eintrag in Aktivität |
+| K9 | `.stfolder` löschen und Ordner leeren | kurz „Nur empfangen“, Dateien kommen zurück, NAS unverändert, danach wieder „Senden & Empfangen“ |
+| K10 | Gleiche Datei auf zwei Rechnern ändern | neuere gewinnt überall, keine Konfliktkopie |
 
 ## Je nach Änderung zusätzlich
 
