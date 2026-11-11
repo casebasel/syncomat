@@ -288,37 +288,17 @@ export function FolderSettingsModal({
           onChange={(v) => setDefaults({ ...defaults, ignore_hidden: v })}
         />
 
-        <ToggleRow
-          icon={<Trash2 className="size-4" />}
-          title="Papierkorb für gelöschte Dateien"
-          sub="Gelöschte Versionen behalten — auf jedem Gerät in .stversions/"
-          checked={defaults.trashcan}
-          onChange={(v) => setDefaults({ ...defaults, trashcan: v })}
-        />
-
-        {defaults.trashcan && (
-          <div className="pl-9">
-            <label className="block text-xs text-neutral-600 dark:text-neutral-400 mb-1">
-              Aufbewahrung (Tage, 0 = unbegrenzt)
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={3650}
-              value={defaults.trashcan_cleanout_days}
-              onChange={(e) =>
-                setDefaults({
-                  ...defaults,
-                  trashcan_cleanout_days: Math.max(
-                    0,
-                    Math.min(3650, parseInt(e.target.value || "0", 10)),
-                  ),
-                })
-              }
-              className="w-24 px-2 py-1 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
-            />
+        <div className="flex items-start gap-3 py-2">
+          <Trash2 className="size-4 mt-0.5 text-neutral-500" />
+          <div>
+            <div className="text-sm text-neutral-900 dark:text-neutral-100">Papierkorb: immer an, 30 Tage</div>
+            <div className="text-xs text-neutral-600 dark:text-neutral-400">
+              Was dieser Rechner verliert (von fern überschrieben oder gelöscht, ältere Fassung eines
+              Konflikts), liegt versteckt in „.syncomat-papierkorb“ auf demselben Laufwerk — nicht im
+              Ordner, wird nicht abgeglichen.
+            </div>
           </div>
-        )}
+        </div>
 
         {/* Performance-Tuning für existierende Folders. Misst Größe + Workload-
             Typ, schlägt fsWatcher/Rescan/Block-/Hasher-Defaults + .stignore-

@@ -7,6 +7,7 @@ mod invites;
 mod abo;
 mod auswahl;
 mod marke;
+mod papierkorb;
 mod datenzentrale;
 mod network_hints;
 mod reveal;
@@ -159,6 +160,9 @@ pub fn run() {
             auswahl::muster_treffer,
             marke::marke_stand,
             marke::marke_anlegen,
+            papierkorb::papierkorb_ordner,
+            papierkorb::in_papierkorb,
+            papierkorb::papierkorb_aufraeumen,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

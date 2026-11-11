@@ -66,6 +66,7 @@ import { useStatusDatei } from "./lib/statusDatei";
 import { aboBeenden, alleHabenAlles, istInhaltOrdner, setzeNasGeraete, setzeVeraltet } from "./lib/nasProjekte";
 import { nasBestaetigt, ordnerMitWartenden, protokolliere, useActivityListener } from "./lib/activity";
 import { useKonfliktkopienWegraeumen } from "./lib/conflicts";
+import { usePapierkorb } from "./lib/papierkorb";
 import { useWuensche } from "./lib/wuensche";
 import { useAusgeblendet } from "./lib/ausgeblendet";
 import { useVersionsSchutz } from "./lib/versionsSchutz";
@@ -145,6 +146,8 @@ function App() {
   // Einmalige Wartung: setLowPriority aus, (?d)-Migration, ignorePerms, weakHash.
   useSyncMaintenance(endpoint, ready, userFolders);
   useKonfliktEinstellung(endpoint, ready, folders);
+  // Lokaler Papierkorb, 30 Tage, ausserhalb der Ordner (Marlon 11.11.2026).
+  usePapierkorb(endpoint, ready, folders);
   // Neue Konfliktkopien wegräumen: die neuere Fassung gilt (Marlon 11.11.2026).
   useKonfliktkopienWegraeumen(ready ? folders : [], protokolliere);
   const tags = useFolderTags(folders);

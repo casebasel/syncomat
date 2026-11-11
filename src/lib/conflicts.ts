@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
+import { papierkorbVon } from "./papierkorb";
 
 export type ConflictItem = {
   conflict_rel: string;
@@ -184,9 +185,10 @@ export function fmtConflictWhen(when: string): string {
 // maxConflicts=0 wirkt nur auf dem Rechner, dessen Fassung verliert. Der
 // Gewinner lädt die unterlegene Fassung trotzdem als `.sync-conflict-…` herunter
 // (K10, render/Mac 11.11.2026), und von dort geht sie an alle. Marlon: keine
-// Kopien — die neuere Fassung gewinnt, für den Ernstfall gibt es die
-// ZFS-Snapshots auf dem NAS. Deshalb löscht syncomat neue Kopien, sobald das
-// Original da ist. Kopien von vor dieser Regel bleiben (erst Marlon zeigen).
+// Kopien im Projekt — die neuere Fassung gewinnt. Deshalb schiebt syncomat neue
+// Kopien in den lokalen Papierkorb (30 Tage, lib/papierkorb.ts), sobald das
+// Original da ist; auf den anderen Rechnern landet die Kopie über Syncthings
+// Papierkorb ebenfalls dort. Kopien von vor dieser Regel bleiben (erst Marlon zeigen).
 
 const AB_LS = "syncomat.konflikte.wegraeumen.ab";
 const RAEUMEN_MS = 10 * 60_000;
@@ -226,12 +228,19 @@ export function useKonfliktkopienWegraeumen(
           const liste = await conflictsList(f.path).catch(() => [] as ConflictItem[]);
           const neu = liste.filter((c) => c.when >= ab && c.original_exists);
           let n = 0;
+          const pk = papierkorbVon(f.id);
+          if (!pk) continue; // ohne Papierkorb nichts anfassen
           for (const c of neu) {
-            await conflictsKeepLocal(f.path, c.conflict_rel).then(() => n++).catch(() => {});
+            await invoke("in_papierkorb", { folderPath: f.path, rel: c.conflict_rel, papierkorb: pk })
+              .then(() => n++)
+              .catch(() => {});
           }
           if (n > 0) {
             invalidateConflictCache(f.path);
-            protokolliere(f.id, `${n} Konfliktkopie(n) entfernt — die neuere Fassung gilt (z. B. ${neu[0]!.original_rel}).`);
+            protokolliere(
+              f.id,
+              `${n} ältere Fassung(en) in den Papierkorb gelegt (30 Tage) — die neuere gilt (z. B. ${neu[0]!.original_rel}).`,
+            );
           }
         }
       } finally {

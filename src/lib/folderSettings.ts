@@ -1,10 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  getConfig,
   getFolderIgnores,
   getFolderStatus,
-  putFolder,
   setFolderIgnores,
   type Endpoint,
   type Folder,
@@ -112,7 +110,7 @@ export const folderSettingsWrite = (
 /**
  * Schreibt die Defaults in die lokale Syncthing-Folder-Config:
  * - ignore_hidden → .stignore (merged mit existing user-Patterns)
- * - trashcan → folder.versioning
+ * (Papierkorb: siehe lib/papierkorb.ts, nicht mehr hier.)
  *
  * Holt sich vor dem PUT den FRISCHEN folder aus Syncthings config —
  * nicht den vom Caller übergebenen, der könnte stale sein (Replication-Hook).
@@ -148,35 +146,10 @@ export async function applyFolderDefaults(
   }
 
   // ─ versioning ─
-  // Fresh folder fetch um stale-reference (z.B. devices[] vom Replication-Hook) zu vermeiden.
-  const fresh = await getConfig(ep);
-  const currentFolder = fresh.folders.find((f) => f.id === folder.id);
-  if (!currentFolder) {
-    throw new Error(`folder ${folder.id} not found in syncthing config`);
-  }
-
-  // Auch hier: PUT nur bei echter Änderung (Folder-PUT startet den Ordner in
-  // Syncthing neu → erneuter Scan).
-  const wantType = defaults.trashcan ? "trashcan" : "";
-  const wantDays = String(defaults.trashcan_cleanout_days);
-  const haveType = currentFolder.versioning?.type ?? "";
-  const haveDays = currentFolder.versioning?.params?.cleanoutDays;
-  const unchanged =
-    haveType === wantType && (wantType !== "trashcan" || haveDays === wantDays);
-  if (unchanged) return;
-
-  const updatedFolder: Folder = {
-    ...currentFolder,
-    versioning: defaults.trashcan
-      ? {
-          type: "trashcan",
-          params: {
-            cleanoutDays: wantDays,
-          },
-        }
-      : { type: "" },
-  };
-  await putFolder(ep, updatedFolder);
+  // Nicht mehr hier: Der Papierkorb ist seit 11.11.2026 auf jedem Ordner fest
+  // an (30 Tage, ausserhalb des Ordners, lib/papierkorb.ts). Der alte Schalter
+  // `trashcan` der geteilten Einstellungen wird nicht mehr angewendet — er
+  // würde den Papierkorb sonst abschalten oder nach .stversions legen.
 }
 
 // ── Geteilte Ignore-Liste ──────────────────────────────────────

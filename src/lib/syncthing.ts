@@ -32,6 +32,10 @@ export type Connections = {
 export type FolderVersioning = {
   type: "" | "trashcan" | "simple" | "staggered" | "external";
   params?: Record<string, string>;
+  /** Ablageort der Versionen (leer = `.stversions` im Ordner). */
+  fsPath?: string;
+  fsType?: string;
+  cleanupIntervalS?: number;
 };
 
 export type Folder = {

@@ -32,7 +32,8 @@ echte App mit einer Testfassung, nicht die Vorschau.
 | K7 | Abo beenden mit Löschen ohne Reste | Ordner ganz weg; Angebot kommt zurück (≤ 1 min) |
 | K8 | `.stfolder` löschen, Ordner voll | ≤ 1 min: Marke neu, Abgleich läuft, Eintrag in Aktivität |
 | K9 | `.stfolder` löschen und Ordner leeren | kurz „Nur empfangen“, Dateien kommen zurück, NAS unverändert, danach wieder „Senden & Empfangen“ |
-| K10 | Gleiche Datei auf zwei Rechnern ändern | neuere gewinnt überall, keine Konfliktkopie |
+| K10 | Gleiche Datei auf zwei Rechnern ändern | neuere gewinnt überall, keine Konfliktkopie im Projekt; ältere Fassung im Papierkorb |
+| K11 | Datei auf dem Mac ändern bzw. löschen | auf render liegt die alte Fassung in `X:\.syncomat-papierkorb\<Ordner-ID>\…`, Änderungszeit = heute (sonst leert sie sich sofort) |
 
 ## Je nach Änderung zusätzlich
 
