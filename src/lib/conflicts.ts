@@ -178,3 +178,71 @@ export function fmtConflictWhen(when: string): string {
   const mm = when.slice(11, 13);
   return `${d}.${m}.${y} ${hh}:${mm}`;
 }
+
+// ── Neue Konfliktkopien wegräumen (wie Resilio ohne Archiv) ──────────
+//
+// maxConflicts=0 wirkt nur auf dem Rechner, dessen Fassung verliert. Der
+// Gewinner lädt die unterlegene Fassung trotzdem als `.sync-conflict-…` herunter
+// (K10, render/Mac 11.11.2026), und von dort geht sie an alle. Marlon: keine
+// Kopien — die neuere Fassung gewinnt, für den Ernstfall gibt es die
+// ZFS-Snapshots auf dem NAS. Deshalb löscht syncomat neue Kopien, sobald das
+// Original da ist. Kopien von vor dieser Regel bleiben (erst Marlon zeigen).
+
+const AB_LS = "syncomat.konflikte.wegraeumen.ab";
+const RAEUMEN_MS = 10 * 60_000;
+
+function abStempel(): string {
+  const jetzt = () => {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  };
+  try {
+    const v = localStorage.getItem(AB_LS);
+    if (v) return v;
+    const s = jetzt();
+    localStorage.setItem(AB_LS, s);
+    return s;
+  } catch {
+    return jetzt(); // ohne Speicher nur Kopien ab jetzt
+  }
+}
+
+export function useKonfliktkopienWegraeumen(
+  folders: { id: string; path: string; type: string; paused: boolean }[],
+  protokolliere: (folderId: string, text: string) => void,
+) {
+  const stand = useRef(folders);
+  stand.current = folders;
+  useEffect(() => {
+    const ab = abStempel();
+    let busy = false;
+    const raeumen = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        // „Nur empfangen“: lokales Löschen ginge nicht weiter, bliebe als Abweichung.
+        for (const f of stand.current.filter((x) => !x.paused && x.type !== "receiveonly")) {
+          const liste = await conflictsList(f.path).catch(() => [] as ConflictItem[]);
+          const neu = liste.filter((c) => c.when >= ab && c.original_exists);
+          let n = 0;
+          for (const c of neu) {
+            await conflictsKeepLocal(f.path, c.conflict_rel).then(() => n++).catch(() => {});
+          }
+          if (n > 0) {
+            invalidateConflictCache(f.path);
+            protokolliere(f.id, `${n} Konfliktkopie(n) entfernt — die neuere Fassung gilt (z. B. ${neu[0]!.original_rel}).`);
+          }
+        }
+      } finally {
+        busy = false;
+      }
+    };
+    const erst = setTimeout(() => void raeumen(), 60_000);
+    const t = setInterval(() => void raeumen(), RAEUMEN_MS);
+    return () => {
+      clearTimeout(erst);
+      clearInterval(t);
+    };
+  }, []);
+}
