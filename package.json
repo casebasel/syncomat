@@ -1,7 +1,7 @@
 {
   "name": "syncomat",
   "private": true,
-  "version": "0.9.39-test.7",
+  "version": "0.9.39",
   "type": "module",
   "scripts": {
     "dev": "vite",
