@@ -97,6 +97,7 @@ export async function* executeRedemption(
     // introducer: true — der Einlader stellt uns seine anderen Geräte vor, sodass
     // wir dem ganzen Cluster beitreten („alles im Umlauf bekommen").
     introducer: true,
+    skipIntroductionRemovals: true,
     autoAcceptFolders: false,
     paused: true,
   };

@@ -73,6 +73,9 @@ export type Device = {
   name: string;
   addresses: string[];
   introducer: boolean;
+  /** true = Vorstellungen dieses Geräts nehmen nie etwas zurück (keine
+   * Geräte/Freigaben entfernen). Seit v0.9.44 überall an. */
+  skipIntroductionRemovals?: boolean;
   autoAcceptFolders: boolean;
   paused: boolean;
   /** Ordner-Angebote dieses Geräts, die wir dauerhaft abgelehnt haben —

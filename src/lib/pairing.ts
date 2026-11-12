@@ -30,6 +30,7 @@ export async function acceptDevice(
     name: pd.name || pd.deviceID.slice(0, 7),
     addresses: ["dynamic"],
     introducer: true,
+    skipIntroductionRemovals: true,
     autoAcceptFolders: false,
     paused: false,
   });

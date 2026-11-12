@@ -5,8 +5,10 @@ import {
   getOptions,
   MAX_CONFLICTS,
   patchOptions,
+  patchDevice,
   putFolder,
   setFolderIgnores,
+  type Device,
   type Endpoint,
   type Folder,
 } from "./syncthing";
@@ -166,4 +168,27 @@ export function useKonfliktEinstellung(ep: Endpoint | null, ready: boolean, fold
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ep?.url, ready, key]);
+}
+
+/** Vorstellungen nie zurücknehmen lassen (`skipIntroductionRemovals`) — auf
+ * jedem Gerät. Hintergrund (12.11.2026): Rechner und NAS stellen sich
+ * gegenseitig vor; bei jeder Konfig-Änderung wurde dadurch ein Projekt kurz
+ * ent- und wieder geteilt, das NAS verwarf den Index des Rechners („Peer has a
+ * new index ID“) und der Fortschritt sprang von 100 % auf 70–90 % zurück.
+ * Hinzufügen tun Vorstellungen weiter wie bisher. */
+export function useVorstellungenBehalten(ep: Endpoint | null, ready: boolean, devices: Device[], myID: string | null): void {
+  const key = devices.map((d) => `${d.deviceID}:${d.skipIntroductionRemovals ? 1 : 0}`).join(",");
+  useEffect(() => {
+    if (!ep || !ready) return;
+    const offen = devices.filter((d) => d.deviceID !== myID && d.skipIntroductionRemovals !== true);
+    if (offen.length === 0) return;
+    (async () => {
+      for (const d of offen) {
+        await patchDevice(ep, d.deviceID, { skipIntroductionRemovals: true }).catch((e) =>
+          console.warn(`[maintenance] ${d.deviceID} skipIntroductionRemovals`, e),
+        );
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ep?.url, ready, key, myID]);
 }

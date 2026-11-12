@@ -43,7 +43,7 @@ import {
   useNotificationsEnabled,
 } from "./lib/notifications";
 import { useAutostart } from "./lib/autostart";
-import { useKonfliktEinstellung, useSyncMaintenance } from "./lib/maintenance";
+import { useKonfliktEinstellung, useSyncMaintenance, useVorstellungenBehalten } from "./lib/maintenance";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { CodeShowModal } from "./components/CodeShowModal";
 import { CreateFolderModal } from "./components/CreateFolderModal";
@@ -309,6 +309,8 @@ function App() {
     (c) => c.connected && !!c.address && c.address.replace(/^\w+:\/\//, "").startsWith(fastSubnet.subnet),
   );
   usePrefer10GbE_apply(endpoint, ready, devices, prefer10.enabled, netHints, imStudio, fastSubnet.subnet);
+  // Vorstellungen nie zurücknehmen (sonst ent-/neu-teilen und Index-Neustart).
+  useVorstellungenBehalten(endpoint, ready, devices, myID);
   const datenzentrale = useDatenzentrale();
   const geraeteRolle = useGeraeteRolle();
   const dzGueltig =
