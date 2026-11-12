@@ -148,7 +148,7 @@ export type AboVorbereitung = {
  * 148 000 Einträge, 12.11.2026) dauert die Übertragung Minuten — eine feste Grenze
  * von 2 min brach mitten drin ab. Jetzt: warten, solange es wächst; aufgeben erst
  * nach 90 s ohne Fortschritt (oder nach 20 min). Fertig = ein Anbieter meldet
- * „valid“, Ordner idle, Zahl der Einträge 3 Takte unverändert. Ein leeres
+ * „valid“, kein Scan, Zahl der Einträge 3 Takte unverändert. Ein leeres
  * Projekt wird erst nach `leerNachMs` angenommen. */
 async function indexAbwarten(
   ep: Endpoint,
@@ -173,8 +173,12 @@ async function indexAbwarten(
       letzterFortschritt = Date.now();
       if (n > 0) onSchritt(`Inhaltsverzeichnis holen … ${n.toLocaleString("de-CH")} Einträge`);
     } else ruhig++;
+    // Nicht auf „idle“ warten: bei 260 000 ignorierten Einträgen steht der Ordner
+    // danach minutenlang auf „sync-preparing“ (INTERN_NEWYORK, 12.11.2026) —
+    // das Verzeichnis ist aber vollständig. Nur während eines Scans nicht.
     const valid = verbunden.some((c) => c?.remoteState === "valid");
-    if (valid && st.state === "idle" && ruhig >= 3 && (st.globalFiles > 0 || Date.now() - start >= leerNachMs)) return st;
+    const scannt = st.state === "scanning" || st.state === "scan-waiting";
+    if (valid && !scannt && ruhig >= 3 && (st.globalFiles > 0 || Date.now() - start >= leerNachMs)) return st;
   }
   return null;
 }
