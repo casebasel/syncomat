@@ -304,7 +304,11 @@ function App() {
     fastSubnet.subnet,
   );
   // Pinnt die schnellen Adressen aus der gemergten Karte (wenn aktiv); Fallback bleibt.
-  usePrefer10GbE_apply(endpoint, ready, devices, prefer10.enabled, netHints);
+  // Im Studio (selbst über das schnelle Netz verbunden): nur 10GbE, ohne ZeroTier.
+  const imStudio = Object.values(connectionsByID).some(
+    (c) => c.connected && !!c.address && c.address.replace(/^\w+:\/\//, "").startsWith(fastSubnet.subnet),
+  );
+  usePrefer10GbE_apply(endpoint, ready, devices, prefer10.enabled, netHints, imStudio, fastSubnet.subnet);
   const datenzentrale = useDatenzentrale();
   const geraeteRolle = useGeraeteRolle();
   const dzGueltig =

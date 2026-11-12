@@ -37,6 +37,12 @@ export type NetPath = "fast" | "local" | "slow" | "none";
 function bare(address: string): string {
   return address.replace(/^\w+:\/\//, "");
 }
+/** „tcp://host:22000“ aus einer Verbindungsadresse (Port immer 22000). */
+function mitStandardPort(address: string): string {
+  const b = bare(address);
+  const host = b.startsWith("[") ? b.slice(0, b.indexOf("]") + 1) : b.replace(/:\d+$/, "");
+  return `tcp://${host}:22000`;
+}
 function inFastSubnet(address: string, fastSubnet: string): boolean {
   return bare(address).startsWith(fastSubnet);
 }
@@ -173,7 +179,9 @@ export function useNetworkHints(
     let lc = false;
     for (const [id, c] of Object.entries(connections)) {
       if (c.connected && c.address && inFastSubnet(c.address, fastSubnet)) {
-        const a = `tcp://${bare(c.address)}`;
+        // Immer Port 22000: bei eingehenden Verbindungen ist c.address der
+        // zufällige Absender-Port (render, 12.11.2026: „192.168.100.3:56205“).
+        const a = mitStandardPort(c.address);
         if (learned[id] !== a) {
           learned[id] = a;
           lc = true;
@@ -245,14 +253,6 @@ export function useNetworkHints(
 
 // ── Pinnen ───────────────────────────────────────────────────────
 
-/** addresses[] mit fester schneller Adresse VORNE — fügt nur HINZU, entfernt nie
- * etwas Bestehendes (manuelle Adressen bleiben). "dynamic" als Fallback. */
-function withFastPinned(current: string[], fast: string): string[] {
-  if (current.includes(fast)) return current;
-  const next = [fast, ...current.filter((a) => a !== fast)];
-  if (!next.includes("dynamic")) next.push("dynamic");
-  return next;
-}
 
 /**
  * Pinnt die schnellen Adressen aus `hints` in die Syncthing-Geräte-Config (wenn
@@ -265,6 +265,9 @@ export function usePrefer10GbE_apply(
   devices: Device[],
   enabled: boolean,
   hints: Record<string, string>,
+  /** Dieser Rechner ist gerade selbst im schnellen Netz (Studio). */
+  imStudio = false,
+  fastSubnet = getFastSubnet(),
 ): void {
   const appliedRef = useRef<Record<DeviceID, string>>({});
 
@@ -285,46 +288,42 @@ export function usePrefer10GbE_apply(
       for (const dev of devices) {
         if (cancelled) return;
         const id = dev.deviceID;
+        // Eigene alte Fehleinträge (schnelles Netz, falscher Port) wegräumen.
+        const ohneAlte = dev.addresses.filter(
+          (a) => !(a.startsWith("tcp://") && inFastSubnet(a, fastSubnet) && !a.endsWith(":22000")),
+        );
 
-        if (enabled) {
-          const fast = hints[id];
-          if (!fast) continue;
-          if (dev.addresses.includes(fast)) {
-            if (pinned[id] !== fast) {
-              pinned[id] = fast;
-              pinnedChanged = true;
-            }
-            continue;
-          }
-          const next = withFastPinned(dev.addresses, fast);
-          const nextStr = JSON.stringify(next);
-          if (appliedRef.current[id] === nextStr) continue;
-          try {
-            await patchDevice(ep, id, { addresses: next });
-            appliedRef.current[id] = nextStr;
+        let next: string[];
+        if (enabled && hints[id]) {
+          const fast = mitStandardPort(hints[id]!);
+          // Im Studio NUR die 10GbE-Adresse: mit „dynamic“ findet Syncthing auch
+          // die ZeroTier-Adresse, hält sie für LAN und verteilt die Anfragen
+          // auch darüber (i9↔NAS, 12.11.2026: ~19 MB/s statt 10GbE). Unterwegs
+          // bleibt „dynamic“ als Ausweg. Eingehende Verbindungen nimmt
+          // Syncthing ohnehin von jeder Adresse an.
+          next = imStudio ? [fast] : [fast, ...ohneAlte.filter((a) => a !== fast && a !== "dynamic"), "dynamic"];
+          if (pinned[id] !== fast) {
             pinned[id] = fast;
             pinnedChanged = true;
-          } catch (e) {
-            console.warn(`[network] pin ${id} failed`, e);
           }
         } else {
           const ourAddr = pinned[id];
-          if (!ourAddr) continue;
-          if (dev.addresses.includes(ourAddr)) {
-            const rest = dev.addresses.filter((a) => a !== ourAddr);
-            if (!rest.includes("dynamic")) rest.push("dynamic");
-            const nextStr = JSON.stringify(rest);
-            if (appliedRef.current[id] !== nextStr) {
-              try {
-                await patchDevice(ep, id, { addresses: rest });
-                appliedRef.current[id] = nextStr;
-              } catch (e) {
-                console.warn(`[network] unpin ${id} failed`, e);
-              }
-            }
+          if (!ourAddr && ohneAlte.length === dev.addresses.length) continue;
+          next = ohneAlte.filter((a) => a !== ourAddr);
+          if (!next.includes("dynamic")) next.push("dynamic");
+          if (ourAddr) {
+            delete pinned[id];
+            pinnedChanged = true;
           }
-          delete pinned[id];
-          pinnedChanged = true;
+        }
+        if (JSON.stringify(next) === JSON.stringify(dev.addresses)) continue;
+        const nextStr = JSON.stringify(next);
+        if (appliedRef.current[id] === nextStr) continue;
+        try {
+          await patchDevice(ep, id, { addresses: next });
+          appliedRef.current[id] = nextStr;
+        } catch (e) {
+          console.warn(`[network] Adressen ${id} failed`, e);
         }
       }
 
@@ -335,5 +334,5 @@ export function usePrefer10GbE_apply(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ep?.url, ep?.api_key, ready, enabled, devKey, hintsKey]);
+  }, [ep?.url, ep?.api_key, ready, enabled, devKey, hintsKey, imStudio, fastSubnet]);
 }
