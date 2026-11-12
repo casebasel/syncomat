@@ -154,6 +154,18 @@ export const zeitToleranzMs = (fs: string | null | undefined) => (istExfat(fs) ?
 
 export const NAME_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
+/** Ordnername der Arbeitskopie: der Kurzname aus der Ordner-ID, wie der Ordner
+ * auf dem NAS heisst (dz-projekt-intern_burned-1 → INTERN_BURNED). Die
+ * Bezeichnung (label) ist seit 12.11.2026 ein lesbarer Name mit Leerzeichen
+ * („Restaurant und AI Unreal Tests“) und taugt nicht als Ordnername. Ohne
+ * passende ID: der Name selbst, wenn er gültig ist. */
+export function ordnerName(folderId: string, name: string): string | null {
+  const m = /^dz-projekt-([a-z0-9_-]+?)-\d+$/.exec(folderId);
+  const kurz = m ? m[1]!.toUpperCase() : null;
+  if (kurz && NAME_RE.test(kurz)) return kurz;
+  return NAME_RE.test(name) ? name : null;
+}
+
 /** Vollständige .stignore eines Abo-Ordners: Basis → Rolle → Auswahl.
  * Syncthing nimmt das ERSTE passende Muster, darum stehen die Ausschlüsse der
  * Basis vor den Negationen der Auswahl (Intermediate bleibt auch in einem

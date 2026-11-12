@@ -28,6 +28,7 @@ import { isAboFolderId } from "./datenzentrale";
 import { protokolliere } from "./activity";
 import {
   NAME_RE,
+  ordnerName,
   platzPruefung,
   aboDateisystemErlaubt,
   auswahlAusIgnores,
@@ -151,10 +152,11 @@ async function aboVorbereitenEinmal(
   rolle: GeraeteRolle,
   onSchritt: (text: string) => void,
 ): Promise<AboVorbereitung> {
-  if (!NAME_RE.test(p.name)) throw new Error(`Projektname „${p.name}“ ist als Ordnername ungültig.`);
+  const ordner = ordnerName(p.folderId, p.name);
+  if (!ordner) throw new Error(`Für „${p.name}“ lässt sich kein Ordnername bilden (Ordner-ID ${p.folderId}).`);
   const wurzel = projekteWurzel();
   if (!wurzel) throw new Error("Erst einen Ordner für Projekte wählen (auf dem Mac statt Laufwerk D:).");
-  const ziel = wurzel + p.name;
+  const ziel = wurzel + ordner;
   let disk: { file_system: string; total_bytes: number };
   try {
     disk = await invoke("disk_info", { path: ziel });

@@ -10,6 +10,7 @@ import {
   istExfat,
   istWindows,
   normalisiereAuswahl,
+  ordnerName,
   projekteWurzel,
   setzeProjekteWurzel,
   type GeraeteRolle,
@@ -396,7 +397,7 @@ export function AuswahlFeld({
         )}
         {spalte.ich && istWindows() && !abonniert && wurzel && (
           <p className="text-[13px] text-[var(--sm-text2)]">
-            Die Arbeitskopie kommt nach <span className="font-mono text-[var(--sm-text)] break-all">{wurzel}{zeile.name}</span>.
+            Die Arbeitskopie kommt nach <span className="font-mono text-[var(--sm-text)] break-all">{wurzel}{ordnerName(zeile.folderId, zeile.name) ?? zeile.name}</span>.
           </p>
         )}
         {spalte.ich && !istWindows() && (
