@@ -34,10 +34,20 @@ function Inhalt({ z, c, r }: { z: Zelle; c: number; r: number }) {
   return <circle cx={c} cy={c} r={r} fill={z.offline ? "var(--sm-text2)" : "var(--sm-gruen)"} />;
 }
 
-export function ZellSymbol({ z, size = 14 }: { z: Zelle; size?: number }) {
+export function ZellSymbol({ z, size = 14, leer = false }: { z: Zelle; size?: number; leer?: boolean }) {
   const c = size / 2;
   const r = size / 2 - 1.5;
-  if (z.zustand === "nicht") return <span aria-hidden className="inline-block" style={{ width: size, height: size }} />;
+  if (z.zustand === "nicht") {
+    // Projekt nicht abonniert: feiner leerer Kreis = hier kann man klicken
+    // (Marlon 12.11.2026). Durchgezogen und blass — anders als „unbekannt“
+    // (gestrichelt) und „abonniert, 0 %“ (blauer Ring). Ohne `leer`: nichts.
+    if (!leer) return <span aria-hidden className="inline-block" style={{ width: size, height: size }} />;
+    return (
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden className="sm-leer">
+        <circle cx={c} cy={c} r={r} fill="none" stroke="var(--sm-text2)" strokeWidth={1} />
+      </svg>
+    );
+  }
   if (z.zustand === "angehalten") {
     return (
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>

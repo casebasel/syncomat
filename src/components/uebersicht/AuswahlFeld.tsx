@@ -609,9 +609,19 @@ export function AuswahlFeld({
             <button
               onClick={() => void hierUebernehmen()}
               disabled={!kannHier || !!busy || leer || !geaendert || laeuftHier || (!zeile.hier && !zeile.angebot)}
-              className="flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-white text-[14px] font-semibold disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
+              aria-busy={!!busy}
+              className={`flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-white text-[14px] font-semibold inline-flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)] ${busy ? "cursor-progress" : "disabled:opacity-40"}`}
             >
-              {zeile.hier ? "Übernehmen" : "Abonnieren"}
+              {busy ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  {zeile.hier ? "Wird übernommen …" : "Wird abonniert …"}
+                </>
+              ) : zeile.hier ? (
+                "Übernehmen"
+              ) : (
+                "Abonnieren"
+              )}
             </button>
           ) : (
             <button

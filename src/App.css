@@ -144,3 +144,8 @@ pre {
 @media (prefers-reduced-motion: reduce) {
   .sm-wechsel { animation: none; }
 }
+
+/* Leerer Kreis „nicht abonniert“: blass, beim Darüberfahren blau (Marlon 12.11.2026). */
+.sm-leer { opacity: 0.4; transition: opacity 120ms ease-out; }
+button:hover .sm-leer, button:focus-visible .sm-leer { opacity: 1; }
+button:hover .sm-leer circle, button:focus-visible .sm-leer circle { stroke: var(--sm-blau); stroke-width: 1.5; }

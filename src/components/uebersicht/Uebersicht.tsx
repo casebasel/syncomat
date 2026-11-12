@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, KeyRound, Plus, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, KeyRound, Loader2, Plus, RefreshCw, Search } from "lucide-react";
+import { istGesperrt } from "../../lib/nasProjekte";
 import { zeilenStand, type Spalte, type Zeile, type Zelle } from "../../lib/uebersicht";
 import type { Wunsch } from "../../lib/wuensche";
 import { ZellSymbol, zellText } from "./ZellSymbol";
@@ -232,8 +233,10 @@ export function Uebersicht({
           const gewechselt = vorher !== undefined && vorher !== sig;
           const istZelle = istGewaehlt && gewaehltRechner === s.id;
           const wunsch = z.art === "projekt" ? offeneWuensche.find((w) => w.ziel === s.id && w.folder_id === z.folderId) : undefined;
+          // Läuft hier gerade etwas für dieses Projekt (Abonnieren, Auswahl ändern)?
+          const arbeitet = s.ich && z.art === "projekt" && istGesperrt(z.folderId);
           return (
-            <td key={`${s.id}:${sig}`} className={`p-0 text-center ${s.ich ? "bg-[var(--sm-ich)]/60" : ""} ${gewechselt ? "sm-wechsel" : ""}`}>
+            <td key={`${s.id}:${sig}`} className={`p-0 text-center border-l border-[var(--sm-linie-fein)] ${s.ich ? "bg-[var(--sm-ich)]/60" : ""} ${gewechselt ? "sm-wechsel" : ""}`}>
               <button
                 data-r={r}
                 data-c={i + 1}
@@ -254,14 +257,16 @@ export function Uebersicht({
                 {(zelle.ungesichert || zelle.konflikte || zelle.dateifehler) && (
                   <span aria-hidden className="absolute top-1 left-2 text-[11px] font-bold leading-none text-[var(--sm-ocker-text)]">!</span>
                 )}
-                {abonnierbar ? (
+                {arbeitet ? (
+                  <Loader2 className="size-3.5 animate-spin text-[var(--sm-blau)]" aria-label="arbeitet" />
+                ) : abonnierbar ? (
                   <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--sm-text2)] group-hover:text-[var(--sm-blau)] [button:focus-visible_&]:text-[var(--sm-blau)]">
                     <Plus className="size-3.5" strokeWidth={2.25} />
                     <span className="hidden group-hover:inline [button:focus-visible_&]:inline">Abonnieren</span>
                   </span>
                 ) : (
                   <>
-                    <ZellSymbol z={zelle} />
+                    <ZellSymbol z={zelle} leer={z.art === "projekt"} />
                     {zelle.zustand === "laedt" && (
                       <span className="sm-zahl font-mono text-[11px] text-[var(--sm-blau)]">{zelle.prozent ?? 0}%</span>
                     )}
@@ -385,7 +390,7 @@ export function Uebersicht({
                 <span className="text-[12px] font-bold uppercase tracking-wide text-[var(--sm-text2)]">Projekt</span>
               </th>
               {spalten.map((s) => (
-                <th key={s.id} scope="col" className={`h-[60px] px-0.5 align-bottom pb-1 min-w-[90px] max-w-[132px] ${s.ich ? "bg-[var(--sm-ich)]" : ""}`}>
+                <th key={s.id} scope="col" className={`h-[60px] px-0.5 align-bottom pb-1 min-w-[90px] max-w-[132px] border-l border-[var(--sm-linie-fein)] ${s.ich ? "bg-[var(--sm-ich)]" : ""}`}>
                   <button
                     onClick={() => onRechner(s.id)}
                     title={s.ich ? "Dieser Rechner" : `${s.name} — ${s.online ? "online" : "offline"}`}
@@ -492,10 +497,11 @@ export function Uebersicht({
               [{ zustand: "aktuell", teil: true }, "nur Unterordner"],
               [{ zustand: "angehalten" }, "angehalten"],
               [{ zustand: "unbekannt" }, "unbekannt"],
+              [{ zustand: "nicht" }, "nicht abonniert"],
             ] as const
           ).map(([z, t]) => (
             <li key={t} className="flex items-center gap-1">
-              <ZellSymbol z={z as never} size={12} />
+              <ZellSymbol z={z as never} size={12} leer />
               {t}
             </li>
           ))}
