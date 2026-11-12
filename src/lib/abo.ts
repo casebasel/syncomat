@@ -109,6 +109,9 @@ export type Bericht = {
 export const ABO_BASIS: string[] = [
   "// syncomat-Abo — von syncomat erzeugt, nicht von Hand ändern",
   ".waechter",
+  // Belege alter Wächter-Aufträge in umgezogenen Projekten: nur auf dem NAS,
+  // ohne (?d) — was schon auf einem Rechner liegt, wird nie gelöscht (12.11.2026).
+  ".waechter-sammelstelle",
   "(?d)(?i).DS_Store",
   "(?d)(?i)Thumbs.db",
   "(?d)(?i)desktop.ini",
