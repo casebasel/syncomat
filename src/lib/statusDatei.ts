@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { getFolderStatus, folderError, type DeviceID, type Endpoint, type Folder } from "./syncthing";
 import { isAboFolderId } from "./datenzentrale";
 import { aboAuswahl } from "./nasProjekte";
-import { projekteWurzel } from "./abo";
+import { ordnerName, projekteWurzel } from "./abo";
 
 // ── Lokale Statusdatei ───────────────────────────────────────────
 //
@@ -21,7 +21,11 @@ const HERZSCHLAG_MS = 10_000;
 
 export type StatusAbo = {
   folder_id: string;
+  /** Bezeichnung (Syncthing-Label, kann Leerzeichen haben) — nie als Pfad nehmen. */
   name: string;
+  /** Kurzname wie der Ordner auf dem NAS (aus der folder_id), z. B.
+   * „INTERN_RESTAURANT_UND_AI_UNREAL“. Ab v0.9.42; null, wenn keiner ableitbar. */
+  kurzname: string | null;
   path: string;
   /** idle | scanning | syncing | error | paused (Syncthing-Zustand) */
   zustand: string;
@@ -77,6 +81,7 @@ export function useStatusDatei({
         liste.push({
           folder_id: f.id,
           name: f.label || f.id,
+          kurzname: ordnerName(f.id, f.label || ""),
           path: f.path,
           zustand: f.paused ? "paused" : folderError(s) ? "error" : s?.state ?? "unknown",
           needBytes: s?.needBytes ?? 0,
