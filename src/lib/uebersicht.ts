@@ -169,6 +169,7 @@ export function useUebersicht({
   ohneSyncomat,
   rolle,
   erledigtHier,
+  gemeldeteNamen = {},
 }: {
   ep: Endpoint | null;
   ready: boolean;
@@ -183,6 +184,8 @@ export function useUebersicht({
   rolle: GeraeteRolle;
   /** Ergebnisse der an diesen Rechner gerichteten Wünsche (useWuensche). */
   erledigtHier?: WunschErgebnis[];
+  /** Namen aus den Versionsnotizen (Rückfall, wenn die Abos-Notiz fehlt). */
+  gemeldeteNamen?: Record<DeviceID, string | undefined>;
 }) {
   const [status, setStatus] = useState<Record<string, FolderStatus | null>>({});
   const [remote, setRemote] = useState<Record<string, Record<DeviceID, Zelle>>>({});
@@ -417,7 +420,10 @@ export function useUebersicht({
     const n = notizen[d.deviceID];
     const hier = d.name?.trim() ?? "";
     const fraglich = !hier || hier.toLowerCase() === eigenerName || eingetragen.filter((x) => x === hier.toLowerCase()).length > 1;
-    const gemeldet = n?.name?.trim().replace(/\.local$/i, "") ?? "";
+    // Gemeldeter Name: aus der Abos-Notiz, sonst aus der Versionsnotiz (ein
+    // frisch eingeschalteter Rechner hat oft erst die; x7950 erschien sonst
+    // als „H6V6IPX“, 12.11.2026).
+    const gemeldet = (n?.name || gemeldeteNamen[d.deviceID] || "").trim().replace(/\.local$/i, "");
     spalten.push({
       id: d.deviceID,
       name: (fraglich && gemeldet ? gemeldet.toLowerCase() : hier) || gemeldet || d.deviceID.slice(0, 7),

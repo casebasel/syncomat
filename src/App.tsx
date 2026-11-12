@@ -387,6 +387,7 @@ function App() {
     intern: internFolder,
     ohneSyncomat: updateAll.noChannel,
     rolle: geraeteRolle.rolle,
+    gemeldeteNamen: Object.fromEntries(Object.entries(updateAll.notes).map(([id, n]) => [id, n.name])),
   });
   const ausgeblendet = useAusgeblendet();
   const wuensche = useWuensche({
