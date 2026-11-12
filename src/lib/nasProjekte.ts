@@ -22,6 +22,7 @@ import {
   type DeviceID,
   type Endpoint,
   type Folder,
+  type FolderStatus,
   type PendingFolder,
 } from "./syncthing";
 import { isAboFolderId } from "./datenzentrale";
@@ -143,6 +144,41 @@ export type AboVorbereitung = {
   baum: BaumKnoten[]; // Ordnerbaum mit Grössen
 };
 
+/** Auf das Inhaltsverzeichnis vom NAS warten. Bei grossen Projekten (INTERN_NEWYORK:
+ * 148 000 Einträge, 12.11.2026) dauert die Übertragung Minuten — eine feste Grenze
+ * von 2 min brach mitten drin ab. Jetzt: warten, solange es wächst; aufgeben erst
+ * nach 90 s ohne Fortschritt (oder nach 20 min). Fertig = ein Anbieter meldet
+ * „valid“, Ordner idle, Zahl der Einträge 3 Takte unverändert. Ein leeres
+ * Projekt wird erst nach `leerNachMs` angenommen. */
+async function indexAbwarten(
+  ep: Endpoint,
+  folderId: string,
+  anbieter: DeviceID[],
+  leerNachMs: number,
+  onSchritt: (text: string) => void = () => {},
+): Promise<FolderStatus | null> {
+  const start = Date.now();
+  let letzte = -1;
+  let ruhig = 0;
+  let letzterFortschritt = Date.now();
+  while (Date.now() - start < 20 * 60_000 && Date.now() - letzterFortschritt < 90_000) {
+    await sleep(2000);
+    const verbunden = await Promise.all(anbieter.map((d) => getRemoteCompletion(ep, folderId, d).catch(() => null)));
+    const st = await getFolderStatus(ep, folderId).catch(() => null);
+    if (!st) continue;
+    const n = (st.globalFiles ?? 0) + ((st as unknown as { globalDirectories?: number }).globalDirectories ?? 0);
+    if (n !== letzte) {
+      letzte = n;
+      ruhig = 0;
+      letzterFortschritt = Date.now();
+      if (n > 0) onSchritt(`Inhaltsverzeichnis holen … ${n.toLocaleString("de-CH")} Einträge`);
+    } else ruhig++;
+    const valid = verbunden.some((c) => c?.remoteState === "valid");
+    if (valid && st.state === "idle" && ruhig >= 3 && (st.globalFiles > 0 || Date.now() - start >= leerNachMs)) return st;
+  }
+  return null;
+}
+
 /** Schritt 1: prüfen, Ordner mit „alles ignoriert“ anlegen, Inhaltsverzeichnis
  * holen. Danach liegt nichts auf D: ausser .stfolder/.stignore. Wirft mit einem
  * Satz und räumt dann wieder weg. */
@@ -191,16 +227,8 @@ async function aboVorbereitenEinmal(
     await putFolder(ep, folder);
     await setFolderIgnores(ep, p.folderId, [...composeAboIgnores([], rolle), "*"]);
     await putFolder(ep, { ...folder, paused: false });
-    let globalBytes = -1;
-    for (let i = 0; i < 60; i++) {
-      await sleep(2000);
-      const verbunden = await Promise.all(p.anbieter.map((d) => getRemoteCompletion(ep, p.folderId, d).catch(() => null)));
-      const s = await getFolderStatus(ep, p.folderId).catch(() => null);
-      if (s && verbunden.some((c) => c?.remoteState === "valid") && s.state === "idle") {
-        globalBytes = s.globalBytes;
-        break;
-      }
-    }
+    const fertig = await indexAbwarten(ep, p.folderId, p.anbieter, 0, onSchritt);
+    const globalBytes = fertig ? fertig.globalBytes : -1;
     if (globalBytes < 0) throw new Error("Der NAS hat das Inhaltsverzeichnis nicht geschickt (nicht verbunden?). Später nochmals versuchen.");
     const roh = await getBrowse(ep, p.folderId, -1).catch(() => []);
     const oben = sumBrowseTopLevel(roh);
@@ -291,16 +319,11 @@ async function inhaltHolenEinmal(
     await putFolder(ep, folder);
     await setFolderIgnores(ep, p.folderId, ["// nur Inhaltsverzeichnis", "*"]);
     await putFolder(ep, { ...folder, paused: false });
-    for (let i = 0; i < 60; i++) {
-      await sleep(2000);
-      const verbunden = await Promise.all(p.anbieter.map((d) => getRemoteCompletion(ep, p.folderId, d).catch(() => null)));
-      const st = await getFolderStatus(ep, p.folderId).catch(() => null);
-      // Auf das Inhaltsverzeichnis warten (über ZeroTier, z. B. vom Mac, dauert
-      // es länger) — ein leeres nur nach 60 s annehmen (leeres Projekt).
-      if (st && verbunden.some((c) => c?.remoteState === "valid") && st.state === "idle" && (st.globalFiles > 0 || i >= 29)) {
-        const roh = await getBrowse(ep, p.folderId, -1).catch(() => []);
-        return { baum: baumAusBrowse(roh), globalBytes: st.globalBytes };
-      }
+    // Über ZeroTier (z. B. vom Mac) dauert es länger — ein leeres Projekt erst nach 60 s annehmen.
+    const st = await indexAbwarten(ep, p.folderId, p.anbieter, 60_000);
+    if (st) {
+      const roh = await getBrowse(ep, p.folderId, -1).catch(() => []);
+      return { baum: baumAusBrowse(roh), globalBytes: st.globalBytes };
     }
     throw new Error("Der NAS hat das Inhaltsverzeichnis nicht geschickt (nicht verbunden?).");
   } finally {
