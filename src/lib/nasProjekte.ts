@@ -28,6 +28,7 @@ import { isAboFolderId } from "./datenzentrale";
 import { protokolliere } from "./activity";
 import {
   NAME_RE,
+  ABO_MIN_DISK_FREE,
   ordnerName,
   platzPruefung,
   aboDateisystemErlaubt,
@@ -180,6 +181,7 @@ async function aboVorbereitenEinmal(
     paused: true,
     devices: [{ deviceID: myID }, ...p.anbieter.map((deviceID) => ({ deviceID }))],
     maxConflicts: MAX_CONFLICTS,
+    minDiskFree: ABO_MIN_DISK_FREE,
     ignorePerms: true,
     fsWatcherEnabled: true,
     fsWatcherDelayS: 2,

@@ -159,6 +159,14 @@ export function describeFolderError(raw: string): { title: string; action: strin
         "dort etwas zu löschen.",
     };
   }
+  if (/insufficient space|not enough free space|free space/i.test(raw)) {
+    return {
+      title: "Zu wenig Platz — Laden angehalten",
+      action:
+        "Auf diesem Laufwerk sind weniger als 50 GB frei (feste Reserve). Syncthing lädt weiter, " +
+        "sobald Platz frei ist: Papierkorb leeren, Teile des Abos abwählen oder Daten verschieben.",
+    };
+  }
   if (/folder path missing/i.test(raw)) {
     return {
       title: "Ordner-Pfad nicht erreichbar — Sync angehalten",

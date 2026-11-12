@@ -11,6 +11,8 @@ import {
   type Folder,
 } from "./syncthing";
 import { normalizeLocalIgnores } from "./folderSettings";
+import { ABO_MIN_DISK_FREE } from "./abo";
+import { isAboFolderId } from "./datenzentrale";
 
 // ── Einmalige Sync-Wartung beim Start ─────────────────────────────
 //
@@ -134,17 +136,27 @@ export function useSyncMaintenance(
  * auslässt) auf MAX_CONFLICTS halten — nur bei Abweichung, also kein Rescan
  * im Normalfall. Abos von vor dem 11.11.2026 hatten noch 1. */
 export function useKonfliktEinstellung(ep: Endpoint | null, ready: boolean, folders: Folder[]): void {
-  const key = folders.map((f) => `${f.id}:${f.maxConflicts}`).join(",");
+  // Abo-Ordner zusätzlich: minDiskFree = feste Reserve (50 GB, Marlon 12.11.2026).
+  const platzFalsch = (f: Folder) =>
+    isAboFolderId(f.id) &&
+    (f.minDiskFree?.value !== ABO_MIN_DISK_FREE.value || f.minDiskFree?.unit !== ABO_MIN_DISK_FREE.unit);
+  const key = folders.map((f) => `${f.id}:${f.maxConflicts}:${f.minDiskFree?.value}${f.minDiskFree?.unit}`).join(",");
   useEffect(() => {
     if (!ep || !ready) return;
-    const falsch = folders.filter((f) => f.maxConflicts !== undefined && f.maxConflicts !== MAX_CONFLICTS);
+    const falsch = folders.filter(
+      (f) => (f.maxConflicts !== undefined && f.maxConflicts !== MAX_CONFLICTS) || platzFalsch(f),
+    );
     if (falsch.length === 0) return;
     (async () => {
       for (const f of falsch) {
         try {
           const fresh = (await getConfig(ep)).folders.find((x) => x.id === f.id);
-          if (fresh && fresh.maxConflicts !== MAX_CONFLICTS) {
-            await putFolder(ep, { ...fresh, maxConflicts: MAX_CONFLICTS });
+          if (fresh && (fresh.maxConflicts !== MAX_CONFLICTS || platzFalsch(fresh))) {
+            await putFolder(ep, {
+              ...fresh,
+              maxConflicts: MAX_CONFLICTS,
+              ...(isAboFolderId(fresh.id) ? { minDiskFree: ABO_MIN_DISK_FREE } : {}),
+            });
           }
         } catch (e) {
           console.warn(`[maintenance] ${f.id} maxConflicts`, e);

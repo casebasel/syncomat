@@ -45,7 +45,15 @@ const LAEUFT_MIN_MS = 60_000; // Fortschritt höchstens einmal je Minute und Auf
  * gesperrt — ein Mac mit 41 GB frei konnte nie abonnieren.) */
 export const RESERVE_MAX = 100 * 1024 ** 3;
 export const RESERVE_ANTEIL = 0.1;
-export const ARBEITSRAUM = 2 * 1024 ** 3;
+/** Feste Reserve auf jedem Rechner, jede Rolle (Marlon 12.11.2026, über
+ * stage-system): ein Abo wird abgelehnt, wenn danach weniger als 50 GB frei
+ * blieben — Luft für DerivedDataCache, Saved, Renders. Dieselbe Grenze setzt
+ * syncomat als minDiskFree auf jeden Abo-Ordner: Syncthing hält beim Laden an,
+ * sobald weniger frei ist (Ordnerfehler, in status.json „error“). Dezimal-GB
+ * wie Syncthings Einheit „GB“. (Bis v0.9.41: 2 GiB Arbeitsraum.) */
+export const RESERVE_FEST_GB = 50;
+export const ARBEITSRAUM = RESERVE_FEST_GB * 1e9;
+export const ABO_MIN_DISK_FREE = { value: RESERVE_FEST_GB, unit: "GB" };
 
 /** Ort der Projekte in Texten: „D:“ (Windows) bzw. „im Projektordner“ (Mac). */
 export const projekteOrt = () => (istWindows() ? "auf D:" : "im Projektordner");
@@ -57,7 +65,7 @@ export function platzPruefung(
 ): { passt: boolean; text: string | null } {
   const fmt = (n: number) => (n >= 1e12 ? `${(n / 1e12).toFixed(1)} TB` : n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(0, n / 1e6).toFixed(1)} MB`);
   if (frei < bytes + ARBEITSRAUM) {
-    return { passt: false, text: `Zu wenig Platz ${projekteOrt()}: nötig ${fmt(bytes)} (+ ${fmt(ARBEITSRAUM)} Arbeitsraum), frei ${fmt(frei)}.` };
+    return { passt: false, text: `Zu wenig Platz ${projekteOrt()}: nötig ${fmt(bytes)} (+ ${fmt(ARBEITSRAUM)} Reserve, die immer frei bleibt), frei ${fmt(frei)}.` };
   }
   const reserve = Math.min(RESERVE_MAX, total * RESERVE_ANTEIL);
   if (frei - bytes < reserve) {
@@ -484,6 +492,7 @@ export function useAboAusfuehrung({
         paused: true,
         devices: [{ deviceID: myID }, { deviceID: g.nas_geraet }],
         maxConflicts: MAX_CONFLICTS,
+        minDiskFree: ABO_MIN_DISK_FREE,
         ignorePerms: true,
         fsWatcherEnabled: true,
         fsWatcherDelayS: 2,
