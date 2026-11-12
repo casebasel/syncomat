@@ -33,6 +33,7 @@ echte App mit einer Testfassung, nicht die Vorschau.
 | K8 | `.stfolder` löschen, Ordner voll | ≤ 1 min: Marke neu, Abgleich läuft, Eintrag in Aktivität |
 | K9 | `.stfolder` löschen und Ordner leeren | kurz „Nur empfangen“, Dateien kommen zurück, NAS unverändert, danach wieder „Senden & Empfangen“ |
 | K10 | Gleiche Datei auf zwei Rechnern ändern | neuere gewinnt überall, keine Konfliktkopie im Projekt; ältere Fassung im Papierkorb |
+| K12 | In `Saved/` Proben anlegen (webcache_*, ShaderDebugInfo, UnrealBuildTool, SourceControl, Support, StageCompanion, MovieRenders) | nur `MovieRenders` geht aufs NAS, der Rest bleibt lokal |
 | K11 | Datei auf dem Mac ändern bzw. löschen | auf render liegt die alte Fassung in `X:\.syncomat-papierkorb\<Ordner-ID>\…`, Änderungszeit = heute (sonst leert sie sich sofort) |
 
 ## Je nach Änderung zusätzlich
