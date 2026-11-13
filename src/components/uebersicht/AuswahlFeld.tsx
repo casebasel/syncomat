@@ -23,7 +23,7 @@ import {
   aboVorbereiten,
   baumVonOrdner,
   gb,
-  inhaltHolen,
+  inhaltVomWaechter,
 } from "../../lib/nasProjekte";
 import type { Wunsch, WunschArt, WunschErgebnis } from "../../lib/wuensche";
 
@@ -212,7 +212,7 @@ export function AuswahlFeld({
   // Bei angehaltenem Abo (z. B. Ordner fehlt) nicht vorgewählt — Löschen geht dort nicht.
   const [ordnerLoeschen, setOrdnerLoeschen] = useState(zelle.zustand !== "angehalten");
 
-  // Ordnerbaum holen: aus dem eigenen Abo, sonst nur das Inhaltsverzeichnis vom NAS.
+  // Ordnerbaum holen: aus dem eigenen Abo, sonst aus der Inhaltsdatei des Wächters.
   useEffect(() => {
     if (vorschauBaum || !ep || !myID) return;
     // Schon geladen (z. B. Angebot kurz weg und wieder da): nicht neu holen —
@@ -221,17 +221,16 @@ export function AuswahlFeld({
     if (baum && quelle !== "hier") return;
     let cancelled = false;
     if (quelle) setBaumFehler(null);
+    // Ordnerbaum: aus dem eigenen Abo, sonst aus der Inhaltsdatei des Wächters
+    // (auch für Projekte, die diesem Rechner nicht angeboten sind).
     const holen = zeile.hier
       ? baumVonOrdner(ep, zeile.folderId)
-      : zeile.angebot
-        ? inhaltHolen(ep, zeile.angebot, myID)
-        : Promise.reject(
-            new Error(
-              spalte.ich
-                ? "Das NAS bietet dieses Projekt diesem Rechner (noch) nicht an — freigeben auf der Seite des Speicher-Wächters. Sobald das Angebot da ist, erscheint hier der Ordnerbaum."
-                : "Dieser Rechner bekommt das Projekt nicht angeboten — der Ordnerbaum ist hier nicht abrufbar. „Alles“ lässt sich trotzdem senden.",
-            ),
+      : inhaltVomWaechter(zeile.folderId).then((w) => {
+          if (w) return { baum: w.baum, globalBytes: w.globalBytes };
+          throw new Error(
+            "Der Ordnerbaum dieses Projekts ist noch nicht da (der Speicher-Wächter legt ihn an). „Alles“ geht trotzdem.",
           );
+        });
     holen
       .then((b) => !cancelled && setBaum(b))
       .catch((e) => !cancelled && setBaumFehler(e instanceof Error ? e.message : String(e)));
@@ -511,7 +510,7 @@ export function AuswahlFeld({
           {!baum && !baumFehler && (
             <p className="flex items-center gap-2 text-[13px] text-[var(--sm-text2)] pl-1" role="status">
               <Loader2 className="size-3.5 animate-spin text-[var(--sm-blau)]" />
-              Ordnerbaum vom NAS holen (es wird nichts geladen) …
+              Ordnerbaum wird gelesen …
             </p>
           )}
           {baumFehler && <p className="text-[13px] text-[var(--sm-text2)] pl-1">{baumFehler}</p>}

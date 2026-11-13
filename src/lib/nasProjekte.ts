@@ -231,6 +231,16 @@ async function aboVorbereitenEinmal(
     await putFolder(ep, folder);
     await setFolderIgnores(ep, p.folderId, [...composeAboIgnores([], rolle), "*"]);
     await putFolder(ep, { ...folder, paused: false });
+    // Mit Inhaltsdatei des Wächters: Baum und Grösse sind schon da, nicht auf
+    // den Index warten (bei 148 000 Einträgen Minuten).
+    const w = await inhaltVomWaechter(p.folderId);
+    if (w && w.globalBytes > 0) {
+      const ordnerW = w.oben
+        .filter((e) => !e.name.startsWith(".") && NAME_RE.test(e.name))
+        .map((e) => ({ name: e.name, bytes: e.bytes }));
+      const dateienObenW = Math.max(0, w.globalBytes - w.oben.reduce((a, e) => a + e.bytes, 0));
+      return { ziel, totalBytes: disk.total_bytes, globalBytes: w.globalBytes, ordner: ordnerW, dateienOben: dateienObenW, baum: w.baum };
+    }
     const fertig = await indexAbwarten(ep, p.folderId, p.anbieter, 0, onSchritt);
     const globalBytes = fertig ? fertig.globalBytes : -1;
     if (globalBytes < 0) throw new Error("Der NAS hat das Inhaltsverzeichnis nicht geschickt (nicht verbunden?). Später nochmals versuchen.");
@@ -290,73 +300,45 @@ export async function inhaltResteAufraeumen(ep: Endpoint): Promise<number> {
   return n;
 }
 
-/** Ordnerbaum eines Projekts, das dieser Rechner NICHT führt (z. B. um die
- * Auswahl für einen anderen Rechner zu bestimmen): kurz einen Ordner in den
- * App-Daten anlegen, der alles ignoriert, Inhaltsverzeichnis abwarten, Baum
- * lesen, Ordner wieder entfernen. Es werden keine Daten übertragen. */
-/** Geholte Ordnerbäume (10 min) — nicht bei jedem Öffnen neu holen. */
-const baumPuffer = new Map<string, { b: { baum: BaumKnoten[]; globalBytes: number }; at: number }>();
-const BAUM_PUFFER_MS = 10 * 60_000;
-
-export function inhaltHolen(
-  ep: Endpoint,
-  p: NasProjekt,
-  myID: DeviceID,
-): Promise<{ baum: BaumKnoten[]; globalBytes: number }> {
-  const gepuffert = baumPuffer.get(p.folderId);
-  if (gepuffert && Date.now() - gepuffert.at < BAUM_PUFFER_MS) return Promise.resolve(gepuffert.b);
-  // Angebot merken, bevor Syncthing es beim Anlegen des Ordners streicht.
-  gemerkteAngebote.set(p.folderId, { p, bis: Date.now() + MERKEN_MS });
-  return mitSperre(p.folderId, () => inhaltHolenEinmal(ep, p, myID)).then((b) => {
-    if (b.globalBytes > 0 || b.baum.length > 0) baumPuffer.set(p.folderId, { b, at: Date.now() });
-    return b;
-  });
+/** Ordnerbaum aus `inhalt/<folder_id>.json` des Wächters (Schritt 2,
+ * Marlon 13.11.2026). Ersetzt den kurzlebigen Hilfsordner mit der echten
+ * Ordner-ID, der das Angebot verdecken konnte und bei grossen Projekten
+ * minutenlang auf den Index wartete. null = (noch) keine Datei. */
+export async function inhaltVomWaechter(folderId: string): Promise<{
+  baum: BaumKnoten[];
+  globalBytes: number;
+  oben: { name: string; bytes: number }[];
+} | null> {
+  type Knoten = { pfad?: unknown; bytes?: unknown; kinder?: unknown };
+  const raw = await invoke<string | null>("waechter_lesen", { rel: `inhalt/${folderId}.json` }).catch(() => null);
+  if (!raw) return null;
+  try {
+    const d = JSON.parse(raw) as { schema?: number; folder_id?: string; gesamt?: { bytes?: number }; baum?: Knoten[] };
+    if (d.schema !== 1 || d.folder_id !== folderId || !Array.isArray(d.baum)) return null;
+    const wandle = (n: Knoten): BaumKnoten | null => {
+      if (typeof n?.pfad !== "string" || !n.pfad) return null;
+      const pfad = n.pfad.normalize("NFC");
+      const kinder = Array.isArray(n.kinder) ? (n.kinder as Knoten[]).map(wandle).filter((x): x is BaumKnoten => !!x) : [];
+      return { name: pfad.split("/").pop()!, pfad, bytes: Number(n.bytes) || 0, kinder };
+    };
+    const baum = d.baum.map(wandle).filter((x): x is BaumKnoten => !!x).sort((x, y) => x.name.localeCompare(y.name, "de"));
+    const globalBytes = Number(d.gesamt?.bytes) || baum.reduce((a, k) => a + k.bytes, 0);
+    return { baum, globalBytes, oben: baum.map((k) => ({ name: k.name, bytes: k.bytes })) };
+  } catch {
+    return null;
+  }
 }
 
-async function inhaltHolenEinmal(
-  ep: Endpoint,
+/** Ordnerbaum eines Projekts, das dieser Rechner NICHT führt (z. B. um die
+ * Auswahl für einen anderen Rechner zu bestimmen) — aus der Inhaltsdatei des
+ * Wächters. Fehlt sie, leerer Baum (dann geht nur „Alles“). */
+export async function inhaltHolen(
+  _ep: Endpoint,
   p: NasProjekt,
-  myID: DeviceID,
+  _myID: DeviceID,
 ): Promise<{ baum: BaumKnoten[]; globalBytes: number }> {
-  const ziel = await invoke<string>("inhalt_ordner_pfad", { folderId: p.folderId });
-  // Gibt es den Ordner hier inzwischen (abonniert), nie überschreiben.
-  if ((await getConfig(ep)).folders.some((f) => f.id === p.folderId)) {
-    throw new Error("Das Projekt ist hier eingerichtet — Ordnerbaum bitte neu öffnen.");
-  }
-  await invoke("remove_unused_abo_dir", { path: ziel }).catch(() => {});
-  await invoke("create_abo_dir", { path: ziel });
-  const folder: Folder = {
-    id: p.folderId,
-    label: INHALT_LABEL,
-    path: ziel,
-    type: "receiveonly",
-    paused: true,
-    devices: [{ deviceID: myID }, ...p.anbieter.map((deviceID) => ({ deviceID }))],
-    ignorePerms: true,
-    fsWatcherEnabled: false,
-    rescanIntervalS: 3600,
-  };
-  try {
-    await putFolder(ep, folder);
-    await setFolderIgnores(ep, p.folderId, ["// nur Inhaltsverzeichnis", "*"]);
-    await putFolder(ep, { ...folder, paused: false });
-    // Über ZeroTier (z. B. vom Mac) dauert es länger — ein leeres Projekt erst nach 60 s annehmen.
-    const st = await indexAbwarten(ep, p.folderId, p.anbieter, 60_000);
-    if (st) {
-      const roh = await getBrowse(ep, p.folderId, -1).catch(() => []);
-      return { baum: baumAusBrowse(roh), globalBytes: st.globalBytes };
-    }
-    throw new Error("Der NAS hat das Inhaltsverzeichnis nicht geschickt (nicht verbunden?).");
-  } finally {
-    // Nur den eigenen kurzlebigen Ordner entfernen — nie ein echtes Abo.
-    const jetzt = (await getConfig(ep).catch(() => null))?.folders.find((f) => f.id === p.folderId);
-    if (jetzt && jetzt.label === INHALT_LABEL && jetzt.path === ziel) {
-      await deleteFolder(ep, p.folderId).catch(() => {});
-      // Sonst bliebe das Angebot verschwunden, bis die Verbindung neu aufgebaut wird.
-      await neuVerbinden(ep, p.anbieter);
-    }
-    await invoke("remove_unused_abo_dir", { path: ziel }).catch(() => {});
-  }
+  const w = await inhaltVomWaechter(p.folderId);
+  return w ? { baum: w.baum, globalBytes: w.globalBytes } : { baum: [], globalBytes: 0 };
 }
 
 /** Baum eines Ordners, den dieser Rechner schon führt. */
