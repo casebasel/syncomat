@@ -273,6 +273,23 @@ async function aboStartenEinmal(
 export const INHALT_LABEL = "syncomat-inhalt";
 export const istInhaltOrdner = (f: Pick<Folder, "label">) => f.label === INHALT_LABEL;
 
+/** Liegengebliebene Inhalt-Ordner wegräumen (z. B. App beendet, während der
+ * Ordnerbaum geholt wurde). Sie tragen die echte Ordner-ID, darum bot Syncthing
+ * das Projekt nicht mehr an und es verschwand aus der Übersicht (Mac,
+ * 13.11.2026). Nur Ordner mit INHALT_LABEL, die gerade niemand benutzt. */
+export async function inhaltResteAufraeumen(ep: Endpoint): Promise<number> {
+  const cfg = await getConfig(ep);
+  let n = 0;
+  for (const f of cfg.folders.filter((x) => istInhaltOrdner(x) && !istGesperrt(x.id))) {
+    await deleteFolder(ep, f.id).catch(() => {});
+    await invoke("remove_unused_abo_dir", { path: f.path }).catch(() => {});
+    const andere = f.devices.map((d) => d.deviceID).filter((id) => cfg.devices.some((d) => d.deviceID === id));
+    await neuVerbinden(ep, andere).catch(() => {});
+    n++;
+  }
+  return n;
+}
+
 /** Ordnerbaum eines Projekts, das dieser Rechner NICHT führt (z. B. um die
  * Auswahl für einen anderen Rechner zu bestimmen): kurz einen Ordner in den
  * App-Daten anlegen, der alles ignoriert, Inhaltsverzeichnis abwarten, Baum

@@ -63,7 +63,7 @@ import { useInternFolder } from "./lib/internChannel";
 import { isAboFolderId, useDatenzentrale } from "./lib/datenzentrale";
 import { useAboAusfuehrung, useGeraeteRolle } from "./lib/abo";
 import { useStatusDatei } from "./lib/statusDatei";
-import { aboBeenden, alleHabenAlles, istInhaltOrdner, setzeNasGeraete, setzeVeraltet } from "./lib/nasProjekte";
+import { aboBeenden, alleHabenAlles, inhaltResteAufraeumen, istInhaltOrdner, setzeNasGeraete, setzeVeraltet } from "./lib/nasProjekte";
 import { nasBestaetigt, ordnerMitWartenden, protokolliere, useActivityListener } from "./lib/activity";
 import { useKonfliktkopienWegraeumen } from "./lib/conflicts";
 import { usePapierkorb } from "./lib/papierkorb";
@@ -309,6 +309,17 @@ function App() {
     (c) => c.connected && !!c.address && c.address.replace(/^\w+:\/\//, "").startsWith(fastSubnet.subnet),
   );
   usePrefer10GbE_apply(endpoint, ready, devices, prefer10.enabled, netHints, imStudio, fastSubnet.subnet);
+  // Liegengebliebene Inhalt-Ordner (Ordnerbaum holen) beim Start und alle 10 min wegräumen.
+  useEffect(() => {
+    if (!endpoint || !ready) return;
+    const lauf = () => void inhaltResteAufraeumen(endpoint).catch(() => {});
+    const erst = setTimeout(lauf, 20_000);
+    const t = setInterval(lauf, 10 * 60_000);
+    return () => {
+      clearTimeout(erst);
+      clearInterval(t);
+    };
+  }, [endpoint?.url, ready]);
   // Vorstellungen nie zurücknehmen (sonst ent-/neu-teilen und Index-Neustart).
   useVorstellungenBehalten(endpoint, ready, devices, myID);
   const datenzentrale = useDatenzentrale();
