@@ -16,7 +16,7 @@ const HINTS_DIR: &str = "net-hints";
 /// Weitere Arten von Pro-Gerät-Dateien nach demselben Muster (eine Datei pro
 /// Node unter `.syncomat/<art>/<deviceID>.json`). Feste Liste: das Frontend darf
 /// keine beliebigen Pfade wählen.
-const NOTE_KINDS: &[&str] = &["update", "abos", "wunsch"];
+const NOTE_KINDS: &[&str] = &["update", "abos", "wunsch", "neu"];
 
 fn note_dir(kind: &str) -> Result<&'static str, String> {
     NOTE_KINDS

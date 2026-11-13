@@ -88,6 +88,7 @@ export function useWaechterKanal({
   const stand = useRef({ config, imStudio, hubIds });
   stand.current = { config, imStudio, hubIds };
   const busy = useRef(false);
+  const letzteNeue = useRef<string | null>(null);
 
   useEffect(() => {
     if (!ep || !ready || !myID) return;
@@ -134,6 +135,28 @@ export function useWaechterKanal({
         if (cancelled) return;
         setListe(l);
         if (!l) return;
+
+        // 2b) Neue Rechner melden: bekannt (z. B. per Code gekoppelt), aber nicht
+        // in geraete.json. Der Wächter liest das am Hub mit und fragt Marlon
+        // „Neuen Rechner aufnehmen?“ — ohne seinen Klick kommt keiner ins Studio.
+        const neue = config.devices
+          .filter((d) => d.deviceID !== myID && !hubIds.has(d.deviceID) && !l.geraete.some((g) => g.id === d.deviceID))
+          .map((d) => ({ id: d.deviceID, name: d.name || d.deviceID.slice(0, 7), adressen: d.addresses }))
+          .sort((a, b) => a.id.localeCompare(b.id));
+        const neuKey = JSON.stringify(neue);
+        if (neuKey !== letzteNeue.current) {
+          const intern = await invoke<string>("intern_folder_path").catch(() => null);
+          if (intern) {
+            await invoke("device_note_write", {
+              folderPath: intern,
+              kind: "neu",
+              deviceId: myID,
+              content: JSON.stringify({ schema: 1, by: myID, at: Date.now(), neue }),
+            })
+              .then(() => (letzteNeue.current = neuKey))
+              .catch((e) => console.warn("[waechter] neue Rechner melden", e));
+          }
+        }
 
         // 3) Geräte eintragen / Adressen setzen / ausdrücklich entfernte nehmen.
         for (const g of l.geraete) {
