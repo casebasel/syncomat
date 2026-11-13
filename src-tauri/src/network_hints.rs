@@ -136,3 +136,37 @@ pub fn intern_folder_path(app: tauri::AppHandle) -> Result<String, String> {
     fs::create_dir_all(&dir).map_err(|e| format!("mkdir {}: {e}", dir.display()))?;
     Ok(dir.to_string_lossy().into_owned())
 }
+
+/// Ordner des Kanals `syncomat-waechter` (nur lesen: der Wächter schreibt am
+/// Hub, die Rechner empfangen). Wie der interne Kanal im App-Datenordner.
+#[tauri::command]
+pub fn waechter_folder_path(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("app_data_dir: {e}"))?
+        .join("waechter");
+    fs::create_dir_all(&dir).map_err(|e| format!("mkdir {}: {e}", dir.display()))?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
+/// Eine Datei aus dem Wächter-Kanal lesen: nur `geraete.json` oder
+/// `inhalt/<folder-id>.json`; None, wenn es sie (noch) nicht gibt.
+#[tauri::command]
+pub fn waechter_lesen(app: tauri::AppHandle, rel: String) -> Result<Option<String>, String> {
+    let erlaubt = rel == "geraete.json"
+        || (rel.starts_with("inhalt/")
+            && rel.ends_with(".json")
+            && rel["inhalt/".len()..rel.len() - 5]
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'));
+    if !erlaubt {
+        return Err(format!("nicht erlaubt: {rel}"));
+    }
+    let p = Path::new(&waechter_folder_path(app)?).join(&rel);
+    match fs::read_to_string(&p) {
+        Ok(s) => Ok(Some(s)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(format!("{}: {e}", p.display())),
+    }
+}

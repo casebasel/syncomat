@@ -268,6 +268,8 @@ export function usePrefer10GbE_apply(
   /** Dieser Rechner ist gerade selbst im schnellen Netz (Studio). */
   imStudio = false,
   fastSubnet = getFastSubnet(),
+  /** true: die Adressen setzt geraete.json des Wächters — hier nichts tun. */
+  ruhen = false,
 ): void {
   const appliedRef = useRef<Record<DeviceID, string>>({});
 
@@ -278,7 +280,7 @@ export function usePrefer10GbE_apply(
   const hintsKey = JSON.stringify(hints);
 
   useEffect(() => {
-    if (!ep || !ready) return;
+    if (!ep || !ready || ruhen) return;
     let cancelled = false;
 
     (async () => {
@@ -334,5 +336,5 @@ export function usePrefer10GbE_apply(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ep?.url, ep?.api_key, ready, enabled, devKey, hintsKey, imStudio, fastSubnet]);
+  }, [ep?.url, ep?.api_key, ready, enabled, devKey, hintsKey, imStudio, fastSubnet, ruhen]);
 }

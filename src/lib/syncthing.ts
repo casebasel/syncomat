@@ -143,6 +143,13 @@ export const MAX_CONFLICTS = 0;
  * Ordner angezeigt. Siehe lib/internChannel.ts. */
 export const INTERN_FOLDER_ID = "syncomat-intern";
 
+/** Kanal des Speicher-Wächters (geraete.json, inhalt/…): am Hub sendonly,
+ * auf jedem Rechner receiveonly im App-Datenordner. Siehe lib/waechterKanal.ts. */
+export const WAECHTER_FOLDER_ID = "syncomat-waechter";
+
+/** Ordner von syncomat selbst — nie als Nutzer-Ordner zeigen oder teilen. */
+export const istSystemOrdner = (id: string) => id === INTERN_FOLDER_ID || id === WAECHTER_FOLDER_ID;
+
 /** Ordner-Fehler aus dem Status, oder null. Immer hierüber prüfen, nie nur
  * `state` oder `errors` (das sind Datei-Fehler). */
 export function folderError(s: FolderStatus | null | undefined): string | null {

@@ -5,7 +5,7 @@ import {
   type Endpoint,
   type Folder,
 } from "./syncthing";
-import { INTERN_FOLDER_ID } from "./syncthing";
+import { istSystemOrdner } from "./syncthing";
 import { isAboFolderId } from "./datenzentrale";
 
 /**
@@ -13,11 +13,10 @@ import { isAboFolderId } from "./datenzentrale";
  * Pending-Banner (App.tsx) UND vom Code-Anzeigen-Flow (CodeShowModal), damit beide
  * Wege identisch sind. Macht drei Dinge in fester Reihenfolge:
  *
- *   1. Gerät zur Syncthing-Config hinzufügen — introducer:true: es stellt seine
- *      Peers vor, sodass ein neu gekoppeltes Gerät den GANZEN Cluster bekommt.
- *   2. Alle eigenen Ordner sofort mit dem Gerät teilen. Die Auto-Share-
- *      Reconciliation (App.tsx) hält das danach clusterweit aktuell — Marlons
- *      Modell „ein Gerät koppeln → alles im Umlauf bekommen".
+ *   1. Gerät zur Syncthing-Config hinzufügen — ohne Introducer (seit 13.11.2026;
+ *      die übrigen Geräte kommen fest aus geraete.json des Wächters).
+ *   2. Die eigenen Ordner mit dem Gerät teilen (einmalig beim Koppeln; ein
+ *      automatisches Nachteilen an alle gibt es nicht mehr).
  *   3. Pending-Eintrag wegräumen, damit das Banner nicht nachhallt.
  */
 export async function acceptDevice(
@@ -29,7 +28,8 @@ export async function acceptDevice(
     deviceID: pd.deviceID,
     name: pd.name || pd.deviceID.slice(0, 7),
     addresses: ["dynamic"],
-    introducer: true,
+    // Kein Introducer mehr (13.11.2026): Geräte kommen fest aus geraete.json.
+    introducer: false,
     skipIntroductionRemovals: true,
     autoAcceptFolders: false,
     paused: false,
@@ -40,7 +40,7 @@ export async function acceptDevice(
   // pflegt seine Geräte selbst — beide nie hier an ein neues Gerät teilen.
   await Promise.allSettled(
     folders
-      .filter((f) => !isAboFolderId(f.id) && f.id !== INTERN_FOLDER_ID)
+      .filter((f) => !isAboFolderId(f.id) && !istSystemOrdner(f.id))
       .map((f) => {
       if (f.devices.some((d) => d.deviceID === pd.deviceID)) {
         return Promise.resolve();

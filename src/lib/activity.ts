@@ -134,7 +134,7 @@ export function nasBestaetigt(folderId: string, bis: number) {
  */
 /** Eigene Steuerdateien von syncomat (interner Kanal, Notizen) gehören nicht ins Protokoll. */
 const intern = (folderId: string, path: string) =>
-  folderId === "syncomat-intern" || path === ".syncomat" || path.startsWith(".syncomat/") || path.startsWith(".syncomat\\");
+  folderId === "syncomat-intern" || folderId === "syncomat-waechter" || path === ".syncomat" || path.startsWith(".syncomat/") || path.startsWith(".syncomat\\");
 
 function handleSyncEvent(e: SyncEvent) {
   if (e.type === "ItemFinished") {

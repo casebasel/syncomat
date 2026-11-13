@@ -94,9 +94,8 @@ export async function* executeRedemption(
     deviceID: payload.iss,
     name: peerName,
     addresses,
-    // introducer: true — der Einlader stellt uns seine anderen Geräte vor, sodass
-    // wir dem ganzen Cluster beitreten („alles im Umlauf bekommen").
-    introducer: true,
+    // Kein Introducer mehr (13.11.2026): Geräte kommen fest aus geraete.json.
+    introducer: false,
     skipIntroductionRemovals: true,
     autoAcceptFolders: false,
     paused: true,

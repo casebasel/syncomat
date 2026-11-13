@@ -9,7 +9,7 @@ import {
   patchDevice,
   putFolder,
   scanAllFolders,
-  INTERN_FOLDER_ID,
+  istSystemOrdner,
   getFolderStatus,
   MAX_CONFLICTS,
   useAggregateStatus,
@@ -43,7 +43,7 @@ import {
   useNotificationsEnabled,
 } from "./lib/notifications";
 import { useAutostart } from "./lib/autostart";
-import { useKonfliktEinstellung, useSyncMaintenance, useVorstellungenBehalten } from "./lib/maintenance";
+import { useKonfliktEinstellung, useSyncMaintenance } from "./lib/maintenance";
 import { CodeRedeemModal } from "./components/CodeRedeemModal";
 import { CodeShowModal } from "./components/CodeShowModal";
 import { CreateFolderModal } from "./components/CreateFolderModal";
@@ -71,6 +71,7 @@ import { useWuensche } from "./lib/wuensche";
 import { useAusgeblendet } from "./lib/ausgeblendet";
 import { useVersionsSchutz } from "./lib/versionsSchutz";
 import { useMarkenWaechter } from "./lib/marke";
+import { useWaechterKanal } from "./lib/waechterKanal";
 import {
   setFolderIgnores,
   tuneFolderForSize,
@@ -119,7 +120,7 @@ function App() {
   // Der interne Kanal (syncomat-intern) ist kein Nutzer-Ordner: nirgends
   // anzeigen, nicht warten, nicht auto-sharen (er pflegt seine Geräte selbst).
   const folders = useMemo(
-    () => (config.data?.folders ?? []).filter((f) => f.id !== INTERN_FOLDER_ID && !istInhaltOrdner(f)),
+    () => (config.data?.folders ?? []).filter((f) => !istSystemOrdner(f.id) && !istInhaltOrdner(f)),
     [config.data?.folders],
   );
   const devices = config.data?.devices ?? [];
@@ -132,7 +133,7 @@ function App() {
     // Auftrag der Datenzentrale, mit Platz- und Laufwerksprüfung.
     () =>
       (pendingFolders.data ?? []).filter(
-        (p) => p.folderID !== INTERN_FOLDER_ID && !isAboFolderId(p.folderID),
+        (p) => !istSystemOrdner(p.folderID) && !isAboFolderId(p.folderID),
       ),
     [pendingFolders.data],
   );
@@ -171,59 +172,20 @@ function App() {
     getVersion().then(setVersion).catch(() => {});
   }, []);
 
-  // ── Marlons Modell: "ein Gerät koppeln → alles im Umlauf bekommen" ──
-  // Drei Automatiken, die genau das liefern. (In #1 entfernt um Bug-bedingte
-  // Überraschungen zu stoppen — aber die Bugs (Config-Wipe, Geister-Delete,
-  // Geister-Konflikte) sind seit v0.8.5–v0.9.1 gefixt. Auf dem stabilen Cluster
-  // tun diese drei jetzt sauber ihren Job: Vollvernetzung + alles-überall.)
-
-  // 1) Auto-Share-Reconciliation: jeder Ordner wird mit ALLEN bekannten Geräten
-  // geteilt. So bekommt ein neu gekoppeltes Gerät automatisch alle Ordner im
-  // Umlauf angeboten. putFolder ist idempotent, Syncthing dedupliziert devices[].
-  useEffect(() => {
-    if (!endpoint || !ready || !config.data || !myID) return;
-    // Nur Ordner „an alle“: nicht der interne Kanal, nie Abo-Ordner (dz-…) —
-    // ein abonniertes Projekt gehört nur den abonnierten Rechnern (E6, E28).
-    const allFolders = config.data.folders.filter(
-      (f) => f.id !== INTERN_FOLDER_ID && !isAboFolderId(f.id),
-    );
-    const peerIDs = config.data.devices
-      .filter((d) => d.deviceID !== myID)
-      .map((d) => d.deviceID);
-    if (peerIDs.length === 0 || allFolders.length === 0) return;
-    for (const f of allFolders) {
-      const missing = peerIDs.filter(
-        (id) => !f.devices.some((d) => d.deviceID === id),
-      );
-      if (missing.length === 0) continue;
-      const updated = {
-        ...f,
-        devices: [...f.devices, ...missing.map((id) => ({ deviceID: id }))],
-      };
-      putFolder(endpoint, updated).catch((e) => {
-        console.warn(`[auto-share] reconciliation failed for ${f.id}`, e);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    endpoint?.url,
-    endpoint?.api_key,
-    ready,
-    myID,
-    config.data?.folders.map((f) => `${f.id}|${f.devices.length}`).join(","),
-    config.data?.devices.map((d) => d.deviceID).join(","),
-  ]);
-
-  // 2) Introducer-Migration: jedes Peer-Gerät als introducer markieren, damit der
-  // Cluster sich bei jedem Pairing selbst vervollständigt (A stellt B und C
-  // gegenseitig vor → Mesh statt Stern). Idempotent: PATCH nur wenn noch nicht
-  // gesetzt; der dep-key enthält das introducer-Flag → kein Loop nach dem Flip.
+  // ── Geräte und Freigaben (Marlon 13.11.2026, „alles der Reihe nach“) ──
+  // Bis v0.9.44 gab es hier zwei Automatiken aus der Zeit „alles an alle“:
+  // jeden Ordner an jedes Gerät teilen und jedes Gerät als Introducer
+  // markieren. Gegenseitige Introducer haben Projekte ab- und wieder freigegeben
+  // (Index-Neustart, Fortschritt sprang zurück). Jetzt: kein Introducer, kein
+  // automatisches Teilen — welche Geräte es gibt und unter welcher Adresse,
+  // steht fest in geraete.json des Wächters (lib/waechterKanal.ts); Projekte
+  // und Plugins teilt der Hub. Hier nur noch: Introducer überall aus.
   useEffect(() => {
     if (!endpoint || !ready || !config.data || !myID) return;
     for (const d of config.data.devices) {
-      if (d.deviceID === myID || d.introducer) continue;
-      patchDevice(endpoint, d.deviceID, { introducer: true }).catch((e) => {
-        console.warn(`[introducer-migration] failed for ${d.deviceID.slice(0, 7)}`, e);
+      if (d.deviceID === myID || (!d.introducer && d.skipIntroductionRemovals === true)) continue;
+      patchDevice(endpoint, d.deviceID, { introducer: false, skipIntroductionRemovals: true }).catch((e) => {
+        console.warn(`[geraete] introducer aus: ${d.deviceID.slice(0, 7)}`, e);
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -232,7 +194,7 @@ function App() {
     endpoint?.api_key,
     ready,
     myID,
-    config.data?.devices.map((d) => `${d.deviceID}|${d.introducer}`).join(","),
+    config.data?.devices.map((d) => `${d.deviceID}|${d.introducer}|${d.skipIntroductionRemovals}`).join(","),
   ]);
 
   // 3) Auto-Accept nach Code: hat dieses Gerät kürzlich einen Einladungs-Code
@@ -308,7 +270,6 @@ function App() {
   const imStudio = Object.values(connectionsByID).some(
     (c) => c.connected && !!c.address && c.address.replace(/^\w+:\/\//, "").startsWith(fastSubnet.subnet),
   );
-  usePrefer10GbE_apply(endpoint, ready, devices, prefer10.enabled, netHints, imStudio, fastSubnet.subnet);
   // Liegengebliebene Inhalt-Ordner (Ordnerbaum holen) beim Start und alle 10 min wegräumen.
   useEffect(() => {
     if (!endpoint || !ready) return;
@@ -320,8 +281,6 @@ function App() {
       clearInterval(t);
     };
   }, [endpoint?.url, ready]);
-  // Vorstellungen nie zurücknehmen (sonst ent-/neu-teilen und Index-Neustart).
-  useVorstellungenBehalten(endpoint, ready, devices, myID);
   const datenzentrale = useDatenzentrale();
   const geraeteRolle = useGeraeteRolle();
   const dzGueltig =
@@ -358,6 +317,17 @@ function App() {
   const myName = devices.find((d) => d.deviceID === myID)?.name?.trim() || datenzentrale.state.computerName || "";
   // Das NAS = Geräte ohne syncomat (für „hat das NAS alles?“ vor jedem Löschen).
   useEffect(() => setzeNasGeraete(updateAll.noChannel), [updateAll.noChannel]);
+  // Geräte und Adressen fest aus geraete.json des Wächters (13.11.2026). Solange
+  // es die Liste nicht gibt, gilt weiter „10GbE bevorzugen“ (gelernte Adressen).
+  const geraeteListe = useWaechterKanal({
+    ep: endpoint,
+    ready,
+    config: config.data ?? null,
+    myID,
+    hubIds: updateAll.noChannel,
+    imStudio,
+  });
+  usePrefer10GbE_apply(endpoint, ready, devices, prefer10.enabled, netHints, imStudio, fastSubnet.subnet, !!geraeteListe);
   // Versionsschutz: zu alt → Projekt-Abos anhalten, Abläufe sperren, Update holen.
   useEffect(() => setzeVeraltet(updateAll.veraltet), [updateAll.veraltet]);
   useVersionsSchutz({ ep: endpoint, ready, folders: config.data?.folders ?? [], veraltet: updateAll.veraltet });

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { getConfig, INTERN_FOLDER_ID, putFolder, type Endpoint, type Folder, type FolderVersioning } from "./syncthing";
+import { getConfig, istSystemOrdner, putFolder, type Endpoint, type Folder, type FolderVersioning } from "./syncthing";
 
 // ── Lokaler Papierkorb (30 Tage) ─────────────────────────────────
 //
@@ -46,7 +46,7 @@ export function usePapierkorb(ep: Endpoint | null, ready: boolean, folders: Fold
     let cancelled = false;
     (async () => {
       for (const f of folders) {
-        if (cancelled || f.id === INTERN_FOLDER_ID) continue;
+        if (cancelled || istSystemOrdner(f.id)) continue;
         try {
           const ort = await invoke<string>("papierkorb_ordner", { folderPath: f.path, folderId: f.id });
           orte.set(f.id, ort);

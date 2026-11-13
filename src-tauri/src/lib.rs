@@ -142,6 +142,8 @@ pub fn run() {
             network_hints::device_note_write,
             network_hints::device_notes_read_all,
             network_hints::intern_folder_path,
+            network_hints::waechter_folder_path,
+            network_hints::waechter_lesen,
             datenzentrale::dz_credentials_parse,
             datenzentrale::dz_credentials_save,
             datenzentrale::dz_credentials_load,
