@@ -255,7 +255,19 @@ export function Uebersicht({
                   <span aria-hidden className="absolute top-1.5 right-2 size-1.5 rounded-full bg-[var(--sm-blau)]" />
                 )}
                 {(zelle.ungesichert || zelle.konflikte || zelle.dateifehler) && (
-                  <span aria-hidden className="absolute top-1 left-2 text-[11px] font-bold leading-none text-[var(--sm-ocker-text)]">!</span>
+                  <span
+                    aria-hidden
+                    title={[
+                      zelle.konflikte ? `${zelle.konflikte} ${zelle.konflikte === 1 ? "Konflikt" : "Konflikte"}` : "",
+                      zelle.dateifehler ? `${zelle.dateifehler} Datei(en) mit Fehler` : "",
+                      zelle.ungesichert ? `${zelle.ungesichert.anzahl} Datei(en) nicht gesichert` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    className="absolute top-1 left-2 text-[11px] font-bold leading-none text-[var(--sm-ocker-text)]"
+                  >
+                    !
+                  </span>
                 )}
                 {arbeitet ? (
                   <Loader2 className="size-3.5 animate-spin text-[var(--sm-blau)]" aria-label="arbeitet" />
