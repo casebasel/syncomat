@@ -141,6 +141,19 @@ components:
     width: "{spacing.feld-breite}"
 ---
 
+> **Grundlage: Design System „Filmstudio Stage“** (Marlon 15.11.2026) —
+> https://claude.ai/artifact/DLVnnCHU46neKXpxK6adYK · vor UI-Arbeit dort
+> `project/README.md` und `project/tokens.json` lesen (Artifact-Tool, `action: read` mit `path`).
+> syncomat gehört zur Familie **Datenzentrale**; die `--sm-*`-Variablen in `src/App.css`
+> entsprechen 1:1 den `zentrale-*`- und Signal-Tokens (geprüft 15.11.2026, alle Werte gleich;
+> `--sm-auf-blau` = `zentrale-auf-blau`). Neue gemeinsame Regeln entstehen nur in
+> `stage-system/DESIGN-GEMEINSAM.md`; dieses Dokument hält nur syncomats Abweichungen.
+> Widersprüche an stage-system melden, nie im Artefakt selbst ändern.
+>
+> Bekannte Abweichungen (Stand 15.11.2026): kein eigener Umschalter System · Hell · Dunkel
+> (folgt nur dem System); ältere Dialoge nutzen noch Tailwind `bg-blue-600`; Lucide oft 14 px
+> statt 16 px; Titel 16 px statt `zentrale-titel` 15 px.
+
 # Design System: syncomat
 
 ## Overview
