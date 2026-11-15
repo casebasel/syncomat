@@ -32,7 +32,7 @@ export function Leiste({
       <Icon className="size-[18px]" strokeWidth={1.75} />
       {label}
       {marke && (
-        <span className={`sm-zahl absolute top-1.5 right-2.5 min-w-4 h-4 px-1 rounded-full text-[11px] leading-4 font-bold ${info ? "bg-[var(--sm-blau)] text-white" : "bg-[var(--sm-kopf-warn)] text-black"}`}>
+        <span className={`sm-zahl absolute top-1.5 right-2.5 min-w-4 h-4 px-1 rounded-full text-[11px] leading-4 font-bold ${info ? "bg-[var(--sm-blau)] text-[var(--sm-auf-blau)]" : "bg-[var(--sm-kopf-warn)] text-black"}`}>
           {marke}
         </span>
       )}
@@ -41,7 +41,7 @@ export function Leiste({
   return (
     <nav aria-label="Bereiche" className="w-[92px] shrink-0 flex flex-col bg-[var(--sm-kopf)] border-r border-black">
       <div className="h-12 flex items-center justify-center">
-        <div title="syncomat" className="size-7 rounded-md bg-[var(--sm-blau)] flex items-center justify-center text-white">
+        <div title="syncomat" className="size-7 rounded-md bg-[var(--sm-blau)] flex items-center justify-center text-[var(--sm-auf-blau)]">
           <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
             <path d="M3 3v5h5" />

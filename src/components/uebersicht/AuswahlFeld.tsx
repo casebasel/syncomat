@@ -416,7 +416,7 @@ export function AuswahlFeld({
                 </p>
                 <button
                   onClick={() => void wurzelWaehlen()}
-                  className="h-7 px-2.5 rounded-md bg-[var(--sm-blau)] text-white text-[13px] font-semibold"
+                  className="h-7 px-2.5 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] text-[13px] font-semibold"
                 >
                   Ordner wählen …
                 </button>
@@ -451,7 +451,7 @@ export function AuswahlFeld({
             {spalte.ich && aktionen && (
               <div className="flex flex-wrap gap-2 pt-0.5">
                 {aktionen.fortsetzen && (
-                  <button onClick={aktionen.fortsetzen} className="h-7 px-2.5 rounded-md bg-[var(--sm-blau)] text-white text-[13px] font-semibold">
+                  <button onClick={aktionen.fortsetzen} className="h-7 px-2.5 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] text-[13px] font-semibold">
                     Fortsetzen
                   </button>
                 )}
@@ -609,7 +609,7 @@ export function AuswahlFeld({
               onClick={() => void hierUebernehmen()}
               disabled={!kannHier || !!busy || leer || !geaendert || laeuftHier || (!zeile.hier && !zeile.angebot)}
               aria-busy={!!busy}
-              className={`flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-white text-[14px] font-semibold inline-flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)] ${busy ? "cursor-progress" : "disabled:opacity-40"}`}
+              className={`flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] text-[14px] font-semibold inline-flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)] ${busy ? "cursor-progress" : "disabled:opacity-40"}`}
             >
               {busy ? (
                 <>
@@ -632,7 +632,7 @@ export function AuswahlFeld({
                 }
               }}
               disabled={!kannFern || leer || (!geaendert && !offenerWunsch) || (fsFalsch && !abonniert)}
-              className="flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-white text-[14px] font-semibold disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
+              className="flex-1 h-8 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] text-[14px] font-semibold disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
             >
               An {spalte.name} senden
             </button>

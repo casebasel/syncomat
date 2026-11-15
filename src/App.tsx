@@ -551,7 +551,7 @@ function App() {
           </div>
           <button
             onClick={() => (updater.state.kind === "available" ? updater.installAndRestart() : updater.recheck())}
-            className="shrink-0 h-8 px-3 rounded-md bg-[var(--sm-blau)] text-white text-[13px] font-semibold"
+            className="shrink-0 h-8 px-3 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] text-[13px] font-semibold"
           >
             {updater.state.kind === "downloading" ? "Lädt …" : updater.state.kind === "checking" ? "Prüft …" : "Jetzt aktualisieren"}
           </button>
@@ -586,7 +586,7 @@ function App() {
               </button>
               <button
                 onClick={() => onAcceptDevice(pd)}
-                className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[var(--sm-blau)] text-white hover:brightness-110"
+                className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:brightness-110"
               >
                 Akzeptieren
               </button>

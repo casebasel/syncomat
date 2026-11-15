@@ -50,7 +50,7 @@ export function OrdnerAnAlle({
           </p>
           <button
             onClick={onAnlegen}
-            className="shrink-0 h-8 px-3 rounded-md bg-[var(--sm-blau)] text-white text-[14px] font-semibold inline-flex items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
+            className="shrink-0 h-8 px-3 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] text-[14px] font-semibold inline-flex items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
           >
             <Plus className="size-3.5" strokeWidth={2.5} />
             Ordner an alle
@@ -82,7 +82,7 @@ export function OrdnerAnAlle({
                 <button
                   onClick={a.onAnnehmen}
                   disabled={!!busy}
-                  className="h-7 px-3 rounded-md bg-[var(--sm-blau)] text-white text-[13px] font-semibold disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
+                  className="h-7 px-3 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] text-[13px] font-semibold disabled:opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
                 >
                   Annehmen …
                 </button>

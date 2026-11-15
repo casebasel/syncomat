@@ -14,6 +14,9 @@
   --sm-kopf-text: #ffffff;
   --sm-kopf-text2: #b8bec8;
   --sm-blau: oklch(0.55 0.2 262);
+  /* Text auf der blauen Handlung (DESIGN-GEMEINSAM 15.11.2026, zentrale-auf-blau):
+     tags Weiss (5,0:1), nachts fast Schwarz (6,1:1 statt 3,2:1 mit Weiss). */
+  --sm-auf-blau: #ffffff;
   --sm-blau-flaeche: oklch(0.95 0.03 262);
   --sm-ocker: oklch(0.490 0.115 70); /* warn (Tag), DESIGN-GEMEINSAM */
   /* Auf dem schwarzen Kopf und der Leiste immer der Nacht-Wert von warn. */
@@ -39,7 +42,8 @@
     --sm-kopf: #000000;
     --sm-kopf-text: #ffffff;
     --sm-kopf-text2: #9aa1ac;
-    --sm-blau: oklch(0.66 0.17 262);
+    --sm-blau: oklch(0.66 0.17 262); /* ≈ #568EF9, Datenzentrale-Blau Nacht */
+    --sm-auf-blau: #0e0f12;
     --sm-blau-flaeche: oklch(0.27 0.06 262);
     --sm-ocker: oklch(0.820 0.140 80); /* warn (Nacht), DESIGN-GEMEINSAM */
     --sm-gruen: oklch(0.760 0.150 150);
