@@ -223,9 +223,9 @@ export function FolderSettingsModal({
       <button
         onClick={save}
         disabled={busy}
-        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5 shrink-0"
       >
-        {busy && <Loader2 className="size-3.5 animate-spin" />}
+        {busy && <Loader2 className="size-4 animate-spin" />}
         Speichern
       </button>
     </div>
@@ -247,9 +247,9 @@ export function FolderSettingsModal({
         className="text-xs font-medium px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
       >
         {busy ? (
-          <Loader2 className="size-3.5 animate-spin" />
+          <Loader2 className="size-4 animate-spin" />
         ) : (
-          <Trash2 className="size-3.5" />
+          <Trash2 className="size-4" />
         )}
         Entfernen
       </button>
@@ -300,37 +300,37 @@ export function FolderSettingsModal({
           </div>
         </div>
 
-        {/* Performance-Tuning für existierende Folders. Misst Größe + Workload-
+        {/* Performance-Tuning für existierende Folders. Misst Grösse + Workload-
             Typ, schlägt fsWatcher/Rescan/Block-/Hasher-Defaults + .stignore-
             Preset vor. Identische Logik wie im CreateFolderModal, aber für
             nachträgliches Tunen wenn der Folder gewachsen ist oder die App
             ohne Preset angelegt wurde. */}
         <details className="pt-3 border-t border-neutral-200 dark:border-neutral-800">
-          <summary className="cursor-pointer text-xs text-blue-600 dark:text-blue-400 select-none hover:underline flex items-center gap-1.5">
-            <Sparkles className="size-3.5" />
+          <summary className="cursor-pointer text-xs text-[var(--sm-blau)] select-none hover:underline flex items-center gap-1.5">
+            <Sparkles className="size-4" />
             Performance optimieren
           </summary>
           <div className="mt-2 space-y-2 text-xs">
             {tuneState.kind === "idle" && (
               <>
                 <p className="text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                  Misst Ordnergröße + Datei-Anzahl, erkennt Unreal/Node-Projekt
+                  Misst Ordnergrösse + Datei-Anzahl, erkennt Unreal/Node-Projekt
                   und schlägt optimierte Syncthing-Settings vor (Scan-Intervall,
                   FS-Watcher, Block-/Hasher-Anzahl, optional .stignore-Preset).
                 </p>
                 <button
                   onClick={runTune}
-                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1.5"
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 flex items-center gap-1.5"
                 >
-                  <Sparkles className="size-3.5" />
+                  <Sparkles className="size-4" />
                   Analysieren
                 </button>
               </>
             )}
             {tuneState.kind === "estimating" && (
               <div className="flex items-center gap-2 text-neutral-500">
-                <Loader2 className="size-3.5 animate-spin" />
-                Schätze Größe…
+                <Loader2 className="size-4 animate-spin" />
+                Schätze Grösse…
               </div>
             )}
             {tuneState.kind === "ready" && (
@@ -352,7 +352,7 @@ export function FolderSettingsModal({
                 </div>
                 <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
                   Tuning passt Syncthing-Ordner-Einstellungen an die gemessene
-                  Größe an. Bei Unreal: optional auch das .stignore-Preset
+                  Grösse an. Bei Unreal: optional auch das .stignore-Preset
                   (Empfehlung — spart pro Maschine 10-50 GB).
                 </p>
                 <div className="flex gap-1.5 flex-wrap">
@@ -364,7 +364,7 @@ export function FolderSettingsModal({
                   </button>
                   <button
                     onClick={() => applyTune(true)}
-                    className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                    className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90"
                   >
                     Tuning + .stignore-Preset
                   </button>
@@ -373,7 +373,7 @@ export function FolderSettingsModal({
             )}
             {tuneState.kind === "applying" && (
               <div className="flex items-center gap-2 text-neutral-500">
-                <Loader2 className="size-3.5 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
                 Wende an…
               </div>
             )}
@@ -411,7 +411,7 @@ export function FolderSettingsModal({
               onClick={() => setConfirmRemove(true)}
               className="mt-3 text-xs font-medium px-3 py-1.5 rounded-lg border border-rose-300 dark:border-rose-500/40 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-1.5"
             >
-              <XCircle className="size-3.5" />
+              <XCircle className="size-4" />
               Verknüpfung entfernen…
             </button>
           </details>
@@ -475,7 +475,7 @@ function ToggleRow({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`shrink-0 mt-1 relative w-9 h-5 rounded-full transition-colors ${
-          checked ? "bg-blue-600" : "bg-neutral-300 dark:bg-neutral-700"
+          checked ? "bg-[var(--sm-blau)]" : "bg-neutral-300 dark:bg-neutral-700"
         }`}
       >
         <span

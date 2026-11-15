@@ -131,14 +131,14 @@ export function GlobalActivityView({
           <FolderOpen className="size-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold text-neutral-900 dark:text-neutral-100">
+          <h1 className="text-[15px] font-bold text-neutral-900 dark:text-neutral-100">
             Alle Ordner
           </h1>
           <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 tabular-nums">
             {folders.length} Ordner · {fmtSize(totals.bytes)} ·{" "}
             {fmtCount(totals.files)} Dateien
             {totals.syncing > 0 && (
-              <span className="text-blue-600 dark:text-blue-400">
+              <span className="text-[var(--sm-blau)]">
                 {" "}
                 · {totals.syncing} syncen ({fmtSize(totals.needBytes)})
               </span>
@@ -286,7 +286,7 @@ function StatusPill({
     color === "rose"
       ? "bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300"
       : color === "blue"
-        ? "bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
+        ? "bg-[var(--sm-blau-flaeche)] text-[var(--sm-blau)]"
         : "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300";
   return (
     <span
@@ -314,14 +314,14 @@ function FolderStatRow({
     state === "error"
       ? "bg-rose-500"
       : state === "syncing"
-        ? "bg-blue-500 animate-pulse"
+        ? "bg-[var(--sm-blau)] animate-pulse"
         : state === "paused"
           ? "bg-neutral-400"
           : "bg-emerald-500";
   return (
     <button
       onClick={() => onSelect(folder)}
-      className="w-full px-3 py-2 flex items-center gap-2.5 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/40 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+      className="w-full px-3 py-2 flex items-center gap-2.5 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/40 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
     >
       <span className={`size-2 rounded-full shrink-0 ${dot}`} />
       <span className="text-[13px] font-medium text-neutral-800 dark:text-neutral-100 truncate flex-1">
@@ -332,7 +332,7 @@ function FolderStatRow({
       </span>
       <span className="text-[11px] tabular-nums shrink-0 w-28 text-right">
         {state === "syncing" ? (
-          <span className="text-blue-600 dark:text-blue-400">
+          <span className="text-[var(--sm-blau)]">
             lädt {fmtSize(needBytes)}
           </span>
         ) : state === "error" ? (
@@ -378,7 +378,7 @@ function ActivityRow({
         {fmtActivityTime(event.ts)}
       </span>
       <span className={`shrink-0 ${iconColor}`}>
-        <Icon className="size-3.5" />
+        <Icon className="size-4" />
       </span>
       <span className="text-[10px] text-neutral-500 dark:text-neutral-500 font-mono w-14 truncate shrink-0">
         {peerLabel}
@@ -386,7 +386,7 @@ function ActivityRow({
       {folder ? (
         <button
           onClick={() => onSelectFolder(folder)}
-          className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-medium shrink-0 hover:bg-blue-200 dark:hover:bg-blue-900/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--sm-blau-flaeche)] text-[var(--sm-blau)] font-medium shrink-0 hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           title="Ordner öffnen"
         >
           {folder.label || folder.id.slice(0, 7)}
@@ -451,19 +451,19 @@ function BuendelRow({
       <button
         onClick={() => setOffen(!offen)}
         aria-expanded={offen}
-        className="w-full px-3 py-2 flex items-center gap-3 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 focus-visible:outline-none"
+        className="w-full px-3 py-2 flex items-center gap-3 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
       >
         <span className="text-[10px] text-neutral-400 dark:text-neutral-500 w-12 font-mono shrink-0">
           {fmtActivityTime(b.bis)}
         </span>
         <span className={`shrink-0 ${directionColor(e0)}`}>
-          <Icon className="size-3.5" />
+          <Icon className="size-4" />
         </span>
         <span className="text-[10px] text-neutral-500 font-mono w-14 truncate shrink-0">
           {peers.length === 1 ? peers[0] : b.direction === "local" ? "hier" : ""}
         </span>
         {folder ? (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-medium shrink-0">
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--sm-blau-flaeche)] text-[var(--sm-blau)] font-medium shrink-0">
             {folder.label || folder.id.slice(0, 7)}
           </span>
         ) : (
@@ -511,7 +511,7 @@ function directionColor(e: ActivityEvent): string {
   if (e.action === "deleted") return "text-[var(--sm-text2)]";
   if (e.direction === "conflict" || e.action === "conflict")
     return "text-amber-600 dark:text-amber-400";
-  if (e.direction === "up") return "text-blue-500 dark:text-blue-400";
+  if (e.direction === "up") return "text-[var(--sm-blau)]";
   if (e.direction === "local") return "text-[var(--sm-text)]";
   return "text-emerald-500 dark:text-emerald-400";
 }

@@ -31,7 +31,7 @@ export function OrdnerAnAlle({
   return (
     <section className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[var(--sm-grund)] text-[var(--sm-text)]">
       <header className="h-12 shrink-0 px-5 flex items-center justify-between bg-[var(--sm-kopf)] text-[var(--sm-kopf-text)]">
-        <h1 className="text-[16px] font-bold">Ordner an alle</h1>
+        <h1 className="text-[15px] font-bold">Ordner an alle</h1>
         <p className="sm-zahl text-[14px] text-[var(--sm-kopf-text2)]">
           <span className="font-semibold text-[var(--sm-kopf-text)]">{ordner.length}</span> abgeglichen
           {angebote.length > 0 && (
@@ -52,7 +52,7 @@ export function OrdnerAnAlle({
             onClick={onAnlegen}
             className="shrink-0 h-8 px-3 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] text-[14px] font-semibold inline-flex items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--sm-blau)]"
           >
-            <Plus className="size-3.5" strokeWidth={2.5} />
+            <Plus className="size-4" strokeWidth={2.5} />
             Ordner an alle
           </button>
         </div>

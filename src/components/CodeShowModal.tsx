@@ -244,9 +244,9 @@ export function CodeShowModal({
             <button
               onClick={acceptIncoming}
               disabled={busy}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5"
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5"
             >
-              {busy && <Loader2 className="size-3.5 animate-spin" />}
+              {busy && <Loader2 className="size-4 animate-spin" />}
               Annehmen
             </button>
           </div>
@@ -268,7 +268,7 @@ export function CodeShowModal({
               {generated.quickCode.split("").map((digit, i) => (
                 <span
                   key={i}
-                  className="w-14 h-16 flex items-center justify-center rounded-xl border-2 border-blue-300 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-950/30 text-3xl font-bold tabular-nums text-blue-700 dark:text-blue-300"
+                  className="w-14 h-16 flex items-center justify-center rounded-xl border-2 border-[var(--sm-blau)] bg-[var(--sm-blau-flaeche)] text-3xl font-bold tabular-nums text-[var(--sm-blau)]"
                 >
                   {digit}
                 </span>
@@ -290,9 +290,9 @@ export function CodeShowModal({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-xs"
             >
               {copied ? (
-                <Check className="size-3.5 text-emerald-500" />
+                <Check className="size-4 text-emerald-500" />
               ) : (
-                <Copy className="size-3.5" />
+                <Copy className="size-4" />
               )}
               {copied ? "Kopiert" : "Code kopieren"}
             </button>
@@ -337,7 +337,7 @@ export function CodeShowModal({
               readOnly
               value={generated.raw}
               onClick={(e) => e.currentTarget.select()}
-              className="w-full font-mono text-[11px] p-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 break-all min-h-[140px] resize-none focus:outline-none focus:border-blue-500"
+              className="w-full font-mono text-[11px] p-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 break-all min-h-[140px] resize-none focus:outline-none focus:border-[var(--sm-blau)]"
             />
           )}
           <div className="flex items-center justify-between gap-2 text-xs text-neutral-500 dark:text-neutral-400">
@@ -348,14 +348,14 @@ export function CodeShowModal({
                 title={showQR ? "Als Text zeigen" : "Als QR-Code zeigen"}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
               >
-                <QrCode className="size-3.5" />
+                <QrCode className="size-4" />
                 {showQR ? "Text" : "QR"}
               </button>
               <button
                 onClick={copy}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
               >
-                {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+                {copied ? <Check className="size-4 text-emerald-500" /> : <Copy className="size-4" />}
                 {copied ? "Kopiert" : "Kopieren"}
               </button>
             </div>
@@ -391,7 +391,7 @@ export function CodeShowModal({
           <select
             value={expSeconds}
             onChange={(e) => setExpSeconds(parseInt(e.target.value, 10))}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-[var(--sm-blau)]"
           >
             {EXPIRY_OPTIONS.map((o) => (
               <option key={o.seconds} value={o.seconds}>
@@ -400,7 +400,7 @@ export function CodeShowModal({
             ))}
           </select>
           {expSeconds === QUICK_PAIR_SECONDS && QUICK_PAIR_ENABLED && (
-            <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-1.5 flex items-start gap-1">
+            <p className="text-[11px] text-[var(--sm-blau)] mt-1.5 flex items-start gap-1">
               <Zap className="size-3 shrink-0 mt-0.5" />
               Statt des langen Codes bekommst du 4 Ziffern zum Abtippen — gültig
               10 Minuten, einmal einlösbar.
@@ -423,7 +423,7 @@ export function CodeShowModal({
             value={note}
             onChange={(e) => setNote(e.target.value.slice(0, 40))}
             placeholder="z.B. „Laptop von Marlon"
-            className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-[var(--sm-blau)]"
           />
         </div>
 
@@ -437,7 +437,7 @@ export function CodeShowModal({
               onChange={(e) => setAddressesRaw(e.target.value)}
               placeholder="tcp://10.42.0.5:22000"
               rows={2}
-              className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-[var(--sm-blau)]"
             />
             <p className="text-[10px] text-neutral-500 dark:text-neutral-500">
               Nur private IPs (10/8, 172.16/12, 192.168/16, 100.64/10 für ZeroTier).
@@ -463,9 +463,9 @@ export function CodeShowModal({
           <button
             onClick={generate}
             disabled={!canGenerate}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
-            {busy && <Loader2 className="size-3.5 animate-spin" />}
+            {busy && <Loader2 className="size-4 animate-spin" />}
             Code erstellen
           </button>
         </div>
@@ -489,7 +489,7 @@ function RadioPill({
       onClick={onClick}
       className={`flex-1 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${
         checked
-          ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200"
+          ? "border-[var(--sm-blau)] bg-[var(--sm-blau-flaeche)] text-[var(--sm-text)]"
           : "border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800"
       }`}
     >

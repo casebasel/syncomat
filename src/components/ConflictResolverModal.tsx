@@ -209,7 +209,7 @@ function ConflictRow({
   return (
     <div className="rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2.5">
       <div className="flex items-start gap-2 mb-2">
-        <AlertOctagon className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+        <AlertOctagon className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
             {item.original_rel}
@@ -278,7 +278,7 @@ function ConflictRow({
           onClick={onKeepBoth}
           disabled={busy}
           title="Konflikt-Datei umbenennen in .von-PEER, beide behalten"
-          className="flex-1 text-[11px] font-medium px-2 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-1"
+          className="flex-1 text-[11px] font-medium px-2 py-1.5 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1"
         >
           {busy ? (
             <Loader2 className="size-3 animate-spin" />

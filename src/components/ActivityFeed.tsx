@@ -64,7 +64,7 @@ function ActivityRow({
         {fmtActivityTime(event.ts)}
       </span>
       <span className={`shrink-0 ${iconColor}`} title={directionLabel(event)}>
-        <Icon className="size-3.5" />
+        <Icon className="size-4" />
       </span>
       <span className="text-[10px] text-[var(--sm-text2)] font-mono w-16 truncate shrink-0">
         {peerLabel}
@@ -116,7 +116,7 @@ function directionColor(e: ActivityEvent): string {
   if (e.action === "deleted") return "text-[var(--sm-text2)]";
   if (e.direction === "conflict" || e.action === "conflict")
     return "text-amber-600 dark:text-amber-400";
-  if (e.direction === "up") return "text-blue-500 dark:text-blue-400";
+  if (e.direction === "up") return "text-[var(--sm-blau)]";
   if (e.direction === "local") return "text-[var(--sm-text)]";
   return "text-emerald-500 dark:text-emerald-400";
 }

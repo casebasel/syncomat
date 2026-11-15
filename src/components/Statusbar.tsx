@@ -68,7 +68,7 @@ export function Statusbar({
   inBps?: number;
   outBps?: number;
 }) {
-  // Live-Übertragungsrate nur zeigen wenn wirklich was fließt (> 1 KB/s) —
+  // Live-Übertragungsrate nur zeigen wenn wirklich was fliesst (> 1 KB/s) —
   // sonst flackert "0 B/s" im Idle.
   const dn = inBps ?? 0;
   const up = outBps ?? 0;

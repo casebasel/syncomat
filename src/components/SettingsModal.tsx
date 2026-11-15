@@ -1,3 +1,4 @@
+import { ThemaUmschalter } from "./ThemaUmschalter";
 import { useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -103,12 +104,12 @@ export function SettingsPanel({
       <header className="px-6 py-4 border-b border-neutral-200/70 dark:border-neutral-800/70 flex items-center gap-3 shrink-0">
         <button
           onClick={onBack}
-          className="size-8 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+          className="size-8 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           title="Zurück"
         >
           <ArrowLeft className="size-[18px]" />
         </button>
-        <h1 className="text-lg font-bold tracking-tight">Einstellungen</h1>
+        <h1 className="text-[15px] font-bold tracking-tight">Einstellungen</h1>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
@@ -119,26 +120,26 @@ export function SettingsPanel({
         >
           <TabButton
             label="Allgemein"
-            icon={<Info className="size-[15px]" />}
+            icon={<Info className="size-4" />}
             active={tab === "general"}
             onClick={() => setTab("general")}
           />
           <TabButton
             label="Netzwerk"
-            icon={<Network className="size-[15px]" />}
+            icon={<Network className="size-4" />}
             active={tab === "network"}
             onClick={() => setTab("network")}
           />
           <TabButton
             label="Aktualisierung"
-            icon={<RefreshCw className="size-[15px]" />}
+            icon={<RefreshCw className="size-4" />}
             active={tab === "updates"}
             onClick={() => setTab("updates")}
             badge={updateState.kind === "available" ? "neu" : undefined}
           />
           <TabButton
             label="Datenzentrale"
-            icon={<Database className="size-[15px]" />}
+            icon={<Database className="size-4" />}
             active={tab === "datenzentrale"}
             onClick={() => setTab("datenzentrale")}
             badge={
@@ -151,13 +152,13 @@ export function SettingsPanel({
           />
           <TabButton
             label="Benachrichtigungen"
-            icon={<Bell className="size-[15px]" />}
+            icon={<Bell className="size-4" />}
             active={tab === "notifications"}
             onClick={() => setTab("notifications")}
           />
           <TabButton
             label="Power-User"
-            icon={<ExternalLink className="size-[15px]" />}
+            icon={<ExternalLink className="size-4" />}
             active={tab === "power-user"}
             onClick={() => setTab("power-user")}
           />
@@ -237,18 +238,18 @@ function TabButton({
     <button
       onClick={onClick}
       aria-current={active ? "true" : undefined}
-      className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${
+      className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--sm-blau)] ${
         active
-          ? "bg-blue-100/70 dark:bg-blue-950/60 text-blue-900 dark:text-blue-100 font-semibold border-l-2 border-blue-600"
+          ? "bg-[var(--sm-blau-flaeche)] text-[var(--sm-text)] font-semibold border-l-2 border-[var(--sm-blau)]"
           : "text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800/60 border-l-2 border-transparent"
       }`}
     >
-      <span className={active ? "text-blue-600 dark:text-blue-300" : "text-neutral-400"}>
+      <span className={active ? "text-[var(--sm-blau)]" : "text-neutral-400"}>
         {icon}
       </span>
       <span className="flex-1 truncate">{label}</span>
       {badge && (
-        <span className="text-[11px] px-1.5 py-0.5 rounded bg-blue-600 text-white font-semibold tabular-nums">
+        <span className="text-[11px] px-1.5 py-0.5 rounded bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] font-semibold tabular-nums">
           {badge}
         </span>
       )}
@@ -289,6 +290,13 @@ function GeneralTab({
   return (
     <div className="space-y-4">
       <section>
+        <SectionHeading>Darstellung</SectionHeading>
+        <ThemaUmschalter />
+        <p className="mt-1.5 text-[12px] text-[var(--sm-text2)]">
+          „System“ folgt der Einstellung des Rechners. Hell = Tag, Dunkel = Nacht (dunkles Studio).
+        </p>
+      </section>
+      <section>
         <SectionHeading>Verhalten</SectionHeading>
         <label className="flex items-start gap-3 cursor-pointer select-none px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40">
           <div className="size-9 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-500 dark:text-neutral-400 shrink-0">
@@ -307,7 +315,7 @@ function GeneralTab({
             type="checkbox"
             checked={autostartEnabled}
             onChange={(e) => onSetAutostartEnabled(e.target.checked)}
-            className="mt-0.5 size-4 accent-blue-600"
+            className="mt-0.5 size-4 accent-[var(--sm-blau)]"
           />
         </label>
         <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
@@ -334,9 +342,9 @@ function GeneralTab({
                 title="Kopieren"
               >
                 {copied ? (
-                  <CheckCircle2 className="size-3.5 text-emerald-500" />
+                  <CheckCircle2 className="size-4 text-emerald-500" />
                 ) : (
-                  <Copy className="size-3.5" />
+                  <Copy className="size-4" />
                 )}
               </button>
             </div>
@@ -409,7 +417,7 @@ function UpdatesTab({
     updateState.kind === "error"
       ? "text-rose-500 dark:text-rose-400"
       : available
-        ? "text-blue-600 dark:text-blue-400 font-medium"
+        ? "text-[var(--sm-blau)] font-medium"
         : "text-neutral-500 dark:text-neutral-400";
 
   return (
@@ -429,7 +437,7 @@ function UpdatesTab({
               disabled={checking}
               className="text-xs font-medium px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 flex items-center gap-1.5 shrink-0"
             >
-              <RefreshCw className={`size-3.5 ${checking ? "animate-spin" : ""}`} />
+              <RefreshCw className={`size-4 ${checking ? "animate-spin" : ""}`} />
               Prüfen
             </button>
           )}
@@ -439,7 +447,7 @@ function UpdatesTab({
         {downloading && updateState.total && (
           <div className="mt-2 h-1.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
             <div
-              className="h-full bg-blue-600 transition-all duration-150 ease-out"
+              className="h-full bg-[var(--sm-blau)] transition-all duration-150 ease-out"
               style={{
                 width: `${Math.min(100, Math.round((updateState.downloaded / updateState.total) * 100))}%`,
               }}
@@ -452,9 +460,9 @@ function UpdatesTab({
           <div className="flex gap-2 mt-2.5">
             <button
               onClick={onInstall}
-              className="flex-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+              className="flex-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
             >
-              <Download className="size-3.5" />
+              <Download className="size-4" />
               v{updateState.update.version} installieren
             </button>
             <button
@@ -462,7 +470,7 @@ function UpdatesTab({
               className="text-xs px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300"
               title="Erneut prüfen"
             >
-              <RefreshCw className="size-3.5" />
+              <RefreshCw className="size-4" />
             </button>
           </div>
         )}
@@ -520,7 +528,7 @@ function NotificationsTab({
           type="checkbox"
           checked={enabled}
           onChange={(e) => onSet(e.target.checked)}
-          className="mt-0.5 size-4 accent-blue-600"
+          className="mt-0.5 size-4 accent-[var(--sm-blau)]"
         />
       </label>
       <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
@@ -587,7 +595,7 @@ function NetworkTab({
             type="checkbox"
             checked={prefer10gbe}
             onChange={(e) => onSetPrefer10gbe(e.target.checked)}
-            className="mt-0.5 size-4 accent-blue-600"
+            className="mt-0.5 size-4 accent-[var(--sm-blau)]"
           />
         </label>
         <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
@@ -604,7 +612,7 @@ function NetworkTab({
           value={fastSubnet}
           onChange={(e) => onSetFastSubnet(e.target.value)}
           spellCheck={false}
-          className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 text-neutral-900 dark:text-neutral-100 focus:border-blue-500 focus-visible:outline-none"
+          className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 text-neutral-900 dark:text-neutral-100 focus:border-[var(--sm-blau)] focus-visible:outline-none"
           placeholder="192.168.100."
         />
         <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
@@ -636,7 +644,7 @@ function NetworkTab({
                     {onGeraet && (
                       <button
                         onClick={() => onGeraet(d.deviceID)}
-                        className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                        className="text-[11px] font-semibold text-[var(--sm-blau)] hover:underline"
                       >
                         Details
                       </button>
@@ -668,7 +676,7 @@ function NetworkTab({
                       onChange={(e) => onSetManual(d.deviceID, e.target.value)}
                       spellCheck={false}
                       placeholder={knownFast || "z.B. 192.168.100.50:22000"}
-                      className="flex-1 font-mono text-[10px] px-2 py-1 rounded border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-200 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:border-blue-500 focus-visible:outline-none"
+                      className="flex-1 font-mono text-[10px] px-2 py-1 rounded border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-200 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:border-[var(--sm-blau)] focus-visible:outline-none"
                     />
                   </div>
                 </div>
@@ -709,7 +717,7 @@ function PowerUserTab({ endpoint }: { endpoint: Endpoint | null }) {
       </div>
       <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
         Die Web-UI zeigt alle Syncthing-Internals (Block-Hash-Algorithmen,
-        IPv6-Listener, ratelimits etc.). Nur reingehen wenn du weißt was du tust.
+        IPv6-Listener, ratelimits etc.). Nur reingehen wenn du weisst was du tust.
       </p>
     </div>
   );
@@ -730,7 +738,7 @@ function LinkRow({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 text-left disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
     >
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
@@ -740,7 +748,7 @@ function LinkRow({
           {sub}
         </p>
       </div>
-      <ExternalLink className="size-3.5 text-neutral-400 dark:text-neutral-500 shrink-0" />
+      <ExternalLink className="size-4 text-neutral-400 dark:text-neutral-500 shrink-0" />
     </button>
   );
 }
@@ -818,7 +826,7 @@ function AllDevicesUpdate({
             <div key={r.id} className="px-3 py-2 flex items-center justify-between gap-3 text-xs">
               <span className="truncate text-neutral-800 dark:text-neutral-200">{r.name}</span>
               {updating ? (
-                <span className="shrink-0 flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                <span className="shrink-0 flex items-center gap-1.5 text-[var(--sm-blau)]">
                   <Loader2 className="size-3 animate-spin" />
                   wird aktualisiert…
                 </span>
@@ -852,9 +860,9 @@ function AllDevicesUpdate({
           return (
             <div
               role="status"
-              className="mt-2.5 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30 flex items-center justify-center gap-1.5"
+              className="mt-2.5 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--sm-blau-flaeche)] text-[var(--sm-blau)] border border-[var(--sm-blau)] flex items-center justify-center gap-1.5"
             >
-              <Loader2 className="size-3.5 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
               Updates werden installiert … {target - waitingFor.length} von {target}
             </div>
           );
@@ -865,7 +873,7 @@ function AllDevicesUpdate({
               role="status"
               className="mt-2.5 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 flex items-center justify-center gap-1.5"
             >
-              <CheckCircle2 className="size-3.5" />
+              <CheckCircle2 className="size-4" />
               Alle eingeschalteten Geräte auf v{request?.version}
             </div>
           );
@@ -876,7 +884,7 @@ function AllDevicesUpdate({
               role="status"
               className="mt-2.5 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 flex items-center justify-center gap-1.5"
             >
-              <CheckCircle2 className="size-3.5" />
+              <CheckCircle2 className="size-4" />
               Alle Geräte auf v{request?.version}
             </div>
           );
@@ -885,9 +893,9 @@ function AllDevicesUpdate({
           <button
             onClick={onRequestAll}
             disabled={!upToDate || !version || behindCount === 0}
-            className="mt-2.5 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="mt-2.5 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 disabled:opacity-40 disabled:hover:opacity-40 flex items-center justify-center gap-1.5 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           >
-            <Download className="size-3.5" />
+            <Download className="size-4" />
             Alle Geräte auf v{version ?? "?"} aktualisieren
           </button>
         );
@@ -959,7 +967,7 @@ function DatenzentraleTab({
             rows={5}
             spellCheck={false}
             placeholder={"STUDIO_DB_URL=…\nSTUDIO_DB_ANON_KEY=…\nSTUDIO_DB_TOKEN=…\nSTUDIO_DB_RECHNER=…"}
-            className="w-full font-mono text-[11px] px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="w-full font-mono text-[11px] px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           />
           {preview?.kind === "error" && (
             <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1.5">{preview.message}</p>
@@ -993,9 +1001,9 @@ function DatenzentraleTab({
                 setPreview(null);
               }
             }}
-            className="mt-2.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="mt-2.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 disabled:opacity-40 disabled:hover:opacity-40 flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           >
-            {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Database className="size-3.5" />}
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <Database className="size-4" />}
             Verbinden
           </button>
         </section>
@@ -1050,7 +1058,7 @@ function DatenzentraleTab({
               onClick={() => geraeteRolle.setRolle(r)}
               className={`text-xs px-3 py-1.5 rounded-lg border ${
                 geraeteRolle.rolle === r
-                  ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold"
+                  ? "border-[var(--sm-blau)] bg-[var(--sm-blau-flaeche)] text-[var(--sm-blau)] font-semibold"
                   : "border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
               }`}
             >

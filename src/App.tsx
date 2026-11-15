@@ -213,7 +213,7 @@ function App() {
       return;
     }
     const pd = pds[0];
-    // Fenster sofort schließen: ein Code = ein Gerät.
+    // Fenster sofort schliessen: ein Code = ein Gerät.
     disarmAutoAccept();
     acceptDevice(endpoint, pd, folders).catch((e) =>
       console.warn(`[auto-accept] ${pd.deviceID.slice(0, 7)} failed`, e),
@@ -990,7 +990,7 @@ function FirstRunWelcome({
   return (
     <div className="flex-1 flex items-center justify-center bg-white dark:bg-neutral-900 px-8 py-12">
       <div className="max-w-md w-full">
-        <div className="size-10 rounded-md bg-blue-600 flex items-center justify-center text-white mb-4">
+        <div className="size-10 rounded-md bg-[var(--sm-blau)] flex items-center justify-center text-[var(--sm-auf-blau)] mb-4">
           <svg
             viewBox="0 0 24 24"
             className="size-5"
@@ -1019,18 +1019,18 @@ function FirstRunWelcome({
         <div className="space-y-2">
           <button
             onClick={onCreateFolder}
-            className="w-full text-left px-4 py-3 rounded-xl border border-blue-300 dark:border-blue-500/40 bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="w-full text-left px-4 py-3 rounded-xl border border-[var(--sm-blau)] bg-[var(--sm-blau-flaeche)] hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           >
-            <div className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+            <div className="text-sm font-semibold text-[var(--sm-text)]">
               Ersten Ordner anlegen
             </div>
-            <div className="text-xs text-blue-700/80 dark:text-blue-300/80 mt-0.5">
+            <div className="text-xs text-[var(--sm-text2)] mt-0.5">
               Lokalen Pfad wählen, Geräte kommen später dazu.
             </div>
           </button>
           <button
             onClick={onShowCode}
-            className="w-full text-left px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="w-full text-left px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           >
             <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               Gerät einladen
@@ -1041,7 +1041,7 @@ function FirstRunWelcome({
           </button>
           <button
             onClick={onRedeemCode}
-            className="w-full text-left px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="w-full text-left px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           >
             <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               Code einlösen
@@ -1053,7 +1053,7 @@ function FirstRunWelcome({
         </div>
 
         <div className="mt-6 pt-4 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[12px] text-neutral-500 dark:text-neutral-500">
-          <span>Fenster schließen lässt den Sync im Tray weiterlaufen.</span>
+          <span>Fenster schliessen lässt den Sync im Tray weiterlaufen.</span>
           <button onClick={onOpenSettings} className="hover:text-neutral-900 dark:hover:text-neutral-100">
             Einstellungen →
           </button>
@@ -1111,7 +1111,7 @@ function RecoveryScreen({
           </button>
           <button
             onClick={onShowCode}
-            className="w-full text-left px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="w-full text-left px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           >
             <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               Code erzeugen
@@ -1122,7 +1122,7 @@ function RecoveryScreen({
           </button>
           <button
             onClick={onCreateFolder}
-            className="w-full text-left px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="w-full text-left px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           >
             <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               Ordner neu verknüpfen
@@ -1154,13 +1154,13 @@ function NoSelectionView({
         <div className="flex justify-center gap-2">
           <button
             onClick={onCreateFolder}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           >
             + Ordner
           </button>
           <button
             onClick={onShowCode}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
+            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           >
             Gerät einladen
           </button>

@@ -3,6 +3,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "./App.css";
+import { themaStarten } from "./lib/thema";
+import { ThemaUmschalter } from "./components/ThemaUmschalter";
 import { Leiste } from "./components/uebersicht/Leiste";
 import { Uebersicht } from "./components/uebersicht/Uebersicht";
 import { AuswahlFeld } from "./components/uebersicht/AuswahlFeld";
@@ -128,7 +130,8 @@ function Vorschau() {
           <p className="font-mono text-[var(--sm-text2)] truncate">tcp://192.168.100.31:22000</p>
         </div>
         <button className="text-xs px-2.5 py-1 rounded-md border border-[var(--sm-linie)]">Ablehnen</button>
-        <button className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[var(--sm-blau)] text-white">Akzeptieren</button>
+        <button className="text-xs font-semibold px-2.5 py-1 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)]">Akzeptieren</button>
+        {q.has("thema") && <ThemaUmschalter />}
       </div>
       <div className="flex-1 flex overflow-hidden">
       <Leiste ansicht={q.has("start") ? "start" : q.has("ordner") ? "ordner" : "uebersicht"} onAnsicht={() => {}} stoerungen={1} update={false} angebote={2} />
@@ -241,6 +244,7 @@ function Vorschau() {
   );
 }
 
+themaStarten();
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <Vorschau />

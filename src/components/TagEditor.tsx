@@ -42,7 +42,7 @@ export function TagEditor({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 focus-within:border-blue-500">
+      <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 focus-within:border-[var(--sm-blau)]">
         {tags.map((t) => (
           <TagChip key={t} tag={t} onRemove={() => remove(t)} />
         ))}

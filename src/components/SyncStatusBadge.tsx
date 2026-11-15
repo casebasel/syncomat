@@ -2,7 +2,7 @@ import { AlertOctagon, AlertTriangle, Check, Pause, RefreshCw, WifiOff } from "l
 
 export type SyncState =
   | "synced" // alles aktuell + peer online
-  | "syncing" // synct gerade — bytes fließen
+  | "syncing" // synct gerade — bytes fliessen
   | "scanning" // local rescan läuft
   | "waiting-peer" // wir sind ok, aber peer offline → wartet
   | "waiting-data" // peer online, aber needBytes > 0 (queued)
@@ -23,16 +23,16 @@ const STYLE: Record<
     icon: Check,
   },
   syncing: {
-    dot: "bg-blue-500 animate-pulse",
-    bg: "bg-blue-100 dark:bg-blue-950/40",
-    text: "text-blue-700 dark:text-blue-300",
+    dot: "bg-[var(--sm-blau)] animate-pulse",
+    bg: "bg-[var(--sm-blau-flaeche)]",
+    text: "text-[var(--sm-blau)]",
     label: "Synct",
     icon: RefreshCw,
   },
   scanning: {
-    dot: "bg-blue-400 animate-pulse",
-    bg: "bg-blue-100 dark:bg-blue-950/40",
-    text: "text-blue-700 dark:text-blue-300",
+    dot: "bg-[var(--sm-blau)] animate-pulse",
+    bg: "bg-[var(--sm-blau-flaeche)]",
+    text: "text-[var(--sm-blau)]",
     label: "Scant",
     icon: RefreshCw,
   },

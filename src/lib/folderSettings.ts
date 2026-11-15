@@ -408,7 +408,7 @@ export function useFolderSettingsReplication(
       await applyFolderDefaults(ep, f, file.settings);
       markApplied(f.id, file);
       console.log(`[folder-settings] applied ${f.id} from ${file.updated_by} (${file.updated_at})`);
-      // Nur bei einer echten Änderung von außen die Tag-Anzeige neu laden.
+      // Nur bei einer echten Änderung von aussen die Tag-Anzeige neu laden.
       return sawTags;
     };
 

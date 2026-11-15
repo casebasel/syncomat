@@ -545,7 +545,7 @@ export const setFolderIgnores = (
 
 /**
  * Adaptive Folder-Tuning für Unreal-Scale: setzt rescanIntervalS, fsWatcher,
- * Copiers/Hashers basierend auf Folder-Größe + Workload-Detection.
+ * Copiers/Hashers basierend auf Folder-Grösse + Workload-Detection.
  *
  * Werte basieren auf Syncthing-Doku + Audit-Synthese; siehe Code-Review.
  */

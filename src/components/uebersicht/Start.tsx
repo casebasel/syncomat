@@ -94,7 +94,7 @@ function PapierkorbAbschnitt() {
           <ul>
             {bel.map((b) => (
               <li key={b.ort} className="h-10 flex items-center gap-2.5 border-b border-[var(--sm-linie-fein)]">
-                <Trash2 className="size-3.5 shrink-0 text-[var(--sm-text2)]" aria-hidden />
+                <Trash2 className="size-4 shrink-0 text-[var(--sm-text2)]" aria-hidden />
                 <span className="min-w-0 truncate font-mono text-[12px]" title={b.ort}>
                   {b.ort}
                 </span>
@@ -254,7 +254,7 @@ export function Start({
   return (
     <section className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[var(--sm-grund)] text-[var(--sm-text)]">
       <header className="h-12 shrink-0 px-5 flex items-center justify-between bg-[var(--sm-kopf)] text-[var(--sm-kopf-text)]">
-        <h1 className="text-[16px] font-bold">Start</h1>
+        <h1 className="text-[15px] font-bold">Start</h1>
         <p className="sm-zahl text-[14px] text-[var(--sm-kopf-text2)]">
           <span className="font-semibold text-[var(--sm-kopf-text)]">{rechnerName || "Dieser Rechner"}</span>
           {rolle && <> · {rolle}</>}
@@ -282,15 +282,15 @@ export function Start({
             title="Alle Ordner auf diesem Rechner neu prüfen — Änderungen gehen sofort los"
             className="h-8 px-3 rounded-md border border-[var(--sm-linie)] text-[13px] font-semibold inline-flex items-center gap-1.5 hover:bg-[var(--sm-flaeche)] disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
           >
-            <RefreshCw className={`size-3.5 ${pruefe ? "animate-spin" : ""}`} aria-hidden />
+            <RefreshCw className={`size-4 ${pruefe ? "animate-spin" : ""}`} aria-hidden />
             {pruefe ? "Prüft …" : "Jetzt abgleichen"}
           </button>
           </div>
           <p className="sm-zahl mt-1.5 text-[13px] text-[var(--sm-text2)] flex flex-wrap gap-x-4 gap-y-1">
             <span className="inline-flex items-center gap-1">
-              <ArrowDown className="size-3.5" aria-hidden />
+              <ArrowDown className="size-4" aria-hidden />
               {tempo(inBps)}
-              <ArrowUp className="size-3.5 ml-1.5" aria-hidden />
+              <ArrowUp className="size-4 ml-1.5" aria-hidden />
               {tempo(outBps)}
             </span>
             {offenBytes > 0 && satzArt !== "laedt" && <span>noch {groesse(offenBytes)} offen</span>}

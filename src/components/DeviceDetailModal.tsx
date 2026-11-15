@@ -135,7 +135,7 @@ export function DeviceDetailModal({
                     setEditing(false);
                   }
                 }}
-                className="text-sm flex-1 bg-transparent outline-none border-b border-neutral-400 dark:border-neutral-600 focus:border-blue-500 text-neutral-900 dark:text-neutral-100"
+                className="text-sm flex-1 bg-transparent outline-none border-b border-neutral-400 dark:border-neutral-600 focus:border-[var(--sm-blau)] text-neutral-900 dark:text-neutral-100"
               />
             ) : (
               <>
@@ -147,7 +147,7 @@ export function DeviceDetailModal({
                   className="text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
                   title="Umbenennen"
                 >
-                  <Pencil className="size-3.5" />
+                  <Pencil className="size-4" />
                 </button>
               </>
             )}
@@ -170,9 +170,9 @@ export function DeviceDetailModal({
                 title="Kopieren"
               >
                 {copied ? (
-                  <Check className="size-3.5 text-emerald-500" />
+                  <Check className="size-4 text-emerald-500" />
                 ) : (
-                  <Copy className="size-3.5" />
+                  <Copy className="size-4" />
                 )}
               </button>
             </div>
@@ -224,7 +224,7 @@ export function DeviceDetailModal({
                     onSelectFolder(f);
                     onClose();
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none text-left"
                 >
                   <span className="text-xs font-medium flex-1 text-neutral-900 dark:text-neutral-100 truncate">
                     {f.label || f.id}
@@ -258,7 +258,7 @@ export function DeviceDetailModal({
                 onClick={() => setConfirmRemove(true)}
                 className="text-xs font-medium px-3 py-1.5 rounded-lg border border-rose-300 dark:border-rose-500/40 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-1.5"
               >
-                <X className="size-3.5" />
+                <X className="size-4" />
                 Gerät entfernen…
               </button>
             </div>
@@ -285,7 +285,7 @@ export function DeviceDetailModal({
                 disabled={busy}
                 className="text-xs font-medium px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
               >
-                <Trash2 className="size-3.5" />
+                <Trash2 className="size-4" />
                 Entfernen
               </button>
             </div>

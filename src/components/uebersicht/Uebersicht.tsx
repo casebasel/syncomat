@@ -270,10 +270,10 @@ export function Uebersicht({
                   </span>
                 )}
                 {arbeitet ? (
-                  <Loader2 className="size-3.5 animate-spin text-[var(--sm-blau)]" aria-label="arbeitet" />
+                  <Loader2 className="size-4 animate-spin text-[var(--sm-blau)]" aria-label="arbeitet" />
                 ) : abonnierbar ? (
                   <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--sm-text2)] group-hover:text-[var(--sm-blau)] [button:focus-visible_&]:text-[var(--sm-blau)]">
-                    <Plus className="size-3.5" strokeWidth={2.25} />
+                    <Plus className="size-4" strokeWidth={2.25} />
                     <span className="hidden group-hover:inline [button:focus-visible_&]:inline">Abonnieren</span>
                   </span>
                 ) : (
@@ -297,7 +297,7 @@ export function Uebersicht({
     <section className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[var(--sm-grund)] text-[var(--sm-text)]">
       {/* Kopfzeile: Titel + zwei Zahlen */}
       <header className="h-12 shrink-0 px-5 flex items-center justify-between bg-[var(--sm-kopf)] text-[var(--sm-kopf-text)]">
-        <h1 className="text-[16px] font-bold">Übersicht</h1>
+        <h1 className="text-[15px] font-bold">Übersicht</h1>
         <p className="sm-zahl text-[14px]">
           <span className="font-semibold">{gb(lage.freiD)}</span>
           <span className="text-[var(--sm-kopf-text2)]">{/Win/i.test(navigator.userAgent) ? " frei auf D: · " : " frei · "}</span>
@@ -358,7 +358,7 @@ export function Uebersicht({
           title="Alle Ordner auf diesem Rechner neu prüfen"
           className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[13px] inline-flex items-center gap-1.5 hover:bg-[var(--sm-flaeche)] disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
         >
-          <RefreshCw className={`size-3.5 ${pruefe ? "animate-spin" : ""}`} />
+          <RefreshCw className={`size-4 ${pruefe ? "animate-spin" : ""}`} />
           Neu prüfen
         </button>
         {anzahlAusgeblendet > 0 && (
@@ -378,7 +378,7 @@ export function Uebersicht({
             title="Einen neuen Rechner ins Netz holen: Code anzeigen"
             className="h-7 px-2.5 rounded-md border border-[var(--sm-linie)] text-[13px] font-semibold text-[var(--sm-blau)] inline-flex items-center gap-1 hover:bg-[var(--sm-flaeche)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
           >
-            <Plus className="size-3.5" strokeWidth={2.25} />
+            <Plus className="size-4" strokeWidth={2.25} />
             Rechner koppeln
           </button>
           <button
@@ -386,7 +386,7 @@ export function Uebersicht({
             title="Code eines anderen Rechners eingeben"
             className="h-7 px-2.5 rounded-md text-[13px] font-semibold text-[var(--sm-text2)] inline-flex items-center gap-1 hover:bg-[var(--sm-flaeche)] hover:text-[var(--sm-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
           >
-            <KeyRound className="size-3.5" />
+            <KeyRound className="size-4" />
             Code einlösen
           </button>
         </span>

@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Tailwinds dark: folgt dem gewählten Satz (lib/thema.ts), nicht nur dem System. */
+@custom-variant dark (&:where([data-theme=nacht], [data-theme=nacht] *));
 
 /* Grundwerte, gemeinsam mit der Seite des Speicher-Wächters (07.11.2026).
    Rot NUR für Datenverlust; Ocker = angehalten; Blau = Handlung.
@@ -29,10 +31,33 @@
   --sm-ocker-text: var(--sm-text);
   --sm-rot: oklch(0.480 0.180 25); /* rot (Tag), DESIGN-GEMEINSAM */
   --sm-ich: oklch(0.97 0.012 262);
-  color-scheme: light dark;
+  color-scheme: light;
+}
+/* Nacht: gesetzt über <html data-theme="nacht"> (lib/thema.ts, System · Hell ·
+   Dunkel). Ohne data-theme (vor dem Start) folgt die Seite dem System. */
+:root[data-theme="nacht"] {
+  color-scheme: dark;
+  --sm-grund: #0e0f12;
+  --sm-flaeche: #17191d;
+  --sm-linie: #2a2d33;
+  --sm-linie-fein: #1e2126;
+  --sm-text: #eceef1;
+  --sm-text2: #9aa1ac;
+  --sm-kopf: #000000;
+  --sm-kopf-text: #ffffff;
+  --sm-kopf-text2: #9aa1ac;
+  --sm-blau: oklch(0.66 0.17 262); /* ≈ #568EF9, Datenzentrale-Blau Nacht */
+  --sm-auf-blau: #0e0f12;
+  --sm-blau-flaeche: oklch(0.27 0.06 262);
+  --sm-ocker: oklch(0.820 0.140 80); /* warn (Nacht), DESIGN-GEMEINSAM */
+  --sm-gruen: oklch(0.760 0.150 150);
+  --sm-ocker-flaeche: var(--sm-flaeche);
+  --sm-ocker-text: var(--sm-text);
+  --sm-rot: oklch(0.710 0.170 25); /* rot (Nacht) */
+  --sm-ich: oklch(0.2 0.02 262);
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --sm-grund: #0e0f12;
     --sm-flaeche: #17191d;
     --sm-linie: #2a2d33;

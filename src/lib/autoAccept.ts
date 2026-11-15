@@ -10,11 +10,11 @@
 // Ordnern). Die Device-ID dieses Geräts ist kein Geheimnis (steht in jedem
 // Code, ist allen Peers bekannt). Deshalb seit v0.9.13:
 //  - höchstens MAX_WINDOW_MS offen, egal wie lange der Code gültig ist
-//  - schließt sich nach dem ersten angenommenen Gerät (disarmAutoAccept)
+//  - schliesst sich nach dem ersten angenommenen Gerät (disarmAutoAccept)
 //  - klopfen mehrere Geräte gleichzeitig an, wird keins automatisch angenommen
 //    (Banner "Akzeptieren" bleibt als manueller Weg)
 //
-// Bewusst localStorage (nicht State): überlebt das Schließen des Code-Panels und
+// Bewusst localStorage (nicht State): überlebt das Schliessen des Code-Panels und
 // sogar einen App-Neustart innerhalb des Fensters.
 
 const KEY = "syncomat:autoAcceptUntil";
@@ -44,7 +44,7 @@ export function autoAcceptActive(): boolean {
   }
 }
 
-/** Fenster sofort schließen — nach dem ersten angenommenen Gerät. */
+/** Fenster sofort schliessen — nach dem ersten angenommenen Gerät. */
 export function disarmAutoAccept(): void {
   try {
     localStorage.removeItem(KEY);

@@ -136,9 +136,9 @@ export function CodeRedeemModal({
           <div className="flex justify-end pt-2">
             <button
               onClick={onClose}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90"
             >
-              Schließen
+              Schliessen
             </button>
           </div>
         </div>
@@ -164,7 +164,7 @@ export function CodeRedeemModal({
               onClick={onClose}
               className="text-xs font-medium px-3 py-1.5 rounded-lg text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
-              Schließen
+              Schliessen
             </button>
             <button
               onClick={() => {
@@ -172,7 +172,7 @@ export function CodeRedeemModal({
                 setSteps([]);
                 setError(null);
               }}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90"
             >
               Wiederholen
             </button>
@@ -194,9 +194,9 @@ export function CodeRedeemModal({
                 className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300"
               >
                 {isLast ? (
-                  <Loader2 className="size-3.5 animate-spin text-blue-500 shrink-0" />
+                  <Loader2 className="size-4 animate-spin text-[var(--sm-blau)] shrink-0" />
                 ) : (
-                  <Check className="size-3.5 text-emerald-500 shrink-0" />
+                  <Check className="size-4 text-emerald-500 shrink-0" />
                 )}
                 <span>{s.message}</span>
               </div>
@@ -212,10 +212,10 @@ export function CodeRedeemModal({
       <div className="space-y-3">
         {/* Quick-Pair: 4-Ziffern-Code holt den vollen Invite vom Rendezvous */}
         {QUICK_PAIR_ENABLED && !code && (
-          <div className="rounded-lg border border-blue-300 dark:border-blue-500/40 bg-blue-50/60 dark:bg-blue-950/20 px-3 py-2.5">
+          <div className="rounded-lg border border-[var(--sm-blau)] bg-[var(--sm-blau-flaeche)] px-3 py-2.5">
             <div className="flex items-center gap-1.5 mb-2">
-              <Zap className="size-3.5 text-blue-600 dark:text-blue-400" />
-              <span className="text-xs font-medium text-blue-900 dark:text-blue-200">
+              <Zap className="size-4 text-[var(--sm-blau)]" />
+              <span className="text-xs font-medium text-[var(--sm-text)]">
                 Schnell-Code
               </span>
             </div>
@@ -233,14 +233,14 @@ export function CodeRedeemModal({
                   if (e.key === "Enter" && quickInput.length === 4) fetchQuickCode();
                 }}
                 placeholder="4 Ziffern"
-                className="flex-1 px-3 py-2 text-lg font-mono tabular-nums tracking-widest text-center rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
+                className="flex-1 px-3 py-2 text-lg font-mono tabular-nums tracking-widest text-center rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-[var(--sm-blau)]"
               />
               <button
                 onClick={fetchQuickCode}
                 disabled={quickInput.length !== 4 || quickFetching}
-                className="text-xs font-medium px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5"
+                className="text-xs font-medium px-4 rounded-lg bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5"
               >
-                {quickFetching && <Loader2 className="size-3.5 animate-spin" />}
+                {quickFetching && <Loader2 className="size-4 animate-spin" />}
                 Holen
               </button>
             </div>
@@ -256,7 +256,7 @@ export function CodeRedeemModal({
         )}
 
         {clipboardHint && (
-          <p className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 rounded-md">
+          <p className="text-xs text-[var(--sm-blau)] bg-[var(--sm-blau-flaeche)] px-3 py-2 rounded-md">
             Code aus Zwischenablage übernommen
           </p>
         )}
@@ -267,7 +267,7 @@ export function CodeRedeemModal({
             onBlur={(e) => setCode(e.target.value.trim())}
             placeholder="syncomat1...."
             rows={5}
-            className="w-full font-mono text-[11px] p-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 break-all resize-none focus:outline-none focus:border-blue-500"
+            className="w-full font-mono text-[11px] p-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 break-all resize-none focus:outline-none focus:border-[var(--sm-blau)]"
           />
           {!code && (
             <button
@@ -291,7 +291,7 @@ export function CodeRedeemModal({
 
         {!ready && (
           <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/40 text-[11px] text-amber-800 dark:text-amber-300">
-            <Loader2 className="size-3.5 animate-spin shrink-0 mt-0.5" />
+            <Loader2 className="size-4 animate-spin shrink-0 mt-0.5" />
             <div>
               Sync-Dienst startet noch — der Einlösen-Button wird aktiv sobald
               die Verbindung steht. Code kannst du schon eingeben.
@@ -310,9 +310,9 @@ export function CodeRedeemModal({
             onClick={submit}
             disabled={!code.trim() || !ready}
             title={!ready ? "Sync-Dienst startet noch…" : undefined}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
-            <ChevronRight className="size-3.5" />
+            <ChevronRight className="size-4" />
             Einlösen
           </button>
         </div>

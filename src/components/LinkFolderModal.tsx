@@ -124,7 +124,7 @@ export function LinkFolderModal({
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
+            className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-[var(--sm-blau)]"
             placeholder="z.B. Footage RAW"
           />
           <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-1">
@@ -152,7 +152,7 @@ export function LinkFolderModal({
             >
               {path || "Ordner wählen…"}
             </span>
-            {estimating && <Loader2 className="size-3.5 animate-spin ml-auto" />}
+            {estimating && <Loader2 className="size-4 animate-spin ml-auto" />}
           </button>
         </div>
 
@@ -171,7 +171,7 @@ export function LinkFolderModal({
           >
             <div className="flex items-start gap-2">
               {isHuge && (
-                <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               )}
               <div className="flex-1 text-xs">
                 <div className="text-neutral-900 dark:text-neutral-100">
@@ -220,7 +220,7 @@ export function LinkFolderModal({
               onChange={(e) =>
                 setPresetOverride(e.target.value as WorkloadDetection["kind"])
               }
-              className="w-full px-2 py-1.5 text-xs rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-blue-500"
+              className="w-full px-2 py-1.5 text-xs rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-[var(--sm-blau)]"
             >
               <option value="unreal">Unreal-Projekt</option>
               <option value="unreal-plugins">Unreal-Plugins (Engine/Marketplace)</option>
@@ -232,7 +232,7 @@ export function LinkFolderModal({
                 type="checkbox"
                 checked={applyPreset}
                 onChange={(e) => setApplyPreset(e.target.checked)}
-                className="size-3.5 accent-blue-600"
+                className="size-3.5 accent-[var(--sm-blau)]"
               />
               <span className="text-[11px] text-neutral-600 dark:text-neutral-400">
                 Preset anwenden (.stignore + Ordner-Tuning)
@@ -270,9 +270,9 @@ export function LinkFolderModal({
           <button
             onClick={submit}
             disabled={!label.trim() || !path || busy || estimating}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
-            {busy && <Loader2 className="size-3.5 animate-spin" />}
+            {busy && <Loader2 className="size-4 animate-spin" />}
             {busy ? "Verknüpfe…" : "Verknüpfen"}
           </button>
         </div>

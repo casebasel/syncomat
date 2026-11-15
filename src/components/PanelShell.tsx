@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 
 /**
- * Inline-Panel-Hülle (Native-Redesign): ersetzt das Overlay-Modal für große
+ * Inline-Panel-Hülle (Native-Redesign): ersetzt das Overlay-Modal für grosse
  * Surfaces. Rendert full-height im Hauptbereich mit „Zurück"-Header statt
  * als zentriertes Popup mit Backdrop. Body scrollt, optionaler Sticky-Footer.
  *
@@ -46,11 +46,11 @@ export function PanelShell({
         <button
           onClick={onBack}
           title="Zurück"
-          className="size-8 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none shrink-0"
+          className="size-8 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none shrink-0"
         >
           <ArrowLeft className="size-[18px]" />
         </button>
-        <h1 className="text-lg font-bold tracking-tight flex-1 truncate">
+        <h1 className="text-[15px] font-bold tracking-tight flex-1 truncate">
           {title}
         </h1>
         {headerActions}

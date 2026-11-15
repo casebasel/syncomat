@@ -116,7 +116,7 @@ function Knoten({
             aria-expanded={auf}
             className="size-6 shrink-0 rounded flex items-center justify-center text-[var(--sm-text2)] hover:text-[var(--sm-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)]"
           >
-            {auf ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+            {auf ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
           </button>
         ) : (
           <span className="size-6 shrink-0" />
@@ -509,7 +509,7 @@ export function AuswahlFeld({
 
           {!baum && !baumFehler && (
             <p className="flex items-center gap-2 text-[13px] text-[var(--sm-text2)] pl-1" role="status">
-              <Loader2 className="size-3.5 animate-spin text-[var(--sm-blau)]" />
+              <Loader2 className="size-4 animate-spin text-[var(--sm-blau)]" />
               Ordnerbaum wird gelesen …
             </p>
           )}
@@ -575,7 +575,7 @@ export function AuswahlFeld({
         )}
         {laeuftHier && (
           <p className="flex items-center gap-2 text-[13px]" role="status">
-            <Loader2 className="size-3.5 animate-spin text-[var(--sm-blau)]" />
+            <Loader2 className="size-4 animate-spin text-[var(--sm-blau)]" />
             Ein anderer Rechner hat eine Änderung geschickt — wird gerade ausgeführt.
           </p>
         )}
@@ -599,7 +599,7 @@ export function AuswahlFeld({
         </p>
         {busy && (
           <p className="flex items-center gap-2 text-[13px]" role="status">
-            <Loader2 className="size-3.5 animate-spin text-[var(--sm-blau)]" />
+            <Loader2 className="size-4 animate-spin text-[var(--sm-blau)]" />
             {busy}
           </p>
         )}
