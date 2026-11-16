@@ -45,7 +45,7 @@ import {
 
 // ── Projekte auf dem NAS: Abonnieren mit einem Klick (Marlon, 07.11.2026) ──
 //
-// Der NAS-Hub bietet jedes Projekt aus tank/Projekte allen syncomat-Rechnern
+// Der NAS-Hub bietet jedes Projekt (Ort legt der Wächter fest) den syncomat-Rechnern
 // an (Ordner `dz-…`). Ein Angebot überträgt nichts. Erst der Klick
 // „Abonnieren“ in syncomat lädt das Projekt nach D:\<NAME> — an dem Rechner,
 // an dem man sitzt. Kein Auftrag, keine Seite, kein Token nötig.

@@ -368,7 +368,7 @@ const KNOWN_PRESET_LINES = new Set(
 const stripD = (l: string) => l.replace(/^\(\?d\)/, "");
 const RESILIO_PATTERN = "(?d).sync";
 /** Eingang des Speicher-Wächters (`.waechter/<auftrag>/`, root 0700, in
- * `tank/Projekte/<NAME>` und `_Sammelstelle/<NAME>`): nie verteilen, nie löschen —
+ * jedem Projekt auf dem NAS): nie verteilen, nie löschen —
  * darum OHNE `(?d)` (Konzept Datenzentrale, Kapitel 11). Ohne das Muster scheitert
  * Syncthing (als ndisplay) an dem Ordner mit „permission denied". */
 export const WAECHTER_PATTERN = ".waechter";

@@ -14,6 +14,7 @@ import {
   projekteWurzel,
   setzeProjekteWurzel,
   type GeraeteRolle,
+  projekteOrt,
 } from "../../lib/abo";
 import {
   aboAbbrechen,
@@ -347,7 +348,11 @@ export function AuswahlFeld({
         <p className="text-[14px] text-[var(--sm-text2)]">
           {abonniert
             ? `Was von ${zeile.name} auf ${name} liegt. Nicht Gewähltes bleibt auf dem NAS.`
-            : `${zeile.name} ist auf ${name} nicht abonniert.`}
+            : spalte.ich
+              ? zeile.angebot
+                ? `${zeile.name} wird hier angeboten, ist aber nicht abonniert. Mit „Abonnieren“ wird es ${projekteOrt()} geladen.`
+                : `${zeile.name} wird diesem Rechner gerade nicht angeboten — hier nicht abonnierbar. Das Projekt liegt auf dem NAS; sobald es wieder angeboten wird, lässt es sich abonnieren.`
+              : `${zeile.name} ist auf ${name} nicht abonniert.`}
           {!spalte.ich && " Ausgeführt wird am Rechner selbst, mit seinen Prüfungen — ist er aus, sobald er läuft."}
         </p>
 
@@ -659,6 +664,9 @@ export function AuswahlFeld({
                 </span>
               </span>
             </label>
+            <p className="text-[12px] text-[var(--sm-text2)]">
+              Das Projekt bleibt auf dem NAS und bleibt angeboten — es lässt sich jederzeit wieder abonnieren.
+            </p>
             <div className="flex gap-2">
               <button
                 onClick={() => {
@@ -698,7 +706,7 @@ export function AuswahlFeld({
             ) : (
               <div className="space-y-1.5">
                 <p>
-                  {zeile.name} auf allen Rechnern beenden? Jeder Rechner prüft vorher, dass das NAS alles von ihm hat.
+                  {zeile.name} auf allen Rechnern beenden? Das Projekt bleibt auf dem NAS und bleibt angeboten — jeder Rechner kann es später wieder abonnieren. Jeder Rechner prüft vorher, dass das NAS alles von ihm hat.
                 </p>
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input type="checkbox" checked={ordnerLoeschen} onChange={(e) => setOrdnerLoeschen(e.target.checked)} className="mt-0.5 accent-[var(--sm-blau)]" />

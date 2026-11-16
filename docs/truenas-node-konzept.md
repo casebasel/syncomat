@@ -1,5 +1,9 @@
 # Konzept: TrueNAS-Sync-Node (Syncthing-Hub auf ZFS)
 
+> **Historisch (Stand Juni/Anfang November 2026).** Introducer, `dynamic`-Adressen und der
+> NAS-Papierkorb gelten nicht mehr: Geräte und Adressen kommen fest aus `geraete.json` des
+> Wächters, Introducer sind überall aus (13.11.2026). Aktueller Stand: ROADMAP.md oben.
+
 > **Stand 2026-06-09.** Erarbeitet aus Multi-Agent-Recherche (Codebase + TrueNAS-Recon
 > + Syncthing-Server-Betrieb + Integration + Adversarial-Check). Die TrueNAS wurde dabei
 > read-only inspiziert — die Zahlen unten sind **echt**, nicht angenommen.

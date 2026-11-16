@@ -6,8 +6,8 @@
 // gegenprüfen — ein manueller Prompt wäre Security-Theater.
 //
 // ABER (Audit 06.10.2026): Das Fenster ist NICHT an den Code gebunden — jedes
-// Gerät, das in der Zeit anklopft, wird angenommen (als Introducer, mit allen
-// Ordnern). Die Device-ID dieses Geräts ist kein Geheimnis (steht in jedem
+// Gerät, das in der Zeit anklopft, wird angenommen (seit 13.11.2026 ohne
+// Introducer; aufgenommen ins Studio wird es erst über geraete.json des Wächters). Die Device-ID dieses Geräts ist kein Geheimnis (steht in jedem
 // Code, ist allen Peers bekannt). Deshalb seit v0.9.13:
 //  - höchstens MAX_WINDOW_MS offen, egal wie lange der Code gültig ist
 //  - schliesst sich nach dem ersten angenommenen Gerät (disarmAutoAccept)

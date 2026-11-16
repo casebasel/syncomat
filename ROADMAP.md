@@ -1,5 +1,18 @@
 # Roadmap
 
+> **⚠️ Stand 2026-11-16 — was in älteren Abschnitten unten nicht mehr gilt** (ENTSCHEIDUNGEN
+> 12.–16.11., LAUFWERKE.md der Stage):
+> - **Ort:** aktiv `m2_4TB/Projekte/<KN>` (SSD), abgeschlossen `tank/Projekte/<KN>`; der Ort
+>   wechselt beim Verlegen, die folder_id bleibt. Die Sammelstelle ist aufgelöst.
+> - **Konflikte:** `maxConflicts=0`, neueste gewinnt, keine Konfliktkopien; Sicherheitsnetz =
+>   ZFS-Snapshots + lokaler Papierkorb 30 Tage.
+> - **Geräte:** kein Introducer, feste Adressen aus `geraete.json` des Wächters; Ordnerbaum aus
+>   `inhalt/<folder_id>.json`, kein Hilfsordner, kein Hub-Papierkorb.
+> - **Angeboten ≠ abonniert:** ein abgeschlossenes Projekt bleibt angeboten, solange es auf
+>   einem Rechner liegt; „Abo beenden“ lässt das Projekt auf dem NAS.
+> - **Nodes:** senden und empfangen (E33), keine Rolle „node“, keine Pause im Dreh; verteilt wird
+>   per Klick in syncomat (16.11.).
+
 > **🧩 Stand 2026-11-07 — Unterordner je Rechner (Branch `feat-ui-uebersicht`, v0.9.27).**
 > Klick auf einen Schnittpunkt Projekt × Rechner → „Alles“ oder „Benutzerdefiniert“ mit
 > Ordnerbaum. Für jeden Rechner von jedem Rechner aus. Sicherheitsregeln (live auf i9 geprüft):

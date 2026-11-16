@@ -76,6 +76,10 @@ const rolleKurz = (r: Spalte["rolle"]) => (r === "render" ? "Render" : r ? "Arbe
 
 /** Hauptansicht: Projekte × Rechner. Zeilen = Projekte auf dem NAS (und die
  * Plugins), Spalten = Rechner, „Dieser Rechner“ zuerst. */
+/** Diesem Rechner nicht angeboten: das NAS (der Wächter) bietet das Projekt
+ * hier gerade nicht an — abonnieren geht erst, wenn es wieder angeboten wird. */
+const NICHT_ANGEBOTEN = "nicht angeboten — hier gerade nicht abonnierbar";
+
 export function Uebersicht({
   spalten,
   projekte,
@@ -225,7 +229,10 @@ export function Uebersicht({
         {spalten.map((s, i) => {
           const zelle = z.zellen[s.id] ?? { zustand: "unbekannt" as const };
           const abonnierbar = s.ich && z.art === "projekt" && !z.hier && !!z.angebot;
-          const text = zellText(zelle);
+          // Nicht abonniert UND nicht angeboten (nur für diesen Rechner bekannt):
+          // anders zeigen als „angeboten, hier nicht abonniert“ (Schritt 3, 16.11.2026).
+          const nichtAngeboten = s.ich && z.art === "projekt" && !z.hier && !z.angebot && zelle.zustand === "nicht";
+          const text = nichtAngeboten ? NICHT_ANGEBOTEN : zellText(zelle);
           const k = `${z.folderId}|${s.id}`;
           const sig = `${zelle.zustand}:${zelle.teil ? 1 : 0}:${zelle.offline ? 1 : 0}`;
           const vorher = prevRef.current.get(k);
@@ -243,10 +250,10 @@ export function Uebersicht({
                 tabIndex={-1}
                 title={
                   abonnierbar
-                    ? `${z.name} auf diesem Rechner abonnieren`
+                    ? `${z.name} · angeboten, hier nicht abonniert — Klick: abonnieren`
                     : `${z.name} · ${s.name}: ${text}${wunsch ? " · Änderung gesendet, wartet" : ""}${z.art === "projekt" ? " — Klick: Auswahl festlegen" : ""}`
                 }
-                aria-label={`${z.name}, ${s.ich ? "dieser Rechner" : s.name}: ${abonnierbar ? "nicht abonniert, abonnieren" : text}${wunsch ? ", Änderung gesendet" : ""}`}
+                aria-label={`${z.name}, ${s.ich ? "dieser Rechner" : s.name}: ${abonnierbar ? "angeboten, hier nicht abonniert, abonnieren" : text}${wunsch ? ", Änderung gesendet" : ""}`}
                 aria-pressed={z.art === "projekt" ? istZelle : undefined}
                 onClick={() => (abonnierbar ? onAbonnieren(z) : z.art === "projekt" ? onZelle(z, s) : onZeile(z))}
                 className={`relative w-full h-9 inline-flex items-center justify-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--sm-blau)] ${istZelle ? "ring-2 ring-inset ring-[var(--sm-blau)]" : ""}`}
@@ -278,7 +285,11 @@ export function Uebersicht({
                   </span>
                 ) : (
                   <>
-                    <ZellSymbol z={zelle} leer={z.art === "projekt"} />
+                    {nichtAngeboten ? (
+                      <span aria-hidden className="text-[12px] text-[var(--sm-text2)]">–</span>
+                    ) : (
+                      <ZellSymbol z={zelle} leer={z.art === "projekt"} />
+                    )}
                     {zelle.zustand === "laedt" && (
                       <span className="sm-zahl font-mono text-[11px] text-[var(--sm-blau)]">{zelle.prozent ?? 0}%</span>
                     )}
@@ -517,6 +528,14 @@ export function Uebersicht({
               {t}
             </li>
           ))}
+          <li className="flex items-center gap-1" title="Angeboten, hier nicht abonniert — Klick: abonnieren">
+            <Plus aria-hidden className="size-3" strokeWidth={2.25} />
+            angeboten
+          </li>
+          <li className="flex items-center gap-1" title={NICHT_ANGEBOTEN}>
+            <span aria-hidden className="inline-block w-3 text-center">–</span>
+            nicht angeboten
+          </li>
         </ul>
         <span className="ml-auto text-[12px] text-[var(--sm-text2)] hidden md:inline">
           <kbd className="font-mono">/</kbd> suchen · Pfeiltasten in der Tabelle · Enter öffnet

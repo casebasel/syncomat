@@ -22,7 +22,9 @@ import {
 //
 // Die Datenzentrale legt je Rechner einen Auftrag `abonnieren` an (Seite des
 // Speicher-Wächters, Marlons Klick). Syncomat prüft ihn, legt das Projekt
-// nach D:\<NAME> und gleicht es mit tank/Projekte/<NAME> auf dem NAS ab —
+// nach D:\Projekte\<NAME> und gleicht es mit dem Projekt auf dem NAS ab (Ort
+// je nach Stand: aktiv m2_4TB/Projekte, abgeschlossen tank/Projekte — syncomat
+// kennt nur die folder_id, der Ort wechselt beim Verlegen) —
 // nur mit dem NAS geteilt, nie „an alle“. Konzept casebasel/datenzentrale,
 // Kapitel 9 (Verteilung auf Abruf), E20, E28–E35.
 //
@@ -320,7 +322,7 @@ export const istWindows = () => typeof navigator !== "undefined" && /Win/i.test(
 
 /** Wo die Arbeitskopien der Projekte liegen (Rolle „projekte“): unter Windows
  * `D:\Projekte\` — ein Überordner statt direkt in D: (Marlon 08.11.2026;
- * gleicher Name wie tank/Projekte auf dem NAS; bis v0.9.33 `D:\`, bestehende
+ * Ordner heisst wie das Projekt auf dem NAS; bis v0.9.33 `D:\`, bestehende
  * Abos bleiben dort). Auf dem Mac ein einmal gewählter Ordner (z. B.
  * ~/Projekte oder eine externe SSD), der dort die Rolle übernimmt.
  * null = auf diesem Rechner (noch) keiner. Endet immer mit dem Trenner. */
