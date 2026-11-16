@@ -295,14 +295,6 @@ function App() {
     rolle: geraeteRolle.rolle,
     sendBerichte: datenzentrale.sendBerichte,
   });
-  useStatusDatei({
-    ep: endpoint,
-    ready,
-    folders,
-    myID,
-    version,
-    rechner: datenzentrale.state.connection?.rechner ?? null,
-  });
   const updateAll = useUpdateAll({
     endpoint,
     ready,
@@ -317,6 +309,15 @@ function App() {
   const myName = devices.find((d) => d.deviceID === myID)?.name?.trim() || datenzentrale.state.computerName || "";
   // Das NAS = Geräte ohne syncomat (für „hat das NAS alles?“ vor jedem Löschen).
   useEffect(() => setzeNasGeraete(updateAll.noChannel), [updateAll.noChannel]);
+  useStatusDatei({
+    ep: endpoint,
+    ready,
+    folders,
+    myID,
+    version,
+    rechner: datenzentrale.state.connection?.rechner ?? null,
+    hubIds: updateAll.noChannel,
+  });
   // Geräte und Adressen fest aus geraete.json des Wächters (13.11.2026). Solange
   // es die Liste nicht gibt, gilt weiter „10GbE bevorzugen“ (gelernte Adressen).
   const geraeteListe = useWaechterKanal({

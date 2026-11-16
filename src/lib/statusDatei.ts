@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
-import { getFolderStatus, folderError, type DeviceID, type Endpoint, type Folder } from "./syncthing";
+import { getConnections, getFolderStatus, getRemoteCompletion, folderError, type DeviceID, type Endpoint, type Folder } from "./syncthing";
 import { isAboFolderId } from "./datenzentrale";
 import { aboAuswahl } from "./nasProjekte";
 import { ordnerName, projekteWurzel } from "./abo";
@@ -35,6 +35,14 @@ export type StatusAbo = {
   fehler: string | null;
   /** Gewählte Unterordner (leer = ganzes Projekt). Ab v0.9.27. */
   auswahl: string[];
+  /** Ab v0.9.47: Der NAS-Hub, mit dem dieses Abo geteilt ist, ist gerade
+   * verbunden. Ohne Verbindung kann needBytes 0 veraltet sein. */
+  nas_verbunden: boolean;
+  /** Ab v0.9.47: Wann dieses Abo zuletzt nachweislich gleich mit dem NAS war
+   * (ISO, UTC) — NAS verbunden, Ordner im Leerlauf ohne Fehler, hier nichts
+   * offen (needBytes/needItems 0) und auf dem NAS nichts offen von hier.
+   * null = seit der Installation nie bestätigt. Überlebt Neustarts. */
+  stand_vom: string | null;
 };
 
 export type StatusDatei = {
@@ -49,8 +57,26 @@ export type StatusDatei = {
    * Ordner; null = keiner. Ab v0.9.34. Ältere Abos können ausserhalb liegen —
    * massgebend je Abo ist abos[].path. */
   projekte_ordner: string | null;
+  /** Ab v0.9.47: irgendein NAS-Hub ist verbunden. */
+  nas_verbunden: boolean;
   abos: StatusAbo[];
 };
+
+const STAND_LS = "syncomat.status.standVom";
+function standLesen(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(STAND_LS) || "{}") as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+function standSchreiben(m: Record<string, string>) {
+  try {
+    localStorage.setItem(STAND_LS, JSON.stringify(m));
+  } catch {
+    /* ohne Speicher: nur bis zum Neustart */
+  }
+}
 
 export function useStatusDatei({
   ep,
@@ -59,6 +85,7 @@ export function useStatusDatei({
   myID,
   version,
   rechner,
+  hubIds,
 }: {
   ep: Endpoint | null;
   ready: boolean;
@@ -66,18 +93,38 @@ export function useStatusDatei({
   myID: DeviceID | null;
   version: string | null;
   rechner: string | null;
+  /** Geräte ohne syncomat (der NAS-Hub). */
+  hubIds: Set<DeviceID>;
 }) {
+  const hubRef = useRef(hubIds);
+  hubRef.current = hubIds;
+  const standRef = useRef<Record<string, string> | null>(null);
   const lastRef = useRef({ key: "", at: 0 });
   const abos = folders.filter((f) => isAboFolderId(f.id));
-  const key = abos.map((f) => `${f.id}:${f.path}:${f.paused ? 1 : 0}`).join(",");
+  const key = abos.map((f) => `${f.id}:${f.path}:${f.paused ? 1 : 0}:${f.devices.length}`).join(",");
 
   useEffect(() => {
     if (!ep || !ready) return;
     let cancelled = false;
     const run = async () => {
       const liste: StatusAbo[] = [];
+      const conns = await getConnections(ep).catch(() => null);
+      const verbunden = (id: DeviceID) => !!conns?.connections[id]?.connected;
+      const hubs = [...hubRef.current];
+      const stand = (standRef.current ??= standLesen());
+      let standNeu = false;
       for (const f of abos) {
         const s = await getFolderStatus(ep, f.id).catch(() => null);
+        const fHubs = hubs.filter((h) => f.devices.some((d) => d.deviceID === h));
+        const nasVerbunden = fHubs.some(verbunden);
+        if (nasVerbunden && !f.paused && s && s.state === "idle" && !folderError(s) && (s.needBytes ?? 0) === 0 && ((s as unknown as { needFiles?: number }).needFiles ?? 0) === 0) {
+          // Auch auf dem NAS nichts offen von hier (alles hochgeladen).
+          const c = await Promise.all(fHubs.filter(verbunden).map((h) => getRemoteCompletion(ep, f.id, h).catch(() => null)));
+          if (c.length > 0 && c.every((x) => x && x.needItems === 0 && x.needDeletes === 0 && (x.remoteState ?? "valid") === "valid")) {
+            stand[f.id] = new Date().toISOString();
+            standNeu = true;
+          }
+        }
         liste.push({
           folder_id: f.id,
           name: f.label || f.id,
@@ -89,11 +136,16 @@ export function useStatusDatei({
           localBytes: s?.localBytes ?? 0,
           fehler: folderError(s),
           auswahl: aboAuswahl(f.id),
+          nas_verbunden: nasVerbunden,
+          stand_vom: stand[f.id] ?? null,
         });
       }
       if (cancelled) return;
-      const inhalt = { version, geraet_id: myID, rechner, abos: liste };
-      const k = JSON.stringify(inhalt);
+      if (standNeu) standSchreiben(stand);
+      const nasVerbunden = hubs.some(verbunden);
+      const inhalt = { version, geraet_id: myID, rechner, nas_verbunden: nasVerbunden, abos: liste };
+      // stand_vom läuft im Takt mit — nur mit dem Herzschlag neu schreiben.
+      const k = JSON.stringify({ ...inhalt, abos: liste.map((a) => ({ ...a, stand_vom: a.stand_vom ? 1 : 0 })) });
       const now = Date.now();
       if (k === lastRef.current.key && now - lastRef.current.at < HERZSCHLAG_MS) return;
       const datei: StatusDatei = {
