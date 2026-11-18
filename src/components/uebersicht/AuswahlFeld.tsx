@@ -665,7 +665,7 @@ export function AuswahlFeld({
               </span>
             </label>
             <p className="text-[12px] text-[var(--sm-text2)]">
-              Das Projekt bleibt auf dem NAS und bleibt angeboten — es lässt sich jederzeit wieder abonnieren.
+              Das Projekt bleibt auf dem NAS.
             </p>
             <div className="flex gap-2">
               <button
@@ -706,7 +706,7 @@ export function AuswahlFeld({
             ) : (
               <div className="space-y-1.5">
                 <p>
-                  {zeile.name} auf allen Rechnern beenden? Das Projekt bleibt auf dem NAS und bleibt angeboten — jeder Rechner kann es später wieder abonnieren. Jeder Rechner prüft vorher, dass das NAS alles von ihm hat.
+                  {zeile.name} auf allen Rechnern beenden? Das Projekt bleibt auf dem NAS. Jeder Rechner prüft vorher, dass das NAS alles von ihm hat.
                 </p>
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input type="checkbox" checked={ordnerLoeschen} onChange={(e) => setOrdnerLoeschen(e.target.checked)} className="mt-0.5 accent-[var(--sm-blau)]" />
