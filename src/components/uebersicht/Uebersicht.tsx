@@ -59,6 +59,7 @@ function StandMarke({ z }: { z: Zeile }) {
 /** Kurzwort für die Störung einer Zeile (wichtigstes zuerst). */
 function stoerungText(z: Zeile): string {
   const zellen = Object.values(z.zellen);
+  if (zellen.some((c) => c.verwaist)) return "nur noch hier";
   if (zellen.some((c) => c.zustand === "angehalten")) return "angehalten";
   const k = zellen.reduce((a, c) => a + (c.konflikte ?? 0), 0);
   if (k > 0) return k === 1 ? "1 Konflikt" : `${k} Konflikte`;

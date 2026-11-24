@@ -212,6 +212,8 @@ export function AuswahlFeld({
   /** Beim Beenden den Ordner löschen (nur, was sicher auf dem NAS ist). */
   // Bei angehaltenem Abo (z. B. Ordner fehlt) nicht vorgewählt — Löschen geht dort nicht.
   const [ordnerLoeschen, setOrdnerLoeschen] = useState(zelle.zustand !== "angehalten");
+  // Letzte Kopie: nie löschen anbieten (aboBeenden würde es ohnehin verweigern).
+  const darfLoeschen = !zelle.verwaist;
 
   // Ordnerbaum holen: aus dem eigenen Abo, sonst aus der Inhaltsdatei des Wächters.
   useEffect(() => {
@@ -304,7 +306,7 @@ export function AuswahlFeld({
   const hierBeenden = () =>
     ausfuehren("Abo beenden …", async () => {
       if (!ep || !myID || !zeile.hier) throw new Error("Nicht abonniert.");
-      return aboBeenden(ep, zeile.hier, myID, ordnerLoeschen);
+      return aboBeenden(ep, zeile.hier, myID, ordnerLoeschen && darfLoeschen);
     });
 
   const name = spalte.ich ? "diesem Rechner" : spalte.name;
@@ -432,7 +434,16 @@ export function AuswahlFeld({
 
         {(zelle.zustand === "angehalten" || zelle.konflikte || zelle.dateifehler) && (
           <div className="rounded-md border border-[var(--sm-linie)] px-3 py-2 text-[14px] space-y-1.5" role="alert">
-            {zelle.zustand === "angehalten" && (() => {
+            {zelle.verwaist && (
+              <>
+                <p className="font-semibold text-[var(--sm-ocker-text)]">Nicht mehr auf dem NAS — letzte Kopie hier</p>
+                <p className="text-[12px]">
+                  Das Projekt wurde auf dem NAS gelöscht. Die Dateien hier sind die letzte Kopie; syncomat löscht sie nicht.
+                  Brauchst du sie nicht mehr: „Abo beenden“ (die Dateien bleiben liegen) und den Ordner danach selbst löschen.
+                </p>
+              </>
+            )}
+            {zelle.zustand === "angehalten" && !zelle.verwaist && (() => {
               const d = zelle.grund && zelle.grund !== "Pausiert" ? describeFolderError(zelle.grund) : null;
               const macGeschuetzt =
                 spalte.ich && !istWindows() && !!zeile.hier && /folder path missing/i.test(zelle.grund ?? "") &&
@@ -655,7 +666,7 @@ export function AuswahlFeld({
         {beendenFragen && (
           <div className="rounded-md border border-[var(--sm-linie)] px-3 py-2 text-[13px] space-y-2">
             <p className="font-semibold">Abo {spalte.ich ? "auf diesem Rechner" : `auf ${spalte.name}`} beenden?</p>
-            <label className="flex items-start gap-2 cursor-pointer">
+            {darfLoeschen && <label className="flex items-start gap-2 cursor-pointer">
               <input type="checkbox" checked={ordnerLoeschen} onChange={(e) => setOrdnerLoeschen(e.target.checked)} className="mt-0.5 accent-[var(--sm-blau)]" />
               <span>
                 Ordner {spalte.ich ? "hier" : `auf ${spalte.name}`} löschen
@@ -663,16 +674,16 @@ export function AuswahlFeld({
                   Nur, was sicher auf dem NAS liegt. Was nie dort war (z. B. Autosaves), bleibt liegen und wird gemeldet.
                 </span>
               </span>
-            </label>
+            </label>}
             <p className="text-[12px] text-[var(--sm-text2)]">
-              Das Projekt bleibt auf dem NAS.
+              {darfLoeschen ? "Das Projekt bleibt auf dem NAS." : "Die Dateien bleiben hier liegen — es ist die letzte Kopie."}
             </p>
             <div className="flex gap-2">
               <button
                 onClick={() => {
                   setBeendenFragen(false);
                   if (spalte.ich) void hierBeenden();
-                  else onSenden("beenden", [], vorherFern ?? null, ordnerLoeschen);
+                  else onSenden("beenden", [], vorherFern ?? null, ordnerLoeschen && darfLoeschen);
                 }}
                 className="h-7 px-2.5 rounded-md bg-[var(--sm-text)] text-[var(--sm-grund)] text-[13px] font-semibold"
               >

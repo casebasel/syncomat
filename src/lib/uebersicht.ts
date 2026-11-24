@@ -52,7 +52,13 @@ export type Zelle = {
   konflikte?: number;
   /** Dateien, die Syncthing hier nicht abgleichen kann */
   dateifehler?: number;
+  /** Das NAS führt dieses Abo nicht mehr (Projekt dort gelöscht): die Dateien
+   * hier sind die letzte Kopie. Löschen über syncomat bleibt verweigert. */
+  verwaist?: boolean;
 };
+
+/** Text für ein Abo, das das NAS nicht mehr führt (24.11.2026, stage-system). */
+export const VERWAIST_TEXT = "nicht mehr auf dem NAS — letzte Kopie hier";
 
 export type Zeile = {
   folderId: string;
@@ -468,6 +474,27 @@ export function useUebersicht({
   for (const z of projekte.values()) {
     for (const sp of spalten) {
       if (sp.ich) {
+        // Verwaist: Ein NAS-Hub, den wir kennen, führt das Projekt nicht mehr —
+        // er ist nicht mehr im Ordner oder meldet ausdrücklich „notSharing“.
+        // Nur mit klarem Signal (Hub bekannt, Stand geladen), sonst nie.
+        const hubs = [...ohneSyncomat];
+        const verwaist =
+          !!z.hier &&
+          hubs.length > 0 &&
+          (!z.hier.devices.some((d) => ohneSyncomat.has(d.deviceID)) ||
+            (!!remote[z.folderId] &&
+              z.hier.devices
+                .filter((d) => ohneSyncomat.has(d.deviceID))
+                .every((d) => remote[z.folderId]![d.deviceID]?.zustand === "nicht")));
+        if (verwaist) {
+          z.zellen[sp.id] = {
+            zustand: "angehalten",
+            grund: VERWAIST_TEXT,
+            verwaist: true,
+            ...(konflikte[z.folderId] ? { konflikte: konflikte[z.folderId] } : {}),
+          };
+          continue;
+        }
         z.zellen[sp.id] = z.hier
           ? {
               ...zelleAusStatus(status[z.folderId] ?? null, z.hier),

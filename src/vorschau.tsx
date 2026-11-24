@@ -64,6 +64,7 @@ const projekte: Zeile[] = namen.map((n, i) => {
     zellen["X79"] = { zustand: "aktuell", offline: true, auswahl: [] };
   }
   if (n === "TEST_SYNCOMAT") zellen["I9"] = { zustand: "nicht" };
+  if (n === "DOBO_PRODUKT") zellen["I9"] = { zustand: "angehalten", grund: "nicht mehr auf dem NAS — letzte Kopie hier", verwaist: true };
   const hier = zellen["I9"]!.zustand !== "nicht";
   return {
     folderId: `dz-projekt-${n.toLowerCase()}-1`,
