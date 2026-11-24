@@ -57,6 +57,14 @@ export const RESERVE_FEST_GB = 50;
 export const ARBEITSRAUM = RESERVE_FEST_GB * 1e9;
 export const ABO_MIN_DISK_FREE = { value: RESERVE_FEST_GB, unit: "GB" };
 
+/** Laden schneller (Marlon 24.11.2026: „8 anstatt 2 gleichzeitig“): je
+ * Abo-Ordner 8 Dateien gleichzeitig statt Syncthings 2, und bis 128 MiB
+ * offene Anfragen statt 32 MiB — damit holt ein Rechner bei vielen kleinen
+ * Dateien mehr gleichzeitig vom NAS und von den anderen Rechnern. Gemessen
+ * am 24.11.: Ada bekam nur 12,7 MB/s vom NAS und 23,6 MB/s von render. */
+export const ABO_COPIERS = 8;
+export const ABO_PULLER_MAX_PENDING_KIB = 128 * 1024;
+
 /** Ort der Projekte in Texten: „D:“ (Windows) bzw. „im Projektordner“ (Mac). */
 export const projekteOrt = () => (istWindows() ? "auf D:" : "im Projektordner");
 

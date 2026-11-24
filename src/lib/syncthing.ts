@@ -57,6 +57,8 @@ export type Folder = {
   fsWatcherDelayS?: number;
   blockPullOrder?: "standard" | "random" | "alphabetic" | "smallestFirst" | "largestFirst" | "oldestFirst" | "newestFirst" | "inOrder";
   copiers?: number;
+  /** Höchstmenge offener Anfragen beim Laden (KiB, 0 = Standard 32 MiB). */
+  pullerMaxPendingKiB?: number;
   hashers?: number;
   weakHashThresholdPct?: number;
   maxConflicts?: number;

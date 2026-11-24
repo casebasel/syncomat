@@ -11,7 +11,7 @@ import {
   type Folder,
 } from "./syncthing";
 import { normalizeLocalIgnores } from "./folderSettings";
-import { ABO_MIN_DISK_FREE } from "./abo";
+import { ABO_COPIERS, ABO_MIN_DISK_FREE, ABO_PULLER_MAX_PENDING_KIB } from "./abo";
 import { isAboFolderId } from "./datenzentrale";
 
 // ── Einmalige Sync-Wartung beim Start ─────────────────────────────
@@ -136,11 +136,17 @@ export function useSyncMaintenance(
  * auslässt) auf MAX_CONFLICTS halten — nur bei Abweichung, also kein Rescan
  * im Normalfall. Abos von vor dem 11.11.2026 hatten noch 1. */
 export function useKonfliktEinstellung(ep: Endpoint | null, ready: boolean, folders: Folder[]): void {
-  // Abo-Ordner zusätzlich: minDiskFree = feste Reserve (50 GB, Marlon 12.11.2026).
+  // Abo-Ordner zusätzlich: minDiskFree = feste Reserve (50 GB, Marlon 12.11.2026)
+  // und schneller laden (8 Dateien gleichzeitig, 128 MiB offen; 24.11.2026).
   const platzFalsch = (f: Folder) =>
     isAboFolderId(f.id) &&
-    (f.minDiskFree?.value !== ABO_MIN_DISK_FREE.value || f.minDiskFree?.unit !== ABO_MIN_DISK_FREE.unit);
-  const key = folders.map((f) => `${f.id}:${f.maxConflicts}:${f.minDiskFree?.value}${f.minDiskFree?.unit}`).join(",");
+    (f.minDiskFree?.value !== ABO_MIN_DISK_FREE.value ||
+      f.minDiskFree?.unit !== ABO_MIN_DISK_FREE.unit ||
+      f.copiers !== ABO_COPIERS ||
+      f.pullerMaxPendingKiB !== ABO_PULLER_MAX_PENDING_KIB);
+  const key = folders
+    .map((f) => `${f.id}:${f.maxConflicts}:${f.minDiskFree?.value}${f.minDiskFree?.unit}:${f.copiers}:${f.pullerMaxPendingKiB}`)
+    .join(",");
   useEffect(() => {
     if (!ep || !ready) return;
     const falsch = folders.filter(
@@ -155,7 +161,9 @@ export function useKonfliktEinstellung(ep: Endpoint | null, ready: boolean, fold
             await putFolder(ep, {
               ...fresh,
               maxConflicts: MAX_CONFLICTS,
-              ...(isAboFolderId(fresh.id) ? { minDiskFree: ABO_MIN_DISK_FREE } : {}),
+              ...(isAboFolderId(fresh.id)
+                ? { minDiskFree: ABO_MIN_DISK_FREE, copiers: ABO_COPIERS, pullerMaxPendingKiB: ABO_PULLER_MAX_PENDING_KIB }
+                : {}),
             });
           }
         } catch (e) {
