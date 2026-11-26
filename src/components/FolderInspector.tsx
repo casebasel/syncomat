@@ -305,7 +305,7 @@ export function FolderInspector({
               Aktivität
             </div>
             <div className="text-[12px] text-[var(--sm-text2)]">
-              letzte 200 Events
+              neueste zuerst
             </div>
           </div>
           <ActivityFeed
