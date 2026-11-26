@@ -62,8 +62,13 @@ export const ABO_MIN_DISK_FREE = { value: RESERVE_FEST_GB, unit: "GB" };
  * offene Anfragen statt 32 MiB — damit holt ein Rechner bei vielen kleinen
  * Dateien mehr gleichzeitig vom NAS und von den anderen Rechnern. Gemessen
  * am 24.11.: Ada bekam nur 12,7 MB/s vom NAS und 23,6 MB/s von render. */
-export const ABO_COPIERS = 8;
-export const ABO_PULLER_MAX_PENDING_KIB = 128 * 1024;
+// ZURÜCK auf Syncthings Standard (0 = 2 Dateien, 32 MiB), 27.11.2026: Mit 8/128
+// hing Syncthing auf render ~4 h beim Laden von BOOM (grosse .mov, mehrere
+// Quellen): keine Verbindung zum Hub mehr, REST antwortete kaum; nach Neustart
+// sofort 100 %. Gewinn war auf render nicht messbar (60 vs 62 s). Ein Abo, das
+// noch 8/128 hat, setzt syncomat damit automatisch zurück.
+export const ABO_COPIERS = 0;
+export const ABO_PULLER_MAX_PENDING_KIB = 0;
 
 /** Ort der Projekte in Texten: „D:“ (Windows) bzw. „im Projektordner“ (Mac). */
 export const projekteOrt = () => (istWindows() ? "auf D:" : "im Projektordner");
