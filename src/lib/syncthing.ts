@@ -656,6 +656,9 @@ export async function* subscribeEvents(
   }
 }
 
+/** Künstliches Ereignis: Ereignisse wurden verpasst → alles neu laden. */
+export const LUECKE = "syncomat:EreignisseVerpasst";
+
 // ============================================================
 // Shared event bus — one subscriber per endpoint, fan-out to listeners.
 // ============================================================
@@ -712,6 +715,20 @@ class EventBus {
     while (!signal.aborted) {
       try {
         for await (const event of subscribeEvents(ep, since, signal, pfad)) {
+          // Lücke: Syncthing hält nur die letzten 1000 Ereignisse. Lag die App
+          // im Hintergrund, während viele Dateien kamen, sind dazwischen
+          // Ereignisse verloren (i9 26.11.2026: Angebot BOOM nie angezeigt).
+          // Dann alle Daten neu laden statt auf das verlorene Ereignis zu warten.
+          if (since > 0 && event.id > since + 1 && pfad === "/rest/events") {
+            const luecke: SyncEvent = { id: event.id, globalID: event.globalID, time: event.time, type: LUECKE, data: null };
+            for (const h of this.listeners) {
+              try {
+                h(luecke);
+              } catch (err) {
+                console.error("[syncthing] event handler threw", err);
+              }
+            }
+          }
           for (const h of this.listeners) {
             try {
               h(event);
@@ -825,6 +842,9 @@ function useLoadable<T>(
   fetcher: (ep: Endpoint) => Promise<T>,
   shouldRefetch: (e: SyncEvent) => boolean,
   deps: unknown[] = [],
+  /** Zusätzlich in diesem Takt neu laden (ms) — Sicherheitsnetz, falls ein
+   * Ereignis trotz allem fehlt. */
+  taktMs?: number,
 ): Loadable<T> {
   const [state, setState] = useState<Loadable<T>>({ data: null, error: null });
   const lastDebounce = useRef(0);
@@ -843,7 +863,7 @@ function useLoadable<T>(
     refetch();
 
     const handler: EventHandler = (e) => {
-      if (!shouldRefetch(e)) return;
+      if (e.type !== LUECKE && !shouldRefetch(e)) return;
       // 200ms debounce — coalesce burst (ItemFinished etc.)
       const now = Date.now();
       lastDebounce.current = now;
@@ -852,10 +872,20 @@ function useLoadable<T>(
       }, 200);
     };
     bus.add(handler);
+    // Fenster wieder sichtbar (aus dem Tray geholt, entsperrt): frisch laden.
+    const sichtbar = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    document.addEventListener("visibilitychange", sichtbar);
+    window.addEventListener("focus", sichtbar);
+    const takt = taktMs ? setInterval(refetch, taktMs) : null;
 
     return () => {
       cancelled = true;
       bus.remove(handler);
+      document.removeEventListener("visibilitychange", sichtbar);
+      window.removeEventListener("focus", sichtbar);
+      if (takt) clearInterval(takt);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ep?.url, ep?.api_key, ready, ...deps]);
@@ -876,7 +906,7 @@ export const useConfig = (ep: Endpoint | null, ready: boolean) =>
   useLoadable(ep, ready, getConfig, ON("ConfigSaved"));
 
 export const usePendingFolders = (ep: Endpoint | null, ready: boolean) =>
-  useLoadable(ep, ready, getPendingFolders, ON("PendingFoldersChanged"));
+  useLoadable(ep, ready, getPendingFolders, ON("PendingFoldersChanged"), [], 60_000);
 
 export const usePendingDevices = (ep: Endpoint | null, ready: boolean) =>
   useLoadable(ep, ready, getPendingDevices, ON("PendingDevicesChanged"));
