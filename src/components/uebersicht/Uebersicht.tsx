@@ -142,6 +142,33 @@ export function Uebersicht({
     });
   const sucheRef = useRef<HTMLInputElement>(null);
   const tabelleRef = useRef<HTMLTableElement>(null);
+  // ── Masse nach Fensterbreite (Marlon 26.11.2026, x3950 ~2000 px) ──
+  // Rechner-Spalten wachsen mit dem Fenster (90–170 px), die Projekt-Spalte
+  // nimmt den Rest (280–520 px), damit Namen ganz lesbar sind. Ab 1600 px
+  // Tafelbreite wird die Tafel eine Stufe grösser (ganze Pixel, nie zoom).
+  // Schmal bleibt es dicht, mit waagrechtem Scrollen statt Quetschen.
+  const tafelRef = useRef<HTMLDivElement>(null);
+  const [tafelBreite, setTafelBreite] = useState(0);
+  useEffect(() => {
+    const el = tafelRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((e) => setTafelBreite(Math.floor(e[0]!.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const gross = tafelBreite >= 1600;
+  const masse = useMemo(() => {
+    const n = Math.max(1, spalten.length);
+    const W = tafelBreite || 0;
+    const projMin = gross ? 320 : 280;
+    const projMax = gross ? 560 : 520;
+    const projStart = Math.min(projMax, Math.max(projMin, Math.round(W * 0.28)));
+    const spalte = Math.max(gross ? 104 : 90, Math.min(gross ? 180 : 160, Math.floor((W - projStart) / n)));
+    const projekt = Math.max(projMin, Math.min(projMax, W - n * spalte));
+    return { projekt, spalte };
+  }, [tafelBreite, spalten.length, gross]);
+  const zeilenH = gross ? "h-10" : "h-9";
+  const symbol = gross ? 16 : 14;
   const ich = spalten.find((s) => s.ich);
 
   // „/“ fokussiert die Suche
@@ -206,14 +233,14 @@ export function Uebersicht({
             data-c={0}
             tabIndex={r === 0 ? 0 : -1}
             onClick={() => onZeile(z)}
-            className={`w-full h-9 flex items-center gap-2.5 pl-0 pr-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--sm-blau)] ${istGewaehlt ? "bg-[var(--sm-blau-flaeche)]" : "bg-[var(--sm-grund)] group-hover:bg-[var(--sm-flaeche)]"}`}
+            className={`w-full ${zeilenH} flex items-center gap-2.5 pl-0 pr-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--sm-blau)] ${istGewaehlt ? "bg-[var(--sm-blau-flaeche)]" : "bg-[var(--sm-grund)] group-hover:bg-[var(--sm-flaeche)]"}`}
           >
             <span
               aria-hidden
               className="self-stretch w-[3px] shrink-0"
               style={{ background: z.farbe ?? "transparent" }}
             />
-            <span className={`min-w-0 truncate text-[14px] font-semibold ${ausgeblendet.has(z.folderId) ? "text-[var(--sm-text2)]" : "text-[var(--sm-text)]"}`} dir="auto">
+            <span className={`min-w-0 truncate ${gross ? "text-[15px]" : "text-[14px]"} font-semibold ${ausgeblendet.has(z.folderId) ? "text-[var(--sm-text2)]" : "text-[var(--sm-text)]"}`} dir="auto">
               {z.name}
             </span>
             {z.stoerung && (
@@ -257,7 +284,7 @@ export function Uebersicht({
                 aria-label={`${z.name}, ${s.ich ? "dieser Rechner" : s.name}: ${abonnierbar ? "angeboten, hier nicht abonniert, abonnieren" : text}${wunsch ? ", Änderung gesendet" : ""}`}
                 aria-pressed={z.art === "projekt" ? istZelle : undefined}
                 onClick={() => (abonnierbar ? onAbonnieren(z) : z.art === "projekt" ? onZelle(z, s) : onZeile(z))}
-                className={`relative w-full h-9 inline-flex items-center justify-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--sm-blau)] ${istZelle ? "ring-2 ring-inset ring-[var(--sm-blau)]" : ""}`}
+                className={`relative w-full ${zeilenH} inline-flex items-center justify-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--sm-blau)] ${istZelle ? "ring-2 ring-inset ring-[var(--sm-blau)]" : ""}`}
               >
                 {wunsch && (
                   <span aria-hidden className="absolute top-1.5 right-2 size-1.5 rounded-full bg-[var(--sm-blau)]" />
@@ -289,7 +316,7 @@ export function Uebersicht({
                     {nichtAngeboten ? (
                       <span aria-hidden className="text-[12px] text-[var(--sm-text2)]">–</span>
                     ) : (
-                      <ZellSymbol z={zelle} leer={z.art === "projekt"} />
+                      <ZellSymbol z={zelle} leer={z.art === "projekt"} size={symbol} />
                     )}
                     {zelle.zustand === "laedt" && (
                       <span className="sm-zahl font-mono text-[12px] text-[var(--sm-blau)]">{zelle.prozent ?? 0}%</span>
@@ -406,15 +433,27 @@ export function Uebersicht({
 
 
       {/* Tafel */}
-      <div className="flex-1 overflow-auto">
-        <table ref={tabelleRef} onKeyDown={onTabelleKey} className="border-collapse text-[14px] min-w-full">
+      <div ref={tafelRef} className="flex-1 overflow-auto">
+        <table
+          ref={tabelleRef}
+          onKeyDown={onTabelleKey}
+          className={`border-collapse table-fixed ${gross ? "text-[15px]" : "text-[14px]"}`}
+          style={{ width: Math.max(tafelBreite, masse.projekt + spalten.length * masse.spalte) }}
+        >
+          <colgroup>
+            <col style={{ width: masse.projekt }} />
+            {spalten.map((s) => (
+              <col key={s.id} style={{ width: masse.spalte }} />
+            ))}
+            <col />
+          </colgroup>
           <thead className="sticky top-0 z-20 bg-[var(--sm-grund)]">
             <tr className="border-b border-[var(--sm-linie)]">
-              <th scope="col" className="sticky left-0 z-30 bg-[var(--sm-grund)] h-[60px] pl-3 pr-3 text-left align-bottom pb-2 min-w-[280px] w-[280px]">
+              <th scope="col" className="sticky left-0 z-30 bg-[var(--sm-grund)] h-[60px] pl-3 pr-3 text-left align-bottom pb-2">
                 <span className="text-[12px] font-bold uppercase tracking-wide text-[var(--sm-text2)]">Projekt</span>
               </th>
               {spalten.map((s) => (
-                <th key={s.id} scope="col" className={`h-[60px] px-0.5 align-bottom pb-1 min-w-[90px] max-w-[132px] border-l border-[var(--sm-linie-fein)] ${s.ich ? "bg-[var(--sm-ich)]" : ""}`}>
+                <th key={s.id} scope="col" className={`${gross ? "h-[66px]" : "h-[60px]"} px-0.5 align-bottom pb-1 border-l border-[var(--sm-linie-fein)] ${s.ich ? "bg-[var(--sm-ich)]" : ""}`}>
                   <button
                     onClick={() => onRechner(s.id)}
                     title={s.ich ? "Dieser Rechner" : `${s.name} — ${s.online ? "online" : "offline"}`}
@@ -425,7 +464,7 @@ export function Uebersicht({
                         aria-hidden
                         className={`size-1.5 rounded-full shrink-0 ${s.online ? "bg-[var(--sm-text)]" : "border border-[var(--sm-text2)]"}`}
                       />
-                      <span className={`truncate text-[13px] ${s.ich ? "font-bold" : "font-semibold"}`}>{s.name}</span>
+                      <span className={`truncate ${gross ? "text-[14px]" : "text-[13px]"} ${s.ich ? "font-bold" : "font-semibold"}`}>{s.name}</span>
                     </span>
                     <span className="text-[12px] text-[var(--sm-text2)] truncate max-w-full">
                       {s.ich ? (
@@ -457,7 +496,7 @@ export function Uebersicht({
                   </button>
                 </th>
               ))}
-              <th scope="col" className="w-full" aria-hidden />
+              <th scope="col" aria-hidden />
             </tr>
           </thead>
           <tbody>

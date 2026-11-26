@@ -17,7 +17,7 @@ import {
 } from "./syncthing";
 import { isAboFolderId } from "./datenzentrale";
 import { projektFarbe, projektIdAusFolderId } from "./projektFarbe";
-import { freiAufD, istInhaltOrdner, nasProjekte, type NasProjekt } from "./nasProjekte";
+import { freiAufD, INHALT_LABEL, istInhaltOrdner, nasProjekte, type NasProjekt } from "./nasProjekte";
 import { auswahlAusIgnores, schutzRegeln, type GeraeteRolle } from "./abo";
 import { WUNSCH_PROTOKOLL, ladeErledigt, type WunschErgebnis } from "./wuensche";
 import { fetchConflictsCoalesced } from "./conflicts";
@@ -425,7 +425,13 @@ export function useUebersicht({
     if (d.deviceID === myID || ohneSyncomat.has(d.deviceID)) continue;
     const n = notizen[d.deviceID];
     const hier = d.name?.trim() ?? "";
-    const fraglich = !hier || hier.toLowerCase() === eigenerName || eingetragen.filter((x) => x === hier.toLowerCase()).length > 1;
+    // Auch die Kurz-ID als Name zählt als fraglich (Koppeln ohne Namen trug
+    // „4CZONVS“ ein — x3950, 26.11.2026).
+    const fraglich =
+      !hier ||
+      hier.toLowerCase() === eigenerName ||
+      hier.toUpperCase() === d.deviceID.slice(0, 7) ||
+      eingetragen.filter((x) => x === hier.toLowerCase()).length > 1;
     // Gemeldeter Name: aus der Abos-Notiz, sonst aus der Versionsnotiz (ein
     // frisch eingeschalteter Rechner hat oft erst die; x7950 erschien sonst
     // als „H6V6IPX“, 12.11.2026).
@@ -467,6 +473,9 @@ export function useUebersicht({
   }
   for (const n of Object.values(notizen)) {
     for (const a of n.abos ?? []) {
+      // Alte Notizen (Rechner lange aus, ältere Version) können noch den
+      // Hilfsordner „syncomat-inhalt“ führen — nie als Projekt zeigen.
+      if (a.name === INHALT_LABEL) continue;
       if (!projekte.has(a.folder_id)) projekte.set(a.folder_id, neueZeile(a.folder_id, a.name, "projekt"));
     }
   }

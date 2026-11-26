@@ -186,7 +186,9 @@ export function useWaechterKanal({
           if (JSON.stringify(d.addresses) !== JSON.stringify(soll)) patch.addresses = soll;
           if (d.introducer) patch.introducer = false;
           if (d.skipIntroductionRemovals !== true) patch.skipIntroductionRemovals = true;
-          if (!d.name?.trim() && g.name) patch.name = g.name;
+          // Leer oder nur die Kurz-ID (Koppeln ohne Namen): Namen aus der Liste.
+          const n = d.name?.trim() ?? "";
+          if (g.name && (!n || n.toUpperCase() === g.id.slice(0, 7))) patch.name = g.name;
           if (Object.keys(patch).length > 0) await patchDevice(ep, g.id, patch).catch(() => {});
         }
       } catch (e) {
