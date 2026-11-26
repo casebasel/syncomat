@@ -249,7 +249,7 @@ function TabButton({
       </span>
       <span className="flex-1 truncate">{label}</span>
       {badge && (
-        <span className="text-[11px] px-1.5 py-0.5 rounded bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] font-semibold tabular-nums">
+        <span className="text-[12px] px-1.5 py-0.5 rounded bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] font-semibold tabular-nums">
           {badge}
         </span>
       )}
@@ -259,7 +259,7 @@ function TabButton({
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-2.5">
+    <h3 className="text-[12px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-2.5">
       {children}
     </h3>
   );
@@ -306,7 +306,7 @@ function GeneralTab({
             <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
               Bei Anmeldung starten
             </div>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
               Syncomat startet ab dem Login minimiert in der Taskleiste und
               synchronisiert weiter, ohne dass du die App manuell öffnen musst.
             </p>
@@ -318,7 +318,7 @@ function GeneralTab({
             className="mt-0.5 size-4 accent-[var(--sm-blau)]"
           />
         </label>
-        <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+        <p className="text-[12px] text-neutral-500 dark:text-neutral-500 mt-2">
           Gleicher Schalter wie der Haken „Bei Anmeldung starten" im Tray-Menü.
         </p>
       </section>
@@ -329,10 +329,10 @@ function GeneralTab({
           <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 px-3 py-2.5">
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
-                <div className="text-[10px] text-neutral-500 dark:text-neutral-500">
+                <div className="text-[12px] text-neutral-500 dark:text-neutral-500">
                   Geräte-ID
                 </div>
-                <div className="font-mono text-[11px] text-neutral-700 dark:text-neutral-200 break-all">
+                <div className="font-mono text-[12px] text-neutral-700 dark:text-neutral-200 break-all">
                   {status.myID}
                 </div>
               </div>
@@ -476,13 +476,13 @@ function UpdatesTab({
         )}
 
         {downloading && (
-          <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+          <div className="mt-2 flex items-center justify-center gap-1.5 text-[12px] text-neutral-500 dark:text-neutral-400">
             <Loader2 className="size-3 animate-spin" /> App startet nach Download
             automatisch neu
           </div>
         )}
       </div>
-      <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
+      <p className="text-[12px] text-neutral-500 dark:text-neutral-500">
         Automatischer Check alle 6 Stunden. Updates werden mit
         Minisign-Signatur verifiziert bevor sie installiert werden.
       </p>
@@ -520,7 +520,7 @@ function NotificationsTab({
           <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
             System-Benachrichtigungen
           </div>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+          <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
             Gerät verbindet sich · neuer Ordner verfügbar · Update bereit
           </p>
         </div>
@@ -531,7 +531,7 @@ function NotificationsTab({
           className="mt-0.5 size-4 accent-[var(--sm-blau)]"
         />
       </label>
-      <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
+      <p className="text-[12px] text-neutral-500 dark:text-neutral-500">
         Beim ersten Mal fragt das System nach Erlaubnis. Lehnst du ab, kann
         die App keine Benachrichtigungen schicken — Toggle bleibt aus.
       </p>
@@ -585,7 +585,7 @@ function NetworkTab({
             <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
               Schnelles Subnetz bevorzugen
             </div>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
               Merkt die schnelle Adresse jedes Geräts, teilt sie clusterweit und
               hinterlegt sie fest — wird beim Verbinden bevorzugt. ZeroTier
               bleibt als Fallback.
@@ -598,7 +598,7 @@ function NetworkTab({
             className="mt-0.5 size-4 accent-[var(--sm-blau)]"
           />
         </label>
-        <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+        <p className="text-[12px] text-neutral-500 dark:text-neutral-500 mt-2">
           „Weich": Syncthing behält die Verbindung, die zuerst steht. Die feste
           Adresse gewinnt im schnellen LAN meist das Connect-Rennen, aber nicht
           garantiert. Aus = zurück zu reinem Auto (dynamic).
@@ -615,7 +615,7 @@ function NetworkTab({
           className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 text-neutral-900 dark:text-neutral-100 focus:border-[var(--sm-blau)] focus-visible:outline-none"
           placeholder="192.168.100."
         />
-        <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+        <p className="text-[12px] text-neutral-500 dark:text-neutral-500 mt-2">
           Adressen mit diesem Präfix gelten als „schnell" (10GbE). ZeroTier
           (<span className="font-mono">192.168.191.</span>) = langsam,
           IPv6-Link-Local (<span className="font-mono">fe80::</span>) = lokal.
@@ -636,7 +636,7 @@ function NetworkTab({
               const badge = online ? netBadge(classifyPath(c?.address, fastSubnet)) : null;
               const knownFast = hints[d.deviceID]?.replace(/^tcp:\/\//, "");
               return (
-                <div key={d.deviceID} className="px-3 py-2.5 text-[11px] space-y-1.5">
+                <div key={d.deviceID} className="px-3 py-2.5 text-[12px] space-y-1.5">
                   <div className="flex items-center gap-2">
                     <span className="flex-1 truncate font-medium text-neutral-800 dark:text-neutral-200">
                       {d.name || d.deviceID.slice(0, 7)}
@@ -644,7 +644,7 @@ function NetworkTab({
                     {onGeraet && (
                       <button
                         onClick={() => onGeraet(d.deviceID)}
-                        className="text-[11px] font-semibold text-[var(--sm-blau)] hover:underline"
+                        className="text-[12px] font-semibold text-[var(--sm-blau)] hover:underline"
                       >
                         Details
                       </button>
@@ -659,7 +659,7 @@ function NetworkTab({
                           {c?.address}
                         </span>
                         {badge && (
-                          <span className={`font-semibold px-1.5 py-0.5 rounded text-[10px] ${badge.cls}`}>
+                          <span className={`font-semibold px-1.5 py-0.5 rounded text-[12px] ${badge.cls}`}>
                             {badge.label}
                           </span>
                         )}
@@ -676,7 +676,7 @@ function NetworkTab({
                       onChange={(e) => onSetManual(d.deviceID, e.target.value)}
                       spellCheck={false}
                       placeholder={knownFast || "z.B. 192.168.100.50:22000"}
-                      className="flex-1 font-mono text-[10px] px-2 py-1 rounded border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-200 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:border-[var(--sm-blau)] focus-visible:outline-none"
+                      className="flex-1 font-mono text-[12px] px-2 py-1 rounded border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950/40 text-neutral-700 dark:text-neutral-200 placeholder:text-neutral-400 dark:placeholder:text-neutral-600 focus:border-[var(--sm-blau)] focus-visible:outline-none"
                     />
                   </div>
                 </div>
@@ -684,7 +684,7 @@ function NetworkTab({
             })}
           </div>
         )}
-        <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+        <p className="text-[12px] text-neutral-500 dark:text-neutral-500 mt-2">
           Adressen werden auto-gelernt + clusterweit geteilt. Für Geräte, die
           kein Node je auf 10GbE gesehen hat (z.B. NAS), die Adresse hier manuell
           eintragen. Platzhalter (grau) = bereits bekannter Wert.
@@ -715,7 +715,7 @@ function PowerUserTab({ endpoint }: { endpoint: Endpoint | null }) {
           }
         />
       </div>
-      <p className="text-[11px] text-neutral-500 dark:text-neutral-500">
+      <p className="text-[12px] text-neutral-500 dark:text-neutral-500">
         Die Web-UI zeigt alle Syncthing-Internals (Block-Hash-Algorithmen,
         IPv6-Listener, ratelimits etc.). Nur reingehen wenn du weisst was du tust.
       </p>
@@ -744,7 +744,7 @@ function LinkRow({
         <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
           {title}
         </div>
-        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
+        <p className="text-[12px] text-neutral-500 dark:text-neutral-400 truncate">
           {sub}
         </p>
       </div>
@@ -900,7 +900,7 @@ function AllDevicesUpdate({
           </button>
         );
       })()}
-      <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+      <p className="text-[12px] text-neutral-500 dark:text-neutral-500 mt-2">
         {requested && request
           ? waitingFor.length > 0
             ? `Angefordert: v${request.version} (von ${nameOf(request.by)}). Warte auf: ${waitingFor.map((r) => r.name).join(", ")} — jedes Gerät lädt, installiert und startet neu, das dauert 1–2 Minuten.${later.length > 0 ? ` Ausgeschaltet: ${later.map((r) => r.name).join(", ")} — holen das Update beim nächsten Start.` : ""}`
@@ -967,13 +967,13 @@ function DatenzentraleTab({
             rows={5}
             spellCheck={false}
             placeholder={"STUDIO_DB_URL=…\nSTUDIO_DB_ANON_KEY=…\nSTUDIO_DB_TOKEN=…\nSTUDIO_DB_RECHNER=…"}
-            className="w-full font-mono text-[11px] px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
+            className="w-full font-mono text-[12px] px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           />
           {preview?.kind === "error" && (
-            <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1.5">{preview.message}</p>
+            <p className="text-[12px] text-rose-600 dark:text-rose-400 mt-1.5">{preview.message}</p>
           )}
           {preview?.kind === "ok" && (
-            <div className="text-[11px] mt-1.5 space-y-0.5">
+            <div className="text-[12px] mt-1.5 space-y-0.5">
               <div className="text-neutral-600 dark:text-neutral-400">
                 Rechner <span className="font-mono">{preview.rechner}</span> · gültig bis{" "}
                 {fmtDate(preview.exp)}
@@ -987,7 +987,7 @@ function DatenzentraleTab({
             </div>
           )}
           {saveError && (
-            <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-1.5">{saveError}</p>
+            <p className="text-[12px] text-rose-600 dark:text-rose-400 mt-1.5">{saveError}</p>
           )}
           <button
             disabled={blocked || busy}
@@ -1030,7 +1030,7 @@ function DatenzentraleTab({
             </span>
             <button
               onClick={() => void dz.disconnect()}
-              className="text-[11px] px-2.5 py-1 rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              className="text-[12px] px-2.5 py-1 rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
               Trennen
             </button>
@@ -1066,7 +1066,7 @@ function DatenzentraleTab({
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+        <p className="text-[12px] text-neutral-500 dark:text-neutral-500 mt-2">
           Bestimmt, was ein Abo auf diesem Rechner auslässt: Arbeitsplatz ohne Saved/Config und
           Saved/Concert, Render-Rechner ohne ganz Saved/. Gilt für neue Abos.
         </p>
@@ -1088,7 +1088,7 @@ function DatenzentraleTab({
             ))}
           </div>
         )}
-        <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-2">
+        <p className="text-[12px] text-neutral-500 dark:text-neutral-500 mt-2">
           Aufträge legt die Datenzentrale an (Seite des Speicher-Wächters). Syncomat führt
           „Abonnieren“ selbst aus: Projekt nach D:\&lt;NAME&gt;, nur mit dem NAS abgeglichen, nur in
           ein leeres Ziel, mit Platzprüfung. Abo beenden und Pausieren folgen.
@@ -1121,10 +1121,10 @@ function AuftragRow({ a, lokal, berichte }: { a: DzAuftrag; lokal?: AboEintrag; 
           {name ? ` · ${name}` : ""}
           {a.art === "abonnieren" ? ` · ${auswahl}` : ""}
         </div>
-        <div className="font-mono text-[10px] text-neutral-500 dark:text-neutral-500 truncate">{a.id}</div>
+        <div className="font-mono text-[12px] text-neutral-500 dark:text-neutral-500 truncate">{a.id}</div>
         {lokal?.grund && (
           <div
-            className={`text-[11px] mt-0.5 ${
+            className={`text-[12px] mt-0.5 ${
               lokal.zustand === "abgelehnt" || lokal.zustand === "abgebrochen"
                 ? "text-rose-600 dark:text-rose-400"
                 : "text-neutral-500 dark:text-neutral-400"
@@ -1135,7 +1135,7 @@ function AuftragRow({ a, lokal, berichte }: { a: DzAuftrag; lokal?: AboEintrag; 
         )}
         {berichtText && (
           <div
-            className={`text-[10px] mt-0.5 ${abgelehnt.length > 0 ? "text-rose-600 dark:text-rose-400" : "text-neutral-400 dark:text-neutral-500"}`}
+            className={`text-[12px] mt-0.5 ${abgelehnt.length > 0 ? "text-rose-600 dark:text-rose-400" : "text-neutral-400 dark:text-neutral-500"}`}
           >
             {berichtText}
           </div>

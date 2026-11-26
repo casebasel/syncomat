@@ -245,11 +245,11 @@ export function CodeRedeemModal({
               </button>
             </div>
             {quickError && (
-              <p className="text-[11px] text-rose-500 dark:text-rose-400 mt-1.5">
+              <p className="text-[12px] text-rose-500 dark:text-rose-400 mt-1.5">
                 {quickError}
               </p>
             )}
-            <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-1.5">
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-400 mt-1.5">
               Oder den vollständigen Code unten einfügen.
             </p>
           </div>
@@ -267,13 +267,13 @@ export function CodeRedeemModal({
             onBlur={(e) => setCode(e.target.value.trim())}
             placeholder="syncomat1...."
             rows={5}
-            className="w-full font-mono text-[11px] p-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 break-all resize-none focus:outline-none focus:border-[var(--sm-blau)]"
+            className="w-full font-mono text-[12px] p-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 break-all resize-none focus:outline-none focus:border-[var(--sm-blau)]"
           />
           {!code && (
             <button
               type="button"
               onClick={pasteFromClipboard}
-              className="absolute right-2 top-2 text-[11px] px-2 py-1 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 bg-white/80 dark:bg-neutral-900/80"
+              className="absolute right-2 top-2 text-[12px] px-2 py-1 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 bg-white/80 dark:bg-neutral-900/80"
             >
               Einfügen
             </button>
@@ -290,7 +290,7 @@ export function CodeRedeemModal({
         )}
 
         {!ready && (
-          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/40 text-[11px] text-amber-800 dark:text-amber-300">
+          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/40 text-[12px] text-amber-800 dark:text-amber-300">
             <Loader2 className="size-4 animate-spin shrink-0 mt-0.5" />
             <div>
               Sync-Dienst startet noch — der Einlösen-Button wird aktiv sobald

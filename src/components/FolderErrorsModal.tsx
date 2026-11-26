@@ -110,7 +110,7 @@ function Group({
           <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
             {title} <span className="text-xs text-neutral-500 dark:text-neutral-400 font-normal">({errors.length})</span>
           </h3>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+          <p className="text-[12px] text-neutral-500 dark:text-neutral-400 mt-0.5">
             {hint}
           </p>
         </div>
@@ -124,7 +124,7 @@ function Group({
             <div className="font-mono text-neutral-800 dark:text-neutral-200 break-all">
               {e.path}
             </div>
-            <div className="text-[10px] text-neutral-500 dark:text-neutral-500 mt-0.5 break-words">
+            <div className="text-[12px] text-neutral-500 dark:text-neutral-500 mt-0.5 break-words">
               {e.error}
             </div>
           </li>

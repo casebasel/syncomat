@@ -16,7 +16,7 @@ export function TagChip({
 }) {
   const color = tagColor(tag);
   const interactive = !!onClick;
-  const padding = size === "sm" ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[11px]";
+  const padding = size === "sm" ? "px-1.5 py-0.5 text-[12px]" : "px-2 py-0.5 text-[12px]";
   return (
     <span
       onClick={onClick}

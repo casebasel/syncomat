@@ -127,7 +127,7 @@ export function LinkFolderModal({
             className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-[var(--sm-blau)]"
             placeholder="z.B. Footage RAW"
           />
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-1">
+          <p className="text-[12px] text-neutral-500 dark:text-neutral-500 mt-1">
             Nur lokal. Andere Geräte sehen ihren eigenen Namen.
           </p>
         </div>
@@ -179,14 +179,14 @@ export function LinkFolderModal({
                   {estimate.files.toLocaleString("de-DE")} Dateien
                   {estimate.sampled && " (Schätzung)"}
                 </div>
-                <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                <div className="text-[12px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                   Index ~{expectedRamMB} MB RAM ·{" "}
                   {workloadLabel(estimate.workload.kind, estimate.workload.uproject_count)}
                 </div>
               </div>
             </div>
             {isUnreal && (
-              <div className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed border-t border-neutral-200 dark:border-neutral-800 pt-2">
+              <div className="text-[12px] text-neutral-600 dark:text-neutral-300 leading-relaxed border-t border-neutral-200 dark:border-neutral-800 pt-2">
                 <strong>
                   {estimate.workload.uproject_count > 1
                     ? `Unreal-Workspace mit ${estimate.workload.uproject_count} Projekten erkannt.`
@@ -197,7 +197,7 @@ export function LinkFolderModal({
               </div>
             )}
             {isUnrealPlugins && (
-              <div className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed border-t border-neutral-200 dark:border-neutral-800 pt-2">
+              <div className="text-[12px] text-neutral-600 dark:text-neutral-300 leading-relaxed border-t border-neutral-200 dark:border-neutral-800 pt-2">
                 <strong>{estimate.workload.uplugin_count} Unreal-Plugins erkannt.</strong>{" "}
                 Fertig installierte Plugins werden komplett synct — inklusive
                 Binaries (DLLs), ohne die Unreal sie nicht lädt.
@@ -234,11 +234,11 @@ export function LinkFolderModal({
                 onChange={(e) => setApplyPreset(e.target.checked)}
                 className="size-3.5 accent-[var(--sm-blau)]"
               />
-              <span className="text-[11px] text-neutral-600 dark:text-neutral-400">
+              <span className="text-[12px] text-neutral-600 dark:text-neutral-400">
                 Preset anwenden (.stignore + Ordner-Tuning)
               </span>
             </label>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-1">
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-500 mt-1">
               Beim Empfangen eines Unreal-Projekts vom Peer wirst du sonst
               DerivedDataCache (10-50 GB) komplett mit syncen.
             </p>

@@ -206,7 +206,7 @@ export function CodeShowModal({
             </div>
             <div className="flex justify-between">
               <span>Geräte-ID</span>
-              <span className="font-mono text-[10px]">{acceptPrompt.deviceID.slice(0, 7)}…{acceptPrompt.deviceID.slice(-7)}</span>
+              <span className="font-mono text-[12px]">{acceptPrompt.deviceID.slice(0, 7)}…{acceptPrompt.deviceID.slice(-7)}</span>
             </div>
           </div>
           <p className="text-xs text-neutral-500 dark:text-neutral-400">
@@ -297,7 +297,7 @@ export function CodeShowModal({
               {copied ? "Kopiert" : "Code kopieren"}
             </button>
           </div>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 text-center leading-relaxed">
+          <p className="text-[12px] text-neutral-500 dark:text-neutral-400 text-center leading-relaxed">
             Gilt nur 10 Minuten und kann einmal eingelöst werden. Das andere
             Gerät verbindet sich dann <span className="font-medium text-neutral-700 dark:text-neutral-300">automatisch</span> — kein Bestätigen nötig.
           </p>
@@ -314,7 +314,7 @@ export function CodeShowModal({
             Gib diesen Code an dein anderes Gerät weiter — z.B. via AirDrop oder Signal.
             Behandle ihn wie ein Passwort.
           </p>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+          <p className="text-[12px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
             Geräte mit diesem Code verbinden sich <span className="font-medium text-neutral-700 dark:text-neutral-300">automatisch</span>, solange er gültig ist — kein Bestätigen nötig.
           </p>
           {showQR ? (
@@ -327,7 +327,7 @@ export function CodeShowModal({
                   marginSize={0}
                 />
               </div>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 text-center max-w-[260px]">
+              <p className="text-[12px] text-neutral-500 dark:text-neutral-400 text-center max-w-[260px]">
                 Scan-Vorgang: auf dem anderen Gerät „Code einlösen" → der gescannte
                 Text wird automatisch eingefügt.
               </p>
@@ -337,7 +337,7 @@ export function CodeShowModal({
               readOnly
               value={generated.raw}
               onClick={(e) => e.currentTarget.select()}
-              className="w-full font-mono text-[11px] p-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 break-all min-h-[140px] resize-none focus:outline-none focus:border-[var(--sm-blau)]"
+              className="w-full font-mono text-[12px] p-3 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 break-all min-h-[140px] resize-none focus:outline-none focus:border-[var(--sm-blau)]"
             />
           )}
           <div className="flex items-center justify-between gap-2 text-xs text-neutral-500 dark:text-neutral-400">
@@ -379,7 +379,7 @@ export function CodeShowModal({
             <RadioPill checked={rw} onClick={() => setRw(true)} label="Lesen + Schreiben" />
             <RadioPill checked={!rw} onClick={() => setRw(false)} label="Nur Lesen" />
           </div>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-1">
+          <p className="text-[12px] text-neutral-500 dark:text-neutral-500 mt-1">
             Lesen+Schreiben passt für deine eigenen Geräte.
           </p>
         </div>
@@ -400,14 +400,14 @@ export function CodeShowModal({
             ))}
           </select>
           {expSeconds === QUICK_PAIR_SECONDS && QUICK_PAIR_ENABLED && (
-            <p className="text-[11px] text-[var(--sm-blau)] mt-1.5 flex items-start gap-1">
+            <p className="text-[12px] text-[var(--sm-blau)] mt-1.5 flex items-start gap-1">
               <Zap className="size-3 shrink-0 mt-0.5" />
               Statt des langen Codes bekommst du 4 Ziffern zum Abtippen — gültig
               10 Minuten, einmal einlösbar.
             </p>
           )}
           {expSeconds > 15 * 60 && (
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1.5">
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-400 mt-1.5">
               Automatisch aufgenommen wird nur in den ersten 15 Minuten. Wird der
               Code später eingelöst, erscheint das Gerät zum Bestätigen
               („Akzeptieren“).
@@ -439,11 +439,11 @@ export function CodeShowModal({
               rows={2}
               className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-[var(--sm-blau)]"
             />
-            <p className="text-[10px] text-neutral-500 dark:text-neutral-500">
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-500">
               Nur private IPs (10/8, 172.16/12, 192.168/16, 100.64/10 für ZeroTier).
             </p>
             {addressErrors.map((e) => (
-              <p key={e} className="text-[10px] text-rose-500 dark:text-rose-400">
+              <p key={e} className="text-[12px] text-rose-500 dark:text-rose-400">
                 {e}
               </p>
             ))}

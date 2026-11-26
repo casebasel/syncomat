@@ -60,13 +60,13 @@ function ActivityRow({
     <div
       className={`px-3 py-2 flex items-center gap-3 ${isConflict ? "bg-amber-50/50 dark:bg-amber-950/15" : "hover:bg-neutral-50 dark:hover:bg-neutral-800/40"}`}
     >
-      <span className="text-[10px] text-[var(--sm-text2)] w-12 font-mono shrink-0">
+      <span className="text-[12px] text-[var(--sm-text2)] w-12 font-mono shrink-0">
         {fmtActivityTime(event.ts)}
       </span>
       <span className={`shrink-0 ${iconColor}`} title={directionLabel(event)}>
         <Icon className="size-4" />
       </span>
-      <span className="text-[10px] text-[var(--sm-text2)] font-mono w-16 truncate shrink-0">
+      <span className="text-[12px] text-[var(--sm-text2)] font-mono w-16 truncate shrink-0">
         {peerLabel}
       </span>
       {event.direction === "app" ? (
@@ -74,13 +74,13 @@ function ActivityRow({
           {event.text}
         </span>
       ) : (
-        <span className="font-mono text-[11px] truncate flex-1 text-[var(--sm-text)]" dir="auto" title={event.path}>
+        <span className="font-mono text-[12px] truncate flex-1 text-[var(--sm-text)]" dir="auto" title={event.path}>
           {event.path}
         </span>
       )}
       {event.nas && (
         <span
-          className={`text-[11px] shrink-0 ${event.nas === "bestaetigt" ? "text-[var(--sm-gruen)]" : "text-[var(--sm-text2)]"}`}
+          className={`text-[12px] shrink-0 ${event.nas === "bestaetigt" ? "text-[var(--sm-gruen)]" : "text-[var(--sm-text2)]"}`}
           title={event.nas === "bestaetigt" ? "Das NAS hat diesen Stand (Änderung ist dort angekommen)" : "Noch nicht beim NAS bestätigt"}
         >
           {event.nas === "bestaetigt" ? "beim NAS ✓" : "wartet aufs NAS"}
@@ -89,12 +89,12 @@ function ActivityRow({
       {isConflict ? (
         <button
           onClick={onResolveConflict}
-          className="text-[10px] text-amber-700 dark:text-amber-300 font-semibold hover:underline shrink-0"
+          className="text-[12px] text-amber-700 dark:text-amber-300 font-semibold hover:underline shrink-0"
         >
           Auflösen →
         </button>
       ) : (
-        <span className="text-[10px] text-[var(--sm-text2)] tabular-nums shrink-0">
+        <span className="text-[12px] text-[var(--sm-text2)] tabular-nums shrink-0">
           {event.size > 0 ? fmtActivityBytes(event.size) : ""}
         </span>
       )}

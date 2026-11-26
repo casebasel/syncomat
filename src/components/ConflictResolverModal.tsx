@@ -100,21 +100,21 @@ export function ConflictResolverModal({
                   <button
                     onClick={() => setBulkConfirm("keep_local")}
                     disabled={bulkBusy}
-                    className="text-[11px] font-medium px-2.5 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
+                    className="text-[12px] font-medium px-2.5 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
                   >
                     Überall meine behalten
                   </button>
                   <button
                     onClick={() => setBulkConfirm("keep_remote")}
                     disabled={bulkBusy}
-                    className="text-[11px] font-medium px-2.5 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
+                    className="text-[12px] font-medium px-2.5 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
                   >
                     Überall deren übernehmen
                   </button>
                   <button
                     onClick={() => setBulkConfirm("keep_newest")}
                     disabled={bulkBusy}
-                    className="text-[11px] font-medium px-2.5 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+                    className="text-[12px] font-medium px-2.5 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
                   >
                     Überall neueste behalten
                   </button>
@@ -128,14 +128,14 @@ export function ConflictResolverModal({
                 <button
                   onClick={() => setBulkConfirm(null)}
                   disabled={bulkBusy}
-                  className="text-[11px] px-2.5 py-1.5 rounded-md text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className="text-[12px] px-2.5 py-1.5 rounded-md text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
                   Abbrechen
                 </button>
                 <button
                   onClick={() => void resolveAll(bulkConfirm)}
                   disabled={bulkBusy}
-                  className="text-[11px] font-medium px-2.5 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 flex items-center gap-1"
+                  className="text-[12px] font-medium px-2.5 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 flex items-center gap-1"
                 >
                   {bulkBusy && <Loader2 className="size-3 animate-spin" />}
                   Ja, alle auflösen
@@ -214,20 +214,20 @@ function ConflictRow({
           <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
             {item.original_rel}
           </div>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+          <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
             Konflikt von {item.peer_fragment} · {fmtConflictWhen(item.when)}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-[11px] mb-2">
+      <div className="grid grid-cols-2 gap-2 text-[12px] mb-2">
         <div className="rounded-md bg-white/60 dark:bg-neutral-900/40 px-2 py-1.5">
           <div className="text-neutral-500 dark:text-neutral-500">Lokal</div>
           <div className="font-mono text-neutral-700 dark:text-neutral-200">
             {item.original_exists ? fmtConflictBytes(item.original_size) : "fehlt"}
           </div>
           {item.original_exists && (
-            <div className="text-neutral-400 dark:text-neutral-500 text-[10px]">
+            <div className="text-neutral-400 dark:text-neutral-500 text-[12px]">
               {new Date(item.original_mtime * 1000).toLocaleString("de-DE", {
                 day: "2-digit",
                 month: "2-digit",
@@ -242,7 +242,7 @@ function ConflictRow({
           <div className="font-mono text-neutral-700 dark:text-neutral-200">
             {fmtConflictBytes(item.conflict_size)}
           </div>
-          <div className="text-neutral-400 dark:text-neutral-500 text-[10px]">
+          <div className="text-neutral-400 dark:text-neutral-500 text-[12px]">
             {new Date(item.conflict_mtime * 1000).toLocaleString("de-DE", {
               day: "2-digit",
               month: "2-digit",
@@ -258,7 +258,7 @@ function ConflictRow({
           onClick={onKeepLocal}
           disabled={busy}
           title="Konflikt-Datei löschen, lokale Version bleibt"
-          className="flex-1 text-[11px] font-medium px-2 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 flex items-center justify-center gap-1"
+          className="flex-1 text-[12px] font-medium px-2 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 flex items-center justify-center gap-1"
         >
           <Trash2 className="size-3" /> Lokal behalten
         </button>
@@ -270,7 +270,7 @@ function ConflictRow({
               ? "Lokal überschreiben mit Konflikt-Version"
               : "Original existiert nicht — nutze 'Beide behalten'"
           }
-          className="flex-1 text-[11px] font-medium px-2 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 flex items-center justify-center gap-1"
+          className="flex-1 text-[12px] font-medium px-2 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50 flex items-center justify-center gap-1"
         >
           <Check className="size-3" /> Remote übernehmen
         </button>
@@ -278,7 +278,7 @@ function ConflictRow({
           onClick={onKeepBoth}
           disabled={busy}
           title="Konflikt-Datei umbenennen in .von-PEER, beide behalten"
-          className="flex-1 text-[11px] font-medium px-2 py-1.5 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1"
+          className="flex-1 text-[12px] font-medium px-2 py-1.5 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1"
         >
           {busy ? (
             <Loader2 className="size-3 animate-spin" />

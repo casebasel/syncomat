@@ -134,7 +134,7 @@ export function GlobalActivityView({
           <h1 className="text-[15px] font-bold text-neutral-900 dark:text-neutral-100">
             Alle Ordner
           </h1>
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 tabular-nums">
+          <p className="text-[12px] text-neutral-500 dark:text-neutral-400 mt-1 tabular-nums">
             {folders.length} Ordner · {fmtSize(totals.bytes)} ·{" "}
             {fmtCount(totals.files)} Dateien
             {totals.syncing > 0 && (
@@ -173,10 +173,10 @@ export function GlobalActivityView({
         {/* Aktivität · alle Ordner (Feed) */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <div className="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold">
+            <div className="text-[12px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold">
               Aktivität · alle Ordner
             </div>
-            <div className="text-[10px] text-neutral-400 dark:text-neutral-500">
+            <div className="text-[12px] text-neutral-400 dark:text-neutral-500">
               {items.length} {items.length === 1 ? "Eintrag" : "Einträge"} · über Neustarts hinweg
             </div>
           </div>
@@ -237,7 +237,7 @@ function TagCard({
         <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">
           {tag === UNTAGGED ? tag : `#${tag}`}
         </span>
-        <span className="text-[11px] text-neutral-400 dark:text-neutral-500 tabular-nums">
+        <span className="text-[12px] text-neutral-400 dark:text-neutral-500 tabular-nums">
           {folders.length} Ordner · {fmtSize(agg.bytes)} · {fmtCount(agg.files)}{" "}
           Dateien
         </span>
@@ -290,7 +290,7 @@ function StatusPill({
         : "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300";
   return (
     <span
-      className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded ${cls}`}
+      className={`inline-flex items-center gap-1 text-[12px] font-medium px-1.5 py-0.5 rounded ${cls}`}
     >
       <Icon className={`size-3 ${spin ? "animate-spin" : ""}`} />
       {children}
@@ -327,10 +327,10 @@ function FolderStatRow({
       <span className="text-[13px] font-medium text-neutral-800 dark:text-neutral-100 truncate flex-1">
         {folder.label || folder.id}
       </span>
-      <span className="text-[11px] text-neutral-400 dark:text-neutral-500 tabular-nums shrink-0">
+      <span className="text-[12px] text-neutral-400 dark:text-neutral-500 tabular-nums shrink-0">
         {fmtSize(status?.localBytes ?? 0)} · {fmtCount(status?.localFiles ?? 0)}
       </span>
-      <span className="text-[11px] tabular-nums shrink-0 w-28 text-right">
+      <span className="text-[12px] tabular-nums shrink-0 w-28 text-right">
         {state === "syncing" ? (
           <span className="text-[var(--sm-blau)]">
             lädt {fmtSize(needBytes)}
@@ -374,25 +374,25 @@ function ActivityRow({
     <div
       className={`px-3 py-2 flex items-center gap-3 ${isConflict ? "bg-amber-50/50 dark:bg-amber-950/15" : "hover:bg-neutral-50 dark:hover:bg-neutral-800/40"}`}
     >
-      <span className="text-[10px] text-neutral-400 dark:text-neutral-500 w-12 font-mono shrink-0">
+      <span className="text-[12px] text-neutral-400 dark:text-neutral-500 w-12 font-mono shrink-0">
         {fmtActivityTime(event.ts)}
       </span>
       <span className={`shrink-0 ${iconColor}`}>
         <Icon className="size-4" />
       </span>
-      <span className="text-[10px] text-neutral-500 dark:text-neutral-500 font-mono w-14 truncate shrink-0">
+      <span className="text-[12px] text-neutral-500 dark:text-neutral-500 font-mono w-14 truncate shrink-0">
         {peerLabel}
       </span>
       {folder ? (
         <button
           onClick={() => onSelectFolder(folder)}
-          className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--sm-blau-flaeche)] text-[var(--sm-blau)] font-medium shrink-0 hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
+          className="text-[12px] px-1.5 py-0.5 rounded bg-[var(--sm-blau-flaeche)] text-[var(--sm-blau)] font-medium shrink-0 hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
           title="Ordner öffnen"
         >
           {folder.label || folder.id.slice(0, 7)}
         </button>
       ) : (
-        <span className="text-[10px] text-neutral-400 dark:text-neutral-600 italic shrink-0">
+        <span className="text-[12px] text-neutral-400 dark:text-neutral-600 italic shrink-0">
           unbekannt
         </span>
       )}
@@ -401,19 +401,19 @@ function ActivityRow({
           {event.text}
         </span>
       ) : (
-        <span className="font-mono text-[11px] truncate flex-1 text-[var(--sm-text)]" dir="auto" title={event.path}>
+        <span className="font-mono text-[12px] truncate flex-1 text-[var(--sm-text)]" dir="auto" title={event.path}>
           {event.path}
         </span>
       )}
       {event.nas && (
         <span
-          className={`text-[11px] shrink-0 ${event.nas === "bestaetigt" ? "text-[var(--sm-gruen)]" : "text-[var(--sm-text2)]"}`}
+          className={`text-[12px] shrink-0 ${event.nas === "bestaetigt" ? "text-[var(--sm-gruen)]" : "text-[var(--sm-text2)]"}`}
           title={event.nas === "bestaetigt" ? "Das NAS hat diesen Stand (Änderung ist dort angekommen)" : "Noch nicht beim NAS bestätigt"}
         >
           {event.nas === "bestaetigt" ? "beim NAS ✓" : "wartet aufs NAS"}
         </span>
       )}
-      <span className="text-[10px] text-neutral-400 dark:text-neutral-500 tabular-nums shrink-0">
+      <span className="text-[12px] text-neutral-400 dark:text-neutral-500 tabular-nums shrink-0">
         {event.size > 0 ? fmtActivityBytes(event.size) : ""}
       </span>
     </div>
@@ -453,21 +453,21 @@ function BuendelRow({
         aria-expanded={offen}
         className="w-full px-3 py-2 flex items-center gap-3 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--sm-blau)] focus-visible:outline-none"
       >
-        <span className="text-[10px] text-neutral-400 dark:text-neutral-500 w-12 font-mono shrink-0">
+        <span className="text-[12px] text-neutral-400 dark:text-neutral-500 w-12 font-mono shrink-0">
           {fmtActivityTime(b.bis)}
         </span>
         <span className={`shrink-0 ${directionColor(e0)}`}>
           <Icon className="size-4" />
         </span>
-        <span className="text-[10px] text-neutral-500 font-mono w-14 truncate shrink-0">
+        <span className="text-[12px] text-neutral-500 font-mono w-14 truncate shrink-0">
           {peers.length === 1 ? peers[0] : b.direction === "local" ? "hier" : ""}
         </span>
         {folder ? (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--sm-blau-flaeche)] text-[var(--sm-blau)] font-medium shrink-0">
+          <span className="text-[12px] px-1.5 py-0.5 rounded bg-[var(--sm-blau-flaeche)] text-[var(--sm-blau)] font-medium shrink-0">
             {folder.label || folder.id.slice(0, 7)}
           </span>
         ) : (
-          <span className="text-[10px] text-neutral-400 italic shrink-0">unbekannt</span>
+          <span className="text-[12px] text-neutral-400 italic shrink-0">unbekannt</span>
         )}
         <span className="text-[12px] truncate flex-1 text-[var(--sm-text)]" dir="auto">
           <ChevronRight className={`inline size-3.5 -mt-0.5 mr-1 transition-transform ${offen ? "rotate-90" : ""}`} aria-hidden />
@@ -477,11 +477,11 @@ function BuendelRow({
           )}
         </span>
         {(wartet > 0 || bestaetigt > 0) && (
-          <span className={`text-[11px] shrink-0 ${wartet === 0 ? "text-[var(--sm-gruen)]" : "text-[var(--sm-text2)]"}`}>
+          <span className={`text-[12px] shrink-0 ${wartet === 0 ? "text-[var(--sm-gruen)]" : "text-[var(--sm-text2)]"}`}>
             {wartet === 0 ? "beim NAS ✓" : `${wartet} warten aufs NAS`}
           </span>
         )}
-        <span className="text-[10px] text-neutral-400 tabular-nums shrink-0">{bytes > 0 ? fmtActivityBytes(bytes) : ""}</span>
+        <span className="text-[12px] text-neutral-400 tabular-nums shrink-0">{bytes > 0 ? fmtActivityBytes(bytes) : ""}</span>
       </button>
       {offen && (
         <div className="pl-6 border-t border-neutral-100 dark:border-neutral-800/60 divide-y divide-neutral-100 dark:divide-neutral-800/60">
@@ -489,7 +489,7 @@ function BuendelRow({
             <ActivityRow key={e.id} event={e} folder={folder} onSelectFolder={onSelectFolder} />
           ))}
           {b.events.length > 500 && (
-            <p className="px-3 py-2 text-[11px] text-[var(--sm-text2)]">… und {b.events.length - 500} weitere</p>
+            <p className="px-3 py-2 text-[12px] text-[var(--sm-text2)]">… und {b.events.length - 500} weitere</p>
           )}
         </div>
       )}

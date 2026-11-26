@@ -183,7 +183,7 @@ export function FolderInspector({
               <div className="text-[var(--sm-text2)] mt-0.5">
                 {folderErrInfo.action}
               </div>
-              <div className="font-mono text-[11px] text-[var(--sm-text2)] mt-1 break-words">
+              <div className="font-mono text-[12px] text-[var(--sm-text2)] mt-1 break-words">
                 {folderErr}
               </div>
             </div>
@@ -301,10 +301,10 @@ export function FolderInspector({
         {/* Activity-Feed */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <div className="text-[11px] uppercase tracking-wider text-[var(--sm-text2)] font-semibold">
+            <div className="text-[12px] uppercase tracking-wider text-[var(--sm-text2)] font-semibold">
               Aktivität
             </div>
-            <div className="text-[11px] text-[var(--sm-text2)]">
+            <div className="text-[12px] text-[var(--sm-text2)]">
               letzte 200 Events
             </div>
           </div>

@@ -57,7 +57,7 @@ export function TagEditor({
       </div>
       {filteredSuggestions.length > 0 && (
         <div className="mt-1.5">
-          <div className="text-[10px] text-neutral-500 dark:text-neutral-500 mb-1">
+          <div className="text-[12px] text-neutral-500 dark:text-neutral-500 mb-1">
             Bereits verwendet:
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -66,7 +66,7 @@ export function TagEditor({
                 key={t}
                 type="button"
                 onClick={() => add(t)}
-                className="inline-flex items-center gap-1 text-[10px] text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
+                className="inline-flex items-center gap-1 text-[12px] text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
               >
                 <Plus className="size-2.5" />
                 <TagChip tag={t} size="sm" />

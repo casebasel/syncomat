@@ -401,7 +401,7 @@ export function Start({
                       <Zeichen art={s.online ? "ok" : "aus"} />
                       <span className="w-40 min-w-0">
                         <span className="block truncate text-[13px] font-semibold">{s.ich ? `${s.name} (hier)` : s.name}</span>
-                        <span className="block truncate text-[11px] text-[var(--sm-text2)]">
+                        <span className="block truncate text-[12px] text-[var(--sm-text2)]">
                           {s.ich ? "läuft" : s.online ? (s.ueberNas ? "über das NAS" : "verbunden") : s.zuletzt ? `aus · ${seit(s.zuletzt)}` : "aus"}
                           {s.rolle ? ` · ${s.rolle === "render" ? "Render" : "Arbeitsplatz"}` : ""}
                         </span>

@@ -110,7 +110,7 @@ export function DeviceDetailModal({
             <PathBadge path={classifyPath(connection.address)} />
           )}
           {connection && online && (
-            <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+            <span className="text-[12px] text-neutral-500 dark:text-neutral-400">
               {formatTransfer(connection)}
             </span>
           )}
@@ -118,7 +118,7 @@ export function DeviceDetailModal({
 
         {/* Name */}
         <section>
-          <div className="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-1">
+          <div className="text-[12px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-1">
             Name
           </div>
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40">
@@ -156,12 +156,12 @@ export function DeviceDetailModal({
 
         {/* Device-ID */}
         <section>
-          <div className="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-1">
+          <div className="text-[12px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-1">
             Geräte-ID
           </div>
           <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 px-3 py-2.5">
             <div className="flex items-start gap-2">
-              <span className="font-mono text-[11px] text-neutral-700 dark:text-neutral-200 break-all flex-1">
+              <span className="font-mono text-[12px] text-neutral-700 dark:text-neutral-200 break-all flex-1">
                 {device.deviceID}
               </span>
               <button
@@ -182,10 +182,10 @@ export function DeviceDetailModal({
         {/* Verbindung */}
         {connection && online && (
           <section>
-            <div className="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-1">
+            <div className="text-[12px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-1">
               Verbindung
             </div>
-            <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 text-[11px] divide-y divide-neutral-200 dark:divide-neutral-800">
+            <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-900/40 text-[12px] divide-y divide-neutral-200 dark:divide-neutral-800">
               <Row label="Adresse" value={connection.address || "—"} mono />
               <Row
                 label="Eingehend"
@@ -208,7 +208,7 @@ export function DeviceDetailModal({
 
         {/* Geteilte Ordner */}
         <section>
-          <div className="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-1">
+          <div className="text-[12px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-1">
             Geteilte Ordner ({sharedFolders.length})
           </div>
           {sharedFolders.length === 0 ? (
@@ -249,7 +249,7 @@ export function DeviceDetailModal({
               Gerät entfernen
             </summary>
             <div className="mt-2 space-y-2">
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+              <p className="text-[12px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
                 Das Gerät wird aus Syncomat entfernt. Es kann sich nicht mehr
                 verbinden bis ein neuer Einladungs-Code eingelöst wird.
                 Datei-Inhalte bleiben auf beiden Geräten lokal.
@@ -268,7 +268,7 @@ export function DeviceDetailModal({
             <p className="text-xs font-medium text-rose-700 dark:text-rose-300">
               „{device.name || device.deviceID.slice(0, 7)}" wirklich entfernen?
             </p>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
               Sync zu diesem Gerät stoppt sofort. Datei-Inhalte bleiben auf
               beiden Geräten unverändert.
             </p>
@@ -318,7 +318,7 @@ function PathBadge({ path }: { path: NetPath }) {
   const m = map[path];
   return (
     <span
-      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${m.cls}`}
+      className={`text-[12px] font-semibold px-1.5 py-0.5 rounded ${m.cls}`}
       title={m.title}
     >
       {m.label}
@@ -341,7 +341,7 @@ function Row({
         {label}
       </span>
       <span
-        className={`text-right flex-1 break-all ${mono ? "font-mono text-[10px]" : ""} text-neutral-700 dark:text-neutral-200`}
+        className={`text-right flex-1 break-all ${mono ? "font-mono text-[12px]" : ""} text-neutral-700 dark:text-neutral-200`}
       >
         {value}
       </span>

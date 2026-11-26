@@ -206,7 +206,7 @@ export function FolderSettingsModal({
   const footerNode = !confirmRemove ? (
     <div className="flex items-center gap-3">
       {meta && (
-        <span className="text-[10px] text-neutral-500 dark:text-neutral-500 truncate flex-1">
+        <span className="text-[12px] text-neutral-500 dark:text-neutral-500 truncate flex-1">
           Geändert von{" "}
           <span className="font-mono">{meta.updatedBy.slice(0, 7)}</span> ·{" "}
           {fmtTime(meta.updatedAt)}
@@ -267,7 +267,7 @@ export function FolderSettingsModal({
         {/* Tags — kommen ueber dieselbe folder-defaults.json Replikation,
             damit Gruppierung auf allen Geraeten konsistent ist. */}
         <section>
-          <h3 className="text-[10px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-1.5">
+          <h3 className="text-[12px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 font-semibold mb-1.5">
             Tags
           </h3>
           <TagEditor
@@ -275,7 +275,7 @@ export function FolderSettingsModal({
             onChange={(tags) => setDefaults({ ...defaults, tags })}
             suggestions={tagSuggestions}
           />
-          <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-1.5">
+          <p className="text-[12px] text-neutral-500 dark:text-neutral-500 mt-1.5">
             Gruppieren Ordner in der Liste — synct automatisch zu allen Geräten.
           </p>
         </section>
@@ -341,7 +341,7 @@ export function FolderSettingsModal({
                     {tuneState.estimate.files.toLocaleString("de-DE")} Dateien
                     {tuneState.estimate.sampled && " (Schätzung)"}
                   </div>
-                  <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                  <div className="text-[12px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                     Index ~
                     {estimateIndexRamMB(
                       tuneState.estimate.files,
@@ -350,7 +350,7 @@ export function FolderSettingsModal({
                     MB RAM · {workloadLabel(tuneState.estimate.workload.kind, tuneState.estimate.workload.uproject_count)}
                   </div>
                 </div>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
                   Tuning passt Syncthing-Ordner-Einstellungen an die gemessene
                   Grösse an. Bei Unreal: optional auch das .stignore-Preset
                   (Empfehlung — spart pro Maschine 10-50 GB).
@@ -358,13 +358,13 @@ export function FolderSettingsModal({
                 <div className="flex gap-1.5 flex-wrap">
                   <button
                     onClick={() => applyTune(false)}
-                    className="text-[11px] font-medium px-2.5 py-1 rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                    className="text-[12px] font-medium px-2.5 py-1 rounded-md border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
                     Nur Tuning anwenden
                   </button>
                   <button
                     onClick={() => applyTune(true)}
-                    className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90"
+                    className="text-[12px] font-medium px-2.5 py-1 rounded-md bg-[var(--sm-blau)] text-[var(--sm-auf-blau)] hover:opacity-90"
                   >
                     Tuning + .stignore-Preset
                   </button>
@@ -402,9 +402,9 @@ export function FolderSettingsModal({
             <summary className="cursor-pointer text-xs text-rose-600 dark:text-rose-400 select-none hover:underline">
               Ordner-Verknüpfung entfernen
             </summary>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-2 leading-relaxed">
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-400 mt-2 leading-relaxed">
               Stoppt das Syncen auf diesem Gerät. Die Datei-Inhalte unter{" "}
-              <code className="font-mono text-[10px]">{folder.path}</code> bleiben
+              <code className="font-mono text-[12px]">{folder.path}</code> bleiben
               auf der Platte — nichts wird gelöscht.
             </p>
             <button
@@ -423,10 +423,10 @@ export function FolderSettingsModal({
                 <p className="font-medium text-rose-700 dark:text-rose-300 mb-1">
                   Ordner-Verknüpfung wirklich entfernen?
                 </p>
-                <ul className="space-y-1 text-[11px] text-neutral-600 dark:text-neutral-400">
+                <ul className="space-y-1 text-[12px] text-neutral-600 dark:text-neutral-400">
                   <li>
                     ✓ Datei-Inhalte unter{" "}
-                    <code className="font-mono text-[10px]">{folder.path}</code>{" "}
+                    <code className="font-mono text-[12px]">{folder.path}</code>{" "}
                     bleiben auf der Platte.
                   </li>
                   <li>
@@ -468,7 +468,7 @@ function ToggleRow({
         <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
           {title}
         </div>
-        <p className="text-[11px] text-neutral-500 dark:text-neutral-400">{sub}</p>
+        <p className="text-[12px] text-neutral-500 dark:text-neutral-400">{sub}</p>
       </div>
       <button
         role="switch"

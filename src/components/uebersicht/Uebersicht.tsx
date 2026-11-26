@@ -272,7 +272,7 @@ export function Uebersicht({
                     ]
                       .filter(Boolean)
                       .join(" · ")}
-                    className="absolute top-1 left-2 text-[11px] font-bold leading-none text-[var(--sm-ocker-text)]"
+                    className="absolute top-1 left-2 text-[12px] font-bold leading-none text-[var(--sm-ocker-text)]"
                   >
                     !
                   </span>
@@ -292,7 +292,7 @@ export function Uebersicht({
                       <ZellSymbol z={zelle} leer={z.art === "projekt"} />
                     )}
                     {zelle.zustand === "laedt" && (
-                      <span className="sm-zahl font-mono text-[11px] text-[var(--sm-blau)]">{zelle.prozent ?? 0}%</span>
+                      <span className="sm-zahl font-mono text-[12px] text-[var(--sm-blau)]">{zelle.prozent ?? 0}%</span>
                     )}
                   </>
                 )}
@@ -427,7 +427,7 @@ export function Uebersicht({
                       />
                       <span className={`truncate text-[13px] ${s.ich ? "font-bold" : "font-semibold"}`}>{s.name}</span>
                     </span>
-                    <span className="text-[11px] text-[var(--sm-text2)] truncate max-w-full">
+                    <span className="text-[12px] text-[var(--sm-text2)] truncate max-w-full">
                       {s.ich ? (
                         <span className="font-semibold text-[var(--sm-blau)]">hier</span>
                       ) : !s.online ? (
@@ -438,7 +438,7 @@ export function Uebersicht({
                         (rolleKurz(s.rolle) ?? "—")
                       )}
                     </span>
-                    <span className="sm-zahl font-mono text-[11px] text-[var(--sm-text2)] truncate max-w-full">
+                    <span className="sm-zahl font-mono text-[12px] text-[var(--sm-text2)] truncate max-w-full">
                       {s.dFs && !/^(ntfs|apfs|hfs\+?)$/i.test(s.dFs) ? (
                         <span
                           className={/^exfat$/i.test(s.dFs) ? "" : "font-semibold text-[var(--sm-ocker-text)]"}

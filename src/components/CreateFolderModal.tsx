@@ -161,7 +161,7 @@ export function CreateFolderModal({
           Geräten teilen kannst.
         </p>
         {notReady && (
-          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/40 text-[11px] text-amber-800 dark:text-amber-300">
+          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/40 text-[12px] text-amber-800 dark:text-amber-300">
             <Loader2 className="size-4 animate-spin shrink-0 mt-0.5" />
             <div>
               Sync-Dienst startet noch. Du kannst den Ordner schon auswählen —
@@ -205,7 +205,7 @@ export function CreateFolderModal({
             {estimating && <Loader2 className="size-4 animate-spin ml-auto" />}
           </button>
           {path && !estimate && !estimating && (
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-500 mt-1">
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-500 mt-1">
               {peers.length === 0
                 ? "Existierende Dateien werden mitgesynct sobald ein Gerät dazukommt."
                 : `Wird automatisch mit ${peers.length} Gerät${peers.length === 1 ? "" : "en"} geteilt (${peers.map((p) => p.name || p.deviceID.slice(0, 7)).join(", ")}).`}
@@ -232,7 +232,7 @@ export function CreateFolderModal({
                   {estimate.files.toLocaleString("de-DE")} Dateien
                   {estimate.sampled && " (Schätzung)"}
                 </div>
-                <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                <div className="text-[12px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                   Index ~{expectedRamMB} MB RAM ·{" "}
                   {workloadLabel(estimate.workload.kind, estimate.workload.uproject_count)}
                   {estimate.workload.has_derived_data_cache &&
@@ -243,7 +243,7 @@ export function CreateFolderModal({
               </div>
             </div>
             {isUnreal && (
-              <div className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed border-t border-neutral-200 dark:border-neutral-800 pt-2">
+              <div className="text-[12px] text-neutral-600 dark:text-neutral-300 leading-relaxed border-t border-neutral-200 dark:border-neutral-800 pt-2">
                 <strong>
                   {estimate.workload.uproject_count > 1
                     ? `Unreal-Workspace mit ${estimate.workload.uproject_count} Projekten erkannt.`
@@ -258,7 +258,7 @@ export function CreateFolderModal({
               </div>
             )}
             {isUnrealPlugins && (
-              <div className="text-[11px] text-neutral-600 dark:text-neutral-300 leading-relaxed border-t border-neutral-200 dark:border-neutral-800 pt-2">
+              <div className="text-[12px] text-neutral-600 dark:text-neutral-300 leading-relaxed border-t border-neutral-200 dark:border-neutral-800 pt-2">
                 <strong>
                   {estimate && estimate.workload.uplugin_count > 0
                     ? `${estimate.workload.uplugin_count} Unreal-Plugins erkannt.`
@@ -271,7 +271,7 @@ export function CreateFolderModal({
               </div>
             )}
             <div>
-              <label className="block text-[11px] font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+              <label className="block text-[12px] font-medium text-neutral-700 dark:text-neutral-300 mb-1">
                 Ignore-Preset
               </label>
               <select
@@ -295,7 +295,7 @@ export function CreateFolderModal({
                   onChange={(e) => setApplyPreset(e.target.checked)}
                   className="size-3.5 accent-[var(--sm-blau)]"
                 />
-                <span className="text-[11px] text-neutral-600 dark:text-neutral-400">
+                <span className="text-[12px] text-neutral-600 dark:text-neutral-400">
                   Preset anwenden (.stignore + Ordner-Tuning)
                 </span>
               </label>
